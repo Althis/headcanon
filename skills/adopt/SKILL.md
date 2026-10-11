@@ -1,6 +1,6 @@
 ---
 name: adopt
-description: "Start HeadCanon in a project that has no canon yet, top-down: draft the core concepts (what it is, purpose, non-goals, glossary) from the repository's artifacts and get each approved or corrected through the question interface; then draft the requirement tree as assumptions, branch by branch, for approval; then sweep the artifacts for intents the tree dropped and ask whether to add, merge or drop them. Use when the session context says the project has no canon, or when the human asks to set up, adopt or install HeadCanon."
+description: "Start HeadCanon in a project that has no canon yet, top-down: draft the core concepts (what it is, purpose, non-goals, glossary) from the repository's artifacts and get each approved or corrected through the question interface; derive the domains the premise requires and the capabilities each domain needs, then fill requirements from the artifacts, branch by branch, for approval; then sweep the artifacts for intents the tree dropped and ask whether to add, merge or drop them. Use when the session context says the project has no canon, or when the human asks to set up, adopt or install HeadCanon."
 when_to_use: "The project has no canon/README.md, or the human asks to add HeadCanon to an existing or new project."
 ---
 
@@ -53,9 +53,13 @@ After the glossary is settled, run `HC init` and tell the human in one sentence 
 - A **principle** is direction: tone, taste, values, how the team works ("content is tantalizing", "prose follows the style bible", "docs live with the code"). It is tested against requirements, not against code: whenever a requirement is proposed or changed, it is judged against the principles and any drift is raised for the human to approve or reject. Principles go into the root README under `## Principles`, each as `**PRN-n Title**: statement` with its source. They are not nodes in the tree.
 - A **requirement** is a goal that can be refined into leaves a test or a human can answer yes or no. Verifiability is part of the definition, so it is not written on the node. Use it as your filter: before proposing a requirement, name to yourself one concrete check in content or code that would show it met. If you cannot, the statement is a principle, or it is too vague to keep; do not propose it as a requirement. Tests are proposed later, in the requirements-then-tests step, not during adoption.
 
-1. **Top level.** Draft five to twelve top-level requirements from the artifacts and the concepts just approved. Each has an ID (`REQ-1`, `REQ-2`, …), a title, a one-line intent, and a source (file and lines, or "concepts, step 2"). Ask one multi-select question: which are right as written. Then one question each for the unselected ones, then one question for anything missing. Write the approved nodes as folders with a `README.md` each, state `assumed` unless the human typed the wording, with `source`, `## Intent`, `## Not this` where clear, and `## Assumptions` listing what you decided. Principles the human confirmed go into the root README in the same step.
-2. **One level down, branch by branch.** For each approved branch, draft up to eight children, each with a one-line intent and a source, and ask one multi-select question per branch, then one by one for the rest. Children should be closer to testable than their parent; where one is already a yes-or-no check, set its `kind` (`binary`, `numeric` or `open-ended`). Write the approved children as leaf files (`REQ-1.1-<slug>.md`). **Stop at this depth.** Deeper levels are filled lazily when work touches a branch.
-3. Where two artifacts disagree, offer both readings as options. If the human picks one, record it; if they do not, record the node as `contested` with both positions.
+The upper layers of the tree come from the **premise**, not from the artifacts. Work down in three steps.
+
+1. **Domains: what the premise requires.** From the approved concepts alone, ask yourself: for this product to operate at all, what distinct areas must exist? Those are the domains. A game that ships its own engine and in-game editor has three: game content, game engine, editor. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, and access. Propose two to six, each with an ID (`REQ-1`, `REQ-2`, …), a title, and one line saying what the domain must do and why the premise needs it; source "concepts, step 2". Ask one multi-select question, then one by one for the rest, then one question for anything missing. The cut is malleable and the human settles it; what matters is that every area is explicit and agreed. If the premise needs fewer than about eight areas, these areas are the top level and there is no separate domain layer. Write the approved domains as folders with a `README.md` each, state `assumed` unless the human typed the wording, with `source`, `## Intent`, `## Not this` where clear, and `## Assumptions`. Principles the human confirmed go into the root README in the same step.
+2. **Capabilities: what each domain needs to be complete.** For each domain, ask: what does every system of this kind need in order to be fully defined as one? Draw on that first, then on the artifacts. A game engine needs state, content loading, rendering, rules evaluation, persistence, and so on; a content domain needs a world structure, a tone reference, a pipeline from idea to shipped content. Propose up to eight capabilities per domain, each with a one-line statement and a source (the artifact that covers it, or "archetype" when nothing in the project does). **A capability the kind of system needs but nothing in the project covers is proposed as an `open` node, titled as the question** ("How is game time modeled?"); this is how coverage gaps become visible on day one. One multi-select per domain, then one by one. Write the approved capabilities as the domain's children (`REQ-1.1-<slug>.md`, or a folder if step 3 gives it children).
+3. **Requirements from the artifacts.** Under each capability, the concrete requirements the artifacts state, each with a one-line intent and a source, as assumed nodes. Where one is already a yes-or-no check, set its `kind` (`binary`, `numeric` or `open-ended`). One multi-select per capability that has candidates, then one by one. **Stop at this depth.** Deeper levels are filled lazily when work touches a branch.
+
+Where two artifacts disagree, offer both readings as options. If the human picks one, record it; if they do not, record the node as `contested` with both positions.
 
 Do not ask about `files` or `steps` now; leave them out until a branch is refined for implementation.
 
@@ -75,14 +79,15 @@ Run `HC check` and fix every error. Run `HC summary` and show the tree. Run `HC 
 
 ## 6. Report
 
-End with: how many nodes are stated, resolved and assumed; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the remaining assumed items whenever they are ready. Do not call the canon complete. It is a seed with the human's fingerprints on every node.
+End with: the domains and how many capabilities each has; which capabilities are open, meaning the kind of system needs them and nothing in the project covers them yet; how many nodes are stated, resolved and assumed; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the remaining assumed and open items whenever they are ready. Do not call the canon complete. It is a seed with the human's fingerprints on every node.
 
 ## Rules that apply throughout
 
 - Never ask the human where a file came from or who wrote it.
 - Never write a canon file before the human has answered the question that approves it.
 - Never turn a draft into a stated item. Stated is only what the human typed.
-- Never go deeper than two levels during adoption.
+- Never go deeper than domains, capabilities and one level of requirements during adoption.
+- The top level comes from the premise (what must exist for it to operate), never from where statements were found.
 - Definitions say what a term is; one concept per entry.
 - A requirement is verifiable by definition; that is your filter, not a section on the node. Direction is a principle, lives in the root README with a PRN id, and is what requirements are judged against.
 - Before asking the human to approve a batch of requirements, judge each against the principles already recorded and say in the question if one drifts.
