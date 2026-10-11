@@ -15,9 +15,13 @@ files: [skills/adopt/SKILL.md]
 
 Source: Claude Code session, 2026-10-11, answering the question whether a multi-select counts as approval.
 
+> This text is confusing. [...] If this is the text the agent pastes to the user Verbatim you need to find a set that is easier as an explanation of what we are doing. Supposedly this is the user's first time using headcanon, so the explanation should be better.
+
+Source: Claude Code session, 2026-10-11, on the first briefing text.
+
 ## Intent [assumed]
 
-A draft the human selects in a multi-select becomes resolved: the agent's wording is the Intent, and the selection, with its date, is the Resolution. Items left unselected are asked about one at a time. Before the first question of an adopt run, the agent states the conventions in one short message: selecting means approved, leaving unselected means it will be asked about one by one, typing in Other corrects or rewrites, and only typed words become stated.
+A draft the human selects in a multi-select becomes resolved: the agent's wording is the Intent, and the selection, with its date, is the Resolution. Items left unselected are asked about one at a time. The first question of an adopt run opens with a briefing written for someone who has never used HeadCanon: first what is happening (writing down what the project is for, re-read every session), then the three choices on every draft, then what ticking means in a list, then that nothing is saved before approval, then the order of the steps. The exact text lives in the skill and is pasted verbatim.
 
 ## Assumptions
 

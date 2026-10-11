@@ -41,17 +41,25 @@ These apply to every question in every step.
 
 ## The briefing
 
-Free text you send between tool calls may never reach the human, so the briefing goes inside the first question. Begin the first question's text with these five lines, then the draft:
+Free text you send between tool calls may never reach the human, so the briefing goes inside the first question. The human is using HeadCanon for the first time, so the briefing says what is happening before it says how the buttons work. Begin the first question's text with this block, verbatim, then the draft:
 
 ```
-How this works: Approve as written records my draft as approved by you. Drop leaves it out.
-Typing in Other replaces or corrects the draft, and only your typed words are recorded as yours.
-In a list, every item you select is approved as written; unselected items are asked about one by one.
-Nothing is written to disk before you approve it.
-Step 1 of 11: what it is.
+Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository. From here on I show you short drafts, one at a time, and you decide on each.
+
+Your choices on every draft:
+- Approve as written: my draft stands, recorded as approved by you.
+- Drop: it is left out.
+- Other: type your own wording and it replaces mine, or type a correction and I show the corrected draft again. Only what you type is recorded as your words.
+
+When I show a list, tick every item that is right as written. Each unticked item comes back as its own question.
+Nothing is saved until you approve it.
+
+We go in this order: what the project is, its purpose, what it is not, its vocabulary; then the principles it follows; then the areas it must cover, what each area must do, and the requirements under them; and finally anything from your documents that did not fit.
+
+Step 1 of 11: what the project is.
 ```
 
-Every later question starts with its step name and number ("Step 6 of 11: domains"). Every multi-select question repeats one line: "Selected means approved as written; unselected items are asked about next."
+Every later question starts with its step name and number ("Step 6 of 11: domains"). Every multi-select question repeats one line: "Tick every item that is right as written; unticked items come back one by one."
 
 ## Drafting rules
 
