@@ -33,7 +33,7 @@ flowchart LR
     REQ_3_4["REQ-3.4<br/>The tree is filled lazily: gaps surface when re…"]:::stated
     REQ_3_5["REQ-3.5<br/>Human-judgment leaves are allowed (e.g. aesthet…"]:::stated
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
-    REQ_3_7["REQ-3.7<br/>Principles are kept apart from requirements; ev…"]:::stated
+    REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
     REQ_4["REQ-4<br/>User journeys are first-class intent records"]:::stated
     REQ_4_1["REQ-4.1<br/>User journeys are intent records, not tests, ke…"]:::stated
     REQ_4_2["REQ-4.2<br/>Journeys are decision graphs whose steps link m…"]:::stated
@@ -82,6 +82,7 @@ flowchart LR
     REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the human app…"]:::stated
     REQ_9_16["REQ-9.16<br/>Model checks are non-deterministic; Writ's revi…"]:::stated
     REQ_9_17["REQ-9.17<br/>Which CI run's numbers count for baselines"]:::open
+    REQ_9_18["REQ-9.18<br/>Writ judges requirements against the principles…"]:::stated
     REQ_10["REQ-10<br/>Writ sits a layer above the team's tools and ru…"]:::stated
     REQ_10_1["REQ-10.1<br/>Writ runs in CI, outside the agent's session"]:::stated
     REQ_10_2["REQ-10.2<br/>A Writ GitHub Action installs the CLI, runs the…"]:::stated
@@ -167,6 +168,7 @@ flowchart LR
     REQ_9 --> REQ_9_15
     REQ_9 --> REQ_9_16
     REQ_9 --> REQ_9_17
+    REQ_9 --> REQ_9_18
     REQ_10 --> REQ_10_1
     REQ_10 --> REQ_10_2
     REQ_10 --> REQ_10_3
@@ -258,7 +260,7 @@ flowchart LR
     REQ_3_5["REQ-3.5<br/>Human-judgment leaves are allowed (e.g. aesthet…"]:::stated
     REQ_3_5_1["REQ-3.5.1<br/>How a human approves a judgment leaf"]:::open
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
-    REQ_3_7["REQ-3.7<br/>Principles are kept apart from requirements; ev…"]:::stated
+    REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
     REQ_3 --> REQ_3_1
     REQ_3 --> REQ_3_2
     REQ_3 --> REQ_3_3
@@ -424,6 +426,7 @@ flowchart LR
     REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the human app…"]:::stated
     REQ_9_16["REQ-9.16<br/>Model checks are non-deterministic; Writ's revi…"]:::stated
     REQ_9_17["REQ-9.17<br/>Which CI run's numbers count for baselines"]:::open
+    REQ_9_18["REQ-9.18<br/>Writ judges requirements against the principles…"]:::stated
     REQ_9 --> REQ_9_1
     REQ_9 --> REQ_9_2
     REQ_9 --> REQ_9_3
@@ -441,6 +444,7 @@ flowchart LR
     REQ_9 --> REQ_9_15
     REQ_9 --> REQ_9_16
     REQ_9 --> REQ_9_17
+    REQ_9 --> REQ_9_18
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -587,7 +591,7 @@ REQ-3             Intent is a tree of requirements refined to binary leaves     
 ├─ REQ-3.5        Human-judgment leaves are allowed (e.g. aesthetics); human approval is …  stated    · unrefined
 │  └─ REQ-3.5.1   How a human approves a judgment leaf                                      open      · unrefined
 ├─ REQ-3.6        Binary leaves are proxies; passing leaves do not prove the parent         assumed   · unrefined
-└─ REQ-3.7        Principles are kept apart from requirements; every requirement names ho…  stated    · unrefined
+└─ REQ-3.7        Principles are a layer above the tree: tested against requirements by a…  stated    · unrefined
 REQ-4             User journeys are first-class intent records                              stated    · unrefined
 ├─ REQ-4.1        User journeys are intent records, not tests, kept separate from the tree  stated    · unrefined
 ├─ REQ-4.2        Journeys are decision graphs whose steps link many-to-many to requireme…  stated    · unrefined
@@ -644,7 +648,8 @@ REQ-9             Writ verifies every change against the canon                  
 ├─ REQ-9.14       Binary baselines, tolerance in the canon, drift tracking, approval as i…  stated    · unrefined
 ├─ REQ-9.15       The model proposes tolerances and the human approves them; repeated run…  stated    · unrefined
 ├─ REQ-9.16       Model checks are non-deterministic; Writ's review report justifies ever…  stated    · unrefined
-└─ REQ-9.17       Which CI run's numbers count for baselines                                open      · unrefined
+├─ REQ-9.17       Which CI run's numbers count for baselines                                open      · unrefined
+└─ REQ-9.18       Writ judges requirements against the principles with a model and surfac…  stated    · unrefined
 REQ-10            Writ sits a layer above the team's tools and runs where they run          stated    · unrefined
 ├─ REQ-10.1       Writ runs in CI, outside the agent's session                              stated    · unrefined
 ├─ REQ-10.2       A Writ GitHub Action installs the CLI, runs the stages and reports on P…  stated    · unrefined

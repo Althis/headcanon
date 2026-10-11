@@ -50,7 +50,7 @@ After the glossary is settled, run `HC init` and tell the human in one sentence 
 
 **Principles are not requirements.** Before drafting, sort what the artifacts and the concepts say into two kinds:
 
-- A **principle** is direction: tone, taste, values, how the team works ("content is tantalizing", "prose follows the style bible", "docs live with the code"). It is never tested. It goes into the root README under `## Principles`, each as one line with its source, and it may be cited by requirements, but it is not a node in the tree.
+- A **principle** is direction: tone, taste, values, how the team works ("content is tantalizing", "prose follows the style bible", "docs live with the code"). It is tested against requirements, not against code: whenever a requirement is proposed or changed, it is judged against the principles and any drift is raised for the human to approve or reject. Principles go into the root README under `## Principles`, each as `**PRN-n Title**: statement` with its source. They are not nodes in the tree.
 - A **requirement** is a goal that can be refined into leaves a test or a human can answer yes or no. A top-level requirement may be broad, but you must be able to name how it would be verified. Every requirement you propose carries a **Verifiable when** line: one or two concrete checks in content or code that would show it met ("every passage's prose passes the second-person, present-tense lint"; "a save written in version N loads in N+1"). If you cannot write that line, the statement is a principle, or it is too vague to keep; do not propose it as a requirement.
 
 1. **Top level.** Draft five to twelve top-level requirements from the artifacts and the concepts just approved. Each has an ID (`REQ-1`, `REQ-2`, …), a title, a one-line intent, a **Verifiable when** line, and a source (file and lines, or "concepts, step 2"). Ask one multi-select question: which are right as written. Then one question each for the unselected ones, then one question for anything missing. Write the approved nodes as folders with a `README.md` each, state `assumed` unless the human typed the wording, with `source`, `## Intent`, `## Verifiable when`, `## Not this` where clear, and `## Assumptions` listing what you decided. Principles the human confirmed go into the root README in the same step.
@@ -84,6 +84,7 @@ End with: how many nodes are stated, resolved and assumed; what was dropped and 
 - Never turn a draft into a stated item. Stated is only what the human typed.
 - Never go deeper than two levels during adoption.
 - Definitions say what a term is; one concept per entry.
-- A requirement names how it would be verified; direction without a check is a principle and lives in the root README, not in the tree.
+- A requirement names how it would be verified; direction is a principle, lives in the root README with a PRN id, and is what requirements are judged against.
+- Before asking the human to approve a batch of requirements, judge each against the principles already recorded and say in the question if one drifts.
 - When the human disagrees, record contested; do not argue past one round.
 - Stopping to ask is a successful outcome.

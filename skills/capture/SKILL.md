@@ -33,6 +33,8 @@ List the operations, one per line:
 - Glossary terms are `create TERM-<slug>` / `update TERM-<slug>` in the root README.
 - Decisions made in the conversation are `create DEC-NNN`, with `intents` linking the nodes they serve and, if the decision came from a caught divergence, `origin: misread | obstacle | side-effect`.
 
+Before showing the request, judge every created or updated requirement against the principles in the root README (`## Principles`, `PRN-n` entries). For each one that drifts from a principle, add a line to the request naming the principle and why, and offer the human the choice: amend the requirement, amend the principle (an intent change in its own right), or reject the item. Drift is never applied silently.
+
 Show the whole request to the human. Ask them to approve, amend or drop items. A node whose state you set to `stated` must contain their quote; if you cannot quote, it is `assumed`.
 
 ## 4. Apply only after an explicit yes
