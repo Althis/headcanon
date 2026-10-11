@@ -1,12 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkCommitMessage, gitAppendOnlyFiles } from "./commit-msg.js";
 import { execFileSync } from "node:child_process";
 import { relative } from "node:path";
 import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
 import { runMcp } from "./mcp.js";
-import { detectTerms } from "./terms.js";
+import { detectTerms, nameWords } from "./terms.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { loadCanon } from "./load.js";
@@ -135,8 +135,10 @@ export async function main(argv: string[]): Promise<number> {
   if (args.command === "terms") {
     const draft = args.text ?? (await readStdin());
     const glossaryDir = resolve(args.canon ?? "canon");
-    const glossary = existsSync(glossaryDir) ? loadCanon(glossaryDir).terms : [];
-    const found = detectTerms(draft, glossary);
+    const canon = existsSync(glossaryDir) ? loadCanon(glossaryDir) : undefined;
+    // The project's own name is never jargon: the canon's title, or the repository folder before init.
+    const ignore = nameWords(canon?.root?.title ?? basename(dirname(glossaryDir)));
+    const found = detectTerms(draft, canon?.terms ?? [], { ignore });
     out(args.json ? JSON.stringify(found) + "\n" : found.length ? found.join("\n") + "\n" : "");
     return 0;
   }
@@ -213,7 +215,8 @@ export async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  if (!existsSync(canonDir)) {
+  // The viewer serves an empty canon before init, as the MCP server does; every other command needs one.
+  if (!existsSync(canonDir) && args.command !== "ui") {
     err(`No canon at ${canonDir}. Run \`headcanon init\`, or pass --canon <dir>.\n`);
     return 2;
   }
@@ -271,7 +274,7 @@ export async function main(argv: string[]): Promise<number> {
     }
     case "ui": {
       const { url } = await serveUi({ canonDir, port: args.port });
-      out(`HeadCanon viewer at ${url}\nCanon: ${canonDir}\nPress Ctrl+C to stop.\n`);
+      out(`HeadCanon viewer at ${url}\nCanon: ${canonDir}${existsSync(canonDir) ? "" : " (not created yet; the page shows it once it exists)"}\nPress Ctrl+C to stop.\n`);
       return await new Promise(() => {});
     }
     default:

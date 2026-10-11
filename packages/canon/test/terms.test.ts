@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { addGlossaryTerm, detectTerms, loadCanon, termId } from "../src/index.js";
+import { addGlossaryTerm, detectTerms, loadCanon, nameWords, termId } from "../src/index.js";
 
 describe("jargon detection [REQ-12.1.6]", () => {
   it("finds code tokens, quoted phrases, capitalized terms and camel case, minus the glossary", () => {
@@ -18,6 +18,13 @@ describe("jargon detection [REQ-12.1.6]", () => {
     expect(found).not.toContain("Statement");
     expect(found).not.toContain("Approve");
     expect(found).not.toContain("README.md");
+  });
+
+  it("never flags the project's own name, taken from the canon title or the folder name", () => {
+    expect(nameWords("LedgerlineDesktop")).toEqual(["Ledgerline", "Desktop"]);
+    expect(nameWords("ledgerline-desktop canon")).toEqual(["ledgerline", "desktop", "canon"]);
+    const found = detectTerms("The Ledgerline Desktop app reads OFX files.", [], { ignore: nameWords("LedgerlineDesktop") });
+    expect(found).toEqual(["OFX"]);
   });
 });
 

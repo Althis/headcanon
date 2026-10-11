@@ -9,7 +9,7 @@ export { checkCommitMessage, cleanMessage, parseTrailers, findAppendOnlyFiles, g
 export { hashDiff, intentDiffFrom, stagedIntentDiff, affectedParentsFrom, validateReviewRecord, storeReviewRecord, loadReviewRecord, REVIEW_KINDS, type ReviewKind, type ReviewFinding, type ReviewRecord, type IntentDiff, type StagedEntry, type ParentUptake } from "./review.js";
 export { titleOverlap } from "./check.js";
 export { SessionState, DEFAULT_OPTIONS, type AskRequest, type AskAnswer, type AskOption, type PendingQuestion, type TermGuess, type TermDecision, type FeedEntry, type FeedKind } from "./session.js";
-export { detectTerms } from "./terms.js";
+export { detectTerms, nameWords, type DetectOptions } from "./terms.js";
 export { addGlossaryTerm, termId } from "./glossary.js";
 export { runMcp, type McpOptions } from "./mcp.js";
 export { initCanon, rootReadme, type InitOptions, type InitResult } from "./init.js";

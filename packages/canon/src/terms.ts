@@ -14,14 +14,30 @@ const COMMON = new Set(
 const strip = (w: string) => w.replace(/^[("'\[]+|[)"'\],.;:!?]+$/g, "");
 const isCap = (w: string) => /^[A-Z][a-zA-Z0-9-]+$/.test(w) && !COMMON.has(w);
 
-export function detectTerms(text: string, glossary: Term[] = []): string[] {
+export interface DetectOptions {
+  /** Words that are never jargon here, such as the project's own name. */
+  ignore?: string[];
+}
+
+/** The words of a project name, for `ignore`: "TheValleyApp" or "the-valley-app" gives The, Valley, App. */
+export function nameWords(name: string): string[] {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .filter((w) => w.length >= 2);
+}
+
+export function detectTerms(text: string, glossary: Term[] = [], opts: DetectOptions = {}): string[] {
   const known = new Set(glossary.map((t) => t.term.toLowerCase()));
+  const ignored = new Set((opts.ignore ?? []).map((w) => w.toLowerCase()));
   const found = new Map<string, string>();
   const add = (raw: string) => {
     const c = raw.trim().replace(/[.,;:]+$/, "");
     if (c.length < 2 || c.length > 60) return;
     const l = c.toLowerCase();
     if (known.has(l) || known.has(l.replace(/s$/, "")) || known.has(l.replace(/ies$/, "y"))) return;
+    // A name made only of ignored words, such as "Ledgerline Desktop", is the project's own name.
+    if (l.split(/\s+/).every((w) => ignored.has(w))) return;
     if (/^(REQ|JRN|DEC|PRN|TERM|DS)-/.test(c) || /^\[\d+\]$/.test(c)) return;
     if (!found.has(l)) found.set(l, c);
   };

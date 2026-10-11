@@ -83,6 +83,10 @@ function render() {
 // ---------------------------------------------------------------- overview
 function overview() {
   const { stats, health } = snap;
+  if (stats.nodes === 0 && !snap.canon.root) return `
+    <div class="alert none"><span class="alert-icon">·</span><b>No canon yet.</b><span class="muted">The session creates it as you approve the premise; the first files appear here after init.</span></div>
+    <h1>Canon</h1>
+    <p class="lede">Nothing to show until the first node exists. Questions from the session arrive in the panel at the bottom right.</p>`;
   const att = attentionItems();
   const tile = (n, label, cls = "", href = "") => `<div class="tile ${cls}"><div class="n">${href ? `<a href="${href}">${n}</a>` : n}</div><div class="l">${label}</div></div>`;
   const groups = [
@@ -412,11 +416,13 @@ const $session = document.getElementById("session");
 const $question = document.getElementById("question");
 const $tooltip = document.getElementById("tooltip");
 let shownQuestionId = null, lastFocusSeq = 0, lastCursor = 0, termState = {};
-function openSession() { $session.classList.remove("collapsed"); document.getElementById("session-toggle").textContent = "Hide"; }
-document.getElementById("session-toggle").addEventListener("click", () => {
-  const collapsed = $session.classList.toggle("collapsed");
-  document.getElementById("session-toggle").textContent = collapsed ? "Show" : "Hide";
-});
+function setToggle(collapsed) {
+  const b = document.getElementById("session-toggle");
+  b.textContent = collapsed ? "Open" : "✕";
+  b.title = collapsed ? "Open the session panel" : "Close the panel; it opens again when a question arrives";
+}
+function openSession() { $session.classList.remove("collapsed"); setToggle(false); }
+document.getElementById("session-toggle").addEventListener("click", () => setToggle($session.classList.toggle("collapsed")));
 document.getElementById("msg-send").addEventListener("click", async () => {
   const ta = document.getElementById("msg");
   if (!ta.value.trim()) return;
