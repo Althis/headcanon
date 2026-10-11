@@ -166,6 +166,7 @@ function tree(selectedId) {
         <span class="id">${esc(id)}</span>
         <span class="t" title="${esc(n.title)}">${esc(n.title)}</span>
         ${flags ? `<span class="flag" title="${flags} findings">!</span>` : ""}
+        ${n.layerExplicit && n.layer !== "requirement" ? `<span class="badge kind">${esc(n.layer)}</span>` : ""}
         ${n.kind ? `<span class="badge kind">${esc(n.kind)}</span>` : ""}
         ${badge(n.state)}
       </div>
@@ -199,7 +200,7 @@ function nodeDetail(id) {
   return `
     <div class="crumbs">${crumbs.length ? crumbs.join(" › ") + " ›" : "top level"}</div>
     <h1>${esc(n.title)}</h1>
-    <div class="row"><span class="id">${esc(n.id)}</span> ${badge(n.state)} ${n.kind ? `<span class="badge kind">${esc(n.kind)}</span>` : `<span class="badge kind">not yet measurable</span>`} <a class="sub" href="#/tree/${esc(id)}">focus in tree</a></div>
+    <div class="row"><span class="id">${esc(n.id)}</span> ${badge(n.state)} <span class="badge kind" title="${n.layerExplicit ? "from the layer field" : "inferred from depth"}">${esc(n.layer)}${n.layerExplicit ? "" : " (inferred)"}</span> ${n.kind ? `<span class="badge kind">${esc(n.kind)}</span>` : `<span class="badge kind">not yet measurable</span>`} <a class="sub" href="#/tree/${esc(id)}">focus in tree</a></div>
     <dl class="meta">
       <dt>File</dt><dd class="mono">canon/${esc(n.file)}</dd>
       ${n.source ? `<dt>Source</dt><dd class="mono">${esc(n.source)}</dd>` : ""}

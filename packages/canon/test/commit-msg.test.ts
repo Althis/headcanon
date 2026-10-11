@@ -44,6 +44,13 @@ describe("commit-msg [REQ-8.5, REQ-8.5.1]", () => {
     expect(r.errors).toContain("Decision DEC-002 does not exist in the canon");
   });
 
+  it("accepts a principle as an Intent and as a created object", () => {
+    const r = checkCommitMessage("docs(canon): add a principle\n\nIntent: PRN-1\nIntent-Change: create PRN-1\nApproved-By: Someone\n", canon);
+    expect(r.errors).toEqual([]);
+    const unknown = checkCommitMessage("docs(canon): x\n\nIntent: PRN-9\n", canon);
+    expect(unknown.errors).toContain("Intent PRN-9 does not exist in the canon");
+  });
+
   it("accepts update ROOT for the root README", () => {
     const r = checkCommitMessage("docs(canon): state the purpose\n\nIntent: none (seeding)\nIntent-Change: update ROOT\nApproved-By: Someone\n", canon);
     expect(r.errors).toEqual([]);

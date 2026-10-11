@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkCommitMessage, hashDiff, intentDiffFrom, loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord } from "../src/index.js";
+import { affectedParentsFrom, checkCommitMessage, hashDiff, intentDiffFrom, loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord } from "../src/index.js";
 
 describe("intent review [REQ-8.5.4]", () => {
   it("summarizes a staged canon diff and decides whether a review is required", () => {
@@ -19,11 +19,12 @@ describe("intent review [REQ-8.5.4]", () => {
   });
 
   it("rejects a record for another diff, with a bad kind, or with an unresolved finding", () => {
+    const diff = { hash: "abc", affectedParents: [] as string[] };
     const base = { hash: "abc", at: "t", reviewer: "v" };
-    expect(validateReviewRecord({ ...base, findings: [] }, "abc")).toEqual([]);
-    expect(validateReviewRecord({ ...base, findings: [] }, "def").join("\n")).toMatch(/changed after the review/);
-    expect(validateReviewRecord({ ...base, findings: [{ kind: "nitpick", nodes: ["REQ-1"], summary: "s", resolution: "kept as is" }] }, "abc").join("\n")).toMatch(/kind must be/);
-    expect(validateReviewRecord({ ...base, findings: [{ kind: "reiteration", nodes: ["REQ-1", "REQ-2"], summary: "s" }] }, "abc").join("\n")).toMatch(/no resolution/);
+    expect(validateReviewRecord({ ...base, findings: [] }, diff)).toEqual([]);
+    expect(validateReviewRecord({ ...base, findings: [] }, { hash: "def", affectedParents: [] }).join("\n")).toMatch(/changed after the review/);
+    expect(validateReviewRecord({ ...base, findings: [{ kind: "nitpick", nodes: ["REQ-1"], summary: "s", resolution: "kept as is" }] }, diff).join("\n")).toMatch(/kind must be/);
+    expect(validateReviewRecord({ ...base, findings: [{ kind: "reiteration", nodes: ["REQ-1", "REQ-2"], summary: "s" }] }, diff).join("\n")).toMatch(/no resolution/);
   });
 
   it("the commit check demands a resolved record and an Intent-Review trailer for a canon change", () => {
@@ -40,22 +41,50 @@ describe("intent review [REQ-8.5.4]", () => {
     expect(notRequired.ok).toBe(true);
   });
 
+  describe("uptake of child changes by untouched parents [REQ-8.5.5]", () => {
+    it("lists the parents a change leaves untouched", () => {
+      const parents = affectedParentsFrom([
+        { status: "A", path: "canon/REQ-1-a/REQ-1.3-c.md", id: "REQ-1.3", parent: "REQ-1" },
+        { status: "M", path: "canon/REQ-2-b/REQ-2.1-d.md", id: "REQ-2.1", parent: "REQ-2" },
+        { status: "M", path: "canon/REQ-2-b/README.md", id: "REQ-2", parent: undefined },
+        { status: "D", path: "canon/REQ-3-e/REQ-3.2-f.md", id: "REQ-3.2", parent: "REQ-3" },
+        { status: "M", path: "canon/README.md", id: "ROOT", parent: undefined },
+      ]);
+      expect(parents).toEqual(["REQ-1", "REQ-3"]);
+    });
+
+    it("rejects a record that is silent about an untouched parent", () => {
+      const diff = { hash: "abc", affectedParents: ["REQ-1"] };
+      const base = { hash: "abc", at: "t", reviewer: "v", findings: [] };
+      expect(validateReviewRecord(base, diff).join("\n")).toMatch(/REQ-1 is the parent of a changed node/);
+      expect(validateReviewRecord({ ...base, parents: [{ id: "REQ-1", reason: "still lists all its areas" }] }, diff)).toEqual([]);
+      expect(validateReviewRecord({ ...base, findings: [{ kind: "uptake", nodes: ["REQ-1", "REQ-1.3"], summary: "s", resolution: "parent updated to name the new area" }], parents: [{ id: "REQ-1", reason: "see finding 1" }] }, diff)).toEqual([]);
+    });
+  });
+
   describe("against a real repository", () => {
     let repo: string;
     beforeAll(() => {
       repo = mkdtempSync(join(tmpdir(), "headcanon-review-"));
       execFileSync("git", ["init", "-q", repo]);
-      mkdirSync(join(repo, "canon"));
-      writeFileSync(join(repo, "canon", "README.md"), "---\nid: ROOT\ntitle: x\n---\n# x\n\n## Stated\n> a\n\n## Intent\nb\n\n## Not this\nc\n");
+      execFileSync("git", ["-C", repo, "config", "user.email", "t@example.com"]);
+      execFileSync("git", ["-C", repo, "config", "user.name", "T"]);
+      mkdirSync(join(repo, "canon", "REQ-1-a"), { recursive: true });
+      writeFileSync(join(repo, "canon", "README.md"), "---\nid: ROOT\ntitle: x\n---\n# x\n");
+      writeFileSync(join(repo, "canon", "REQ-1-a", "README.md"), "---\nid: REQ-1\ntitle: a\nstate: assumed\n---\n# a\n");
+      execFileSync("git", ["add", "canon"], { cwd: repo });
+      execFileSync("git", ["commit", "-q", "-m", "seed"], { cwd: repo });
+      writeFileSync(join(repo, "canon", "REQ-1-a", "REQ-1.1-b.md"), "---\nid: REQ-1.1\nparent: REQ-1\ntitle: b\nstate: assumed\n---\n# b\n");
       execFileSync("git", ["add", "canon"], { cwd: repo });
     });
     afterAll(() => rmSync(repo, { recursive: true, force: true }));
 
-    it("hashes the staged canon diff and stores a record the hook can find", () => {
+    it("hashes the staged canon diff, names the untouched parent, and stores a record the hook can find", () => {
       const diff = stagedIntentDiff(repo);
       expect(diff.required).toBe(true);
-      expect(diff.newFiles).toEqual(["canon/README.md"]);
-      const path = storeReviewRecord(repo, { hash: diff.hash, at: "t", reviewer: "v", findings: [] });
+      expect(diff.newFiles).toEqual(["canon/REQ-1-a/REQ-1.1-b.md"]);
+      expect(diff.affectedParents).toEqual(["REQ-1"]);
+      const path = storeReviewRecord(repo, { hash: diff.hash, at: "t", reviewer: "v", findings: [], parents: [{ id: "REQ-1", reason: "still describes b" }] });
       expect(path).toMatch(/headcanon[\\/]reviews[\\/]/);
       expect(loadReviewRecord(repo, diff.hash)?.reviewer).toBe("v");
       expect(loadReviewRecord(repo, "nope")).toBeUndefined();

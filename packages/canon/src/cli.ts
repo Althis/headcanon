@@ -136,7 +136,7 @@ export async function main(argv: string[]): Promise<number> {
     if (repoRoot) {
       const diff = stagedIntentDiff(repoRoot, canonPathspec(repoRoot, canonDir));
       const record = diff.required ? loadReviewRecord(repoRoot, diff.hash) : undefined;
-      review = { diff, record, recordErrors: record ? validateReviewRecord(record, diff.hash) : [] };
+      review = { diff, record, recordErrors: record ? validateReviewRecord(record, diff) : [] };
     }
     const r = checkCommitMessage(readFileSync(file, "utf8"), canon, { appendOnly: repoRoot ? gitAppendOnlyFiles(repoRoot) : [], ...(review ? { review } : {}) });
     for (const w of r.warnings) err(`warning: ${w}\n`);
@@ -174,14 +174,14 @@ export async function main(argv: string[]): Promise<number> {
       return 2;
     }
     if (!rec.at) rec.at = new Date().toISOString();
-    const problems = validateReviewRecord(rec, diff.hash);
+    const problems = validateReviewRecord(rec, diff);
     if (problems.length) {
       err("The review record was not stored:\n");
       for (const p of problems) err(`  - ${p}\n`);
       return 1;
     }
     const path = storeReviewRecord(repoRoot, rec);
-    out(`stored ${path}\n${rec.findings.length} finding(s), all resolved; add the trailer: Intent-Review: ${diff.hash}, ${rec.findings.length} finding(s)\n`);
+    out(`stored ${path}\n${rec.findings.length} finding(s), all resolved; ${diff.affectedParents.length} untouched parent(s) accounted for; add the trailer: Intent-Review: ${diff.hash}, ${rec.findings.length} finding(s)\n`);
     return 0;
   }
 

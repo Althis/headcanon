@@ -49,6 +49,31 @@ describe("load [REQ-6.1, REQ-6.3]", () => {
   });
 });
 
+describe("layers and principles [REQ-6.7, REQ-3.7]", () => {
+  const canon = loadCanon(MINI);
+
+  it("reads explicit layers and infers the rest from depth", () => {
+    expect(canon.nodes["REQ-1"]?.layer).toBe("domain");
+    expect(canon.nodes["REQ-1"]?.layerExplicit).toBe(true);
+    expect(canon.nodes["REQ-1.1"]?.layer).toBe("capability");
+    expect(canon.nodes["REQ-1.2"]?.layer).toBe("domain");
+    expect(canon.nodes["REQ-1.2"]?.layerExplicit).toBe(false);
+  });
+
+  it("parses principles in both the paragraph and the one-line form", () => {
+    expect(canon.principles.map((p) => p.id)).toEqual(["PRN-1", "PRN-2"]);
+    expect(canon.principles[0]).toEqual({ id: "PRN-1", title: "Keep the original", statement: "Every imported file is kept beside what was made from it. A reader can always go back to the source.", source: "docs/design.md:12-15" });
+    expect(canon.principles[1]?.statement).toBe("a figure in a report links to the transactions behind it.");
+    expect(canon.principles[1]?.source).toBe("conversation, 2026-01-01");
+  });
+
+  it("flags an explicit capability with nothing under it, and counts inferred layers once", () => {
+    const codes = checkCanon(canon).map((f) => `${f.level}:${f.code}:${f.id ?? ""}`);
+    expect(codes).toContain("warn:uncovered-capability:REQ-1.1");
+    expect(codes.filter((c) => c.startsWith("info:layer-inferred"))).toHaveLength(1);
+  });
+});
+
 describe("check [REQ-2.6]", () => {
   const canon = loadCanon(MINI);
   const findings = checkCanon(canon);
@@ -76,7 +101,7 @@ describe("summary [REQ-6.2]", () => {
     const canon = loadCanon(MINI);
     const text = renderTextTree(canon, checkCanon(canon));
     expect(text).toMatch(/^REQ-1\s+New users get productive without help\s+stated/m);
-    expect(text).toMatch(/└─ REQ-1\.1\s+Sign-up takes under 60 seconds\s+assumed\s+numeric\s+! \d finding/m);
+    expect(text).toMatch(/└─ REQ-1\.1\s+Sign-up takes under 60 seconds\s+assumed\s+capability\s+numeric\s+! \d finding/m);
     expect(text).toContain("JRN-1");
     expect(text).toContain("origin: obstacle");
   });

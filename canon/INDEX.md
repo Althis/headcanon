@@ -55,6 +55,7 @@ flowchart LR
     REQ_6_4["REQ-6.4<br/>Node file front-matter fields"]:::assumed
     REQ_6_5["REQ-6.5<br/>Mermaid index limits and generated-view freshne…"]:::assumed
     REQ_6_6["REQ-6.6<br/>ID scheme for requirements, journeys, steps, de…"]:::resolved
+    REQ_6_7["REQ-6.7<br/>Every node carries a layer: domain, capability …"]:::resolved
     REQ_7["REQ-7<br/>Success criteria exist before code, and obstacl…"]:::stated
     REQ_7_1["REQ-7.1<br/>Workflow runs requirements → tests → implementa…"]:::stated
     REQ_7_2["REQ-7.2<br/>Negotiation is a triggered mode, not an upfront…"]:::stated
@@ -149,6 +150,7 @@ flowchart LR
     REQ_6 --> REQ_6_4
     REQ_6 --> REQ_6_5
     REQ_6 --> REQ_6_6
+    REQ_6 --> REQ_6_7
     REQ_7 --> REQ_7_1
     REQ_7 --> REQ_7_2
     REQ_7 --> REQ_7_3
@@ -355,12 +357,14 @@ flowchart LR
     REQ_6_4["REQ-6.4<br/>Node file front-matter fields"]:::assumed
     REQ_6_5["REQ-6.5<br/>Mermaid index limits and generated-view freshne…"]:::assumed
     REQ_6_6["REQ-6.6<br/>ID scheme for requirements, journeys, steps, de…"]:::resolved
+    REQ_6_7["REQ-6.7<br/>Every node carries a layer: domain, capability …"]:::resolved
     REQ_6 --> REQ_6_1
     REQ_6 --> REQ_6_2
     REQ_6 --> REQ_6_3
     REQ_6 --> REQ_6_4
     REQ_6 --> REQ_6_5
     REQ_6 --> REQ_6_6
+    REQ_6 --> REQ_6_7
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -408,6 +412,7 @@ flowchart LR
     REQ_8_5_2["REQ-8.5.2<br/>The commit-msg hook is installed from the start…"]:::stated
     REQ_8_5_3["REQ-8.5.3<br/>An edit that only adds lines to a rules, skill …"]:::stated
     REQ_8_5_4["REQ-8.5.4<br/>Every canon commit passes a semantic review for…"]:::stated
+    REQ_8_5_5["REQ-8.5.5<br/>A change to a child asks its parent: untouched …"]:::stated
     REQ_8_6["REQ-8.6<br/>The agent changes the canon only through create…"]:::stated
     REQ_8_7["REQ-8.7<br/>CUD covers all canon objects; updates are patch…"]:::assumed
     REQ_8 --> REQ_8_1
@@ -419,6 +424,7 @@ flowchart LR
     REQ_8_5 --> REQ_8_5_2
     REQ_8_5 --> REQ_8_5_3
     REQ_8_5 --> REQ_8_5_4
+    REQ_8_5 --> REQ_8_5_5
     REQ_8 --> REQ_8_6
     REQ_8 --> REQ_8_7
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
@@ -645,7 +651,8 @@ REQ-6             The canon is plain files that existing tools already render   
 ├─ REQ-6.3        Folder layout: root README, one folder per branch, journeys/, decisions/  assumed   · unrefined
 ├─ REQ-6.4        Node file front-matter fields                                             assumed   · unrefined
 ├─ REQ-6.5        Mermaid index limits and generated-view freshness                         assumed   · unrefined
-└─ REQ-6.6        ID scheme for requirements, journeys, steps, decisions, terms and datas…  resolved  · unrefined
+├─ REQ-6.6        ID scheme for requirements, journeys, steps, decisions, terms and datas…  resolved  · unrefined
+└─ REQ-6.7        Every node carries a layer: domain, capability or requirement             resolved  · unrefined
 REQ-7             Success criteria exist before code, and obstacles are negotiated, not a…  stated    · unrefined
 ├─ REQ-7.1        Workflow runs requirements → tests → implementation                       stated    · unrefined
 ├─ REQ-7.2        Negotiation is a triggered mode, not an upfront phase                     stated    · unrefined
@@ -663,7 +670,8 @@ REQ-8             Intent never changes silently                                 
 │  ├─ REQ-8.5.1   Trailers: Intent, Intent-Change, Decision, Test-Change, Approved-By       resolved  · unrefined
 │  ├─ REQ-8.5.2   The commit-msg hook is installed from the start by headcanon init         stated    · unrefined
 │  ├─ REQ-8.5.3   An edit that only adds lines to a rules, skill or canon file needs a Co…  stated    · unrefined
-│  └─ REQ-8.5.4   Every canon commit passes a semantic review for contradictions, reitera…  stated    · unrefined
+│  ├─ REQ-8.5.4   Every canon commit passes a semantic review for contradictions, reitera…  stated    · unrefined
+│  └─ REQ-8.5.5   A change to a child asks its parent: untouched parents are accounted fo…  stated    · unrefined
 ├─ REQ-8.6        The agent changes the canon only through create, update and delete requ…  stated    · unrefined
 └─ REQ-8.7        CUD covers all canon objects; updates are patches; deletes retire; trai…  assumed   · unrefined
 REQ-9             Writ verifies every change against the canon                              stated    · unrefined
@@ -739,4 +747,5 @@ Decisions
   DEC-010         Skills and the injected rules follow the published skill-authoring guidance, and the rules stay short  assumed
   DEC-011         The Valley test sessions run on Opus, not Fable  stated
   DEC-012         Skill examples never come from the project the skill is being tested on  assumed  origin: side-effect
+  DEC-013         Capabilities are a layer of the one tree, not a separate entity  resolved
 ```

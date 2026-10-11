@@ -18,6 +18,10 @@ session of 2026-10-11.
 
 Source: docs/design-brief-v0.md:7
 
+> In fact, this sounds really good: Consolidation instead of Addition. Please add it as one of OUR principles for HeadCanon.
+
+Source: Claude Code session, 2026-10-11
+
 ## How this canon is organized [assumed]
 
 - `REQ-<n>-<slug>/README.md` is a requirement with children; `REQ-<n>.<m>-<slug>.md` is a leaf.
@@ -36,6 +40,12 @@ Source: docs/design-brief-v0.md:7
 > - **Claiming guarantees** (proposed). Tests give evidence, not proof, and the framework should say so.
 
 Source: docs/design-brief-v0.md:37-41. The last two are marked proposed in the brief and are assumed here.
+
+## Principles
+
+**PRN-1 Consolidation instead of addition**
+When intent changes, the first move is to revise what exists: an entry that already says it is updated, a child that restates its parent is merged up, a rule that overlaps another is folded in. A new entry, rule or line is the last resort, taken when nothing in the canon can absorb the change. Growth by appending is the drift HeadCanon exists to catch, in its own records before anyone else's.
+Source: conversation, 2026-10-11
 
 ## Glossary [assumed]
 

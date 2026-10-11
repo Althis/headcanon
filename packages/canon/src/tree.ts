@@ -19,7 +19,8 @@ export function renderTextTree(canon: Canon, findings: Finding[] = [], opts: Tre
     const branch = isRoot ? "" : `${prefix}${isLast ? "└─ " : "├─ "}`;
     const flags = flagged.get(id);
     const hidden = depth >= maxDepth ? countBelow(id) : 0;
-    const note = [n.kind ? n.kind : "· unrefined", flags ? `! ${flags} finding${flags > 1 ? "s" : ""}` : "", hidden ? `(+${hidden} below)` : ""].filter(Boolean).join("  ");
+    const layer = n.layerExplicit && n.layer !== "requirement" ? n.layer : "";
+    const note = [layer, n.kind ? n.kind : "· unrefined", flags ? `! ${flags} finding${flags > 1 ? "s" : ""}` : "", hidden ? `(+${hidden} below)` : ""].filter(Boolean).join("  ");
     rows.push({ prefix: branch, id: n.id, title: n.title, state: n.state, note });
     if (depth >= maxDepth) return;
     const childPrefix = isRoot ? "" : `${prefix}${isLast ? "   " : "│  "}`;

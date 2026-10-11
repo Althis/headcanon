@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
-import { parseFrontMatter, parseGlossary, parseMermaid, parseSections, parseStepTable, str, strList } from "./parse.js";
-import { isState, type Canon, type Decision, type Journey, type ReqNode, type State } from "./types.js";
+import { parseFrontMatter, parseGlossary, parseMermaid, parsePrinciples, parseSections, parseStepTable, str, strList } from "./parse.js";
+import { isLayer, isState, type Canon, type Decision, type Journey, type Layer, type ReqNode, type State } from "./types.js";
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -44,6 +44,7 @@ export function loadCanon(dirInput: string): Canon {
     journeys: [],
     decisions: [],
     terms: [],
+    principles: [],
     unparsed: [],
     duplicates: {},
   };
@@ -70,6 +71,7 @@ export function loadCanon(dirInput: string): Canon {
     if (id === "ROOT") {
       canon.root = { title, state: stateOf(data["state"], "stated"), file, body };
       canon.terms = parseGlossary(body);
+      canon.principles = parsePrinciples(body);
     } else if (id.startsWith("REQ-")) {
       const node: ReqNode = {
         id,
@@ -77,6 +79,8 @@ export function loadCanon(dirInput: string): Canon {
         title,
         state: stateOf(data["state"]),
         kind: str(data["kind"]),
+        layer: isLayer(data["layer"]) ? data["layer"] : "requirement",
+        layerExplicit: isLayer(data["layer"]),
         source: str(data["source"]),
         steps: strList(data["steps"]),
         files: strList(data["files"]),
@@ -126,10 +130,13 @@ export function loadCanon(dirInput: string): Canon {
   }
   for (const node of Object.values(canon.nodes)) node.children.sort(compareIds);
   canon.roots.sort(compareIds);
+  const byDepth: Layer[] = ["domain", "capability", "requirement"];
   const setDepth = (id: string, depth: number) => {
     const n = canon.nodes[id];
     if (!n) return;
     n.depth = depth;
+    // Without a layer field the layer is inferred from depth, for display only; checks use explicit layers.
+    if (!n.layerExplicit) n.layer = byDepth[Math.min(depth, 2)]!;
     for (const c of n.children) setDepth(c, depth + 1);
   };
   for (const r of canon.roots) setDepth(r, 0);

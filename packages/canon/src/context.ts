@@ -33,7 +33,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
     "# HeadCanon",
     "",
     `Canon: ${canonDir}`,
-    `${stats.nodes} requirements in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
+    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
     "",
   ];
 
@@ -49,6 +49,10 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (c.assumed) waiting.push(`${c.assumed} assumed requirement(s); \`/headcanon:review\` walks them`);
   head.push("## Waiting on the human", "", waiting.length ? waiting.map((w) => `- ${w}`).join("\n") : "- nothing", "");
 
+  if (canon.principles.length) {
+    const first = (s: string) => (/^(.*?[.!?])(\s|$)/.exec(s)?.[1] ?? s).slice(0, 160);
+    head.push("## Principles", "", ...canon.principles.map((p) => `- **${p.id} ${p.title}**: ${first(p.statement)}`), "");
+  }
   if (canon.terms.length) {
     const def = (d: string) => (d.length > 110 ? d.slice(0, 109) + "…" : d);
     head.push("## Glossary", "", ...canon.terms.map((t) => `- **${t.term}**: ${def(t.definition)}`), "");

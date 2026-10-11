@@ -65,8 +65,8 @@ export function gitAppendOnlyFiles(repoDir: string, watch: RegExp[] = APPEND_WAT
 
 const HEADER = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<bang>!)?: (?<subject>\S.*)$/;
 const TRAILER = /^(?<key>[A-Za-z][A-Za-z0-9-]*): (?<value>.*)$/;
-const INTENT_ID = /^(REQ|JRN|DEC)-[0-9][0-9.]*(?:\/S[0-9]+)?$/;
-const CHANGE = /^(?<op>create|update|delete) (?<id>ROOT|(?:REQ|JRN|DEC|TERM)-\S+)$/;
+const INTENT_ID = /^(?:(?:REQ|JRN|DEC)-[0-9][0-9.]*(?:\/S[0-9]+)?|PRN-[0-9]+)$/;
+const CHANGE = /^(?<op>create|update|delete) (?<id>ROOT|PRN-\d+|(?:REQ|JRN|DEC|TERM)-\S+)$/;
 
 /** Strip git's comment lines and anything after a scissors line. */
 export function cleanMessage(raw: string): string {
@@ -121,6 +121,7 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
     if (!canon) return true;
     const base = id.split("/")[0]!;
     if (base === "ROOT") return canon.root !== undefined;
+    if (base.startsWith("PRN-")) return canon.principles.some((p) => p.id === base);
     if (base.startsWith("REQ-")) return base in canon.nodes;
     if (base.startsWith("JRN-")) {
       const j = canon.journeys.find((x) => x.id === base);
@@ -144,7 +145,7 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
         continue;
       }
       for (const id of value.split(/[,\s]+/).filter(Boolean)) {
-        if (!INTENT_ID.test(id)) errors.push(`Intent value "${id}" is not a REQ, JRN or DEC id`);
+        if (!INTENT_ID.test(id)) errors.push(`Intent value "${id}" is not a REQ, JRN, DEC or PRN id`);
         else if (!known(id)) errors.push(`Intent ${id} does not exist in the canon`);
       }
     }

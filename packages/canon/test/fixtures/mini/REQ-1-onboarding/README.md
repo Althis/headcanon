@@ -2,6 +2,7 @@
 id: REQ-1
 title: "New users get productive without help"
 state: stated
+layer: domain
 source: "conversation"
 ---
 

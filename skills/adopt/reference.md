@@ -86,6 +86,7 @@ id: REQ-1.2
 parent: REQ-1
 title: "Plain-language title"
 state: stated | resolved | assumed | open | contested
+layer: domain | capability | requirement
 source: "path:lines, or: conversation, <date>, or: archetype"
 kind: binary            # only when the node is already a yes-or-no check
 ---

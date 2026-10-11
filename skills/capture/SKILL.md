@@ -27,7 +27,7 @@ A single human sentence often yields one stated item and several assumed ones. K
 
 List the operations, one per line:
 
-- `create <ID>`: a full node. Choose the ID from the parent's next free number. Front-matter: `id`, `parent`, `title`, `state`, `source`, and when known `kind` (`binary`, `numeric`, `open-ended`), `steps` (journey steps this serves), `files` (code that will implement it). Body sections: `## Stated` with the verbatim quote and `Source:` line, `## Intent` (your reading; mark it `[assumed]` when the node is stated), `## Not this`, `## Assumptions` as a list where each item ends with `(model assumption)`, `## Open` for known unknowns.
+- `create <ID>`: a full node, and only after the parent and its children were checked: an entry that already says it is updated instead (consolidation over addition, PRN-1). Choose the ID from the parent's next free number. Front-matter: `id`, `parent`, `title`, `state`, `layer` (`domain`, `capability` or `requirement`), `source`, and when known `kind` (`binary`, `numeric`, `open-ended`), `steps` (journey steps this serves), `files` (code that will implement it). Body sections: `## Stated` with the verbatim quote and `Source:` line, `## Intent` (your reading; mark it `[assumed]` when the node is stated), `## Not this`, `## Assumptions` as a list where each item ends with `(model assumption)`, `## Open` for known unknowns.
 - `update <ID>`: only the fields and sections that change, plus one line of reason. Appending a new stated quote to a node is an update.
 - `delete <ID>`: a retirement, with a reason. The file stays; its `state` and a `## Retired` section record why.
 - Glossary terms are `create TERM-<slug>` / `update TERM-<slug>` in the root README.

@@ -51,7 +51,24 @@ export function checkCanon(canon: Canon): Finding[] {
     for (const s of n.sections)
       if (/^(Not this|Intent)$/i.test(s.heading) && s.marker === "contested")
         out.push(finding("warn", "contested", `${n.id} has a contested section: ${s.heading}`, at));
+
+    // Layers (REQ-6.7): explicit layers are checked; inferred ones are display only.
+    const parent = n.parent ? canon.nodes[n.parent] : undefined;
+    const rank: Record<string, number> = { domain: 0, capability: 1, requirement: 2 };
+    if (n.layerExplicit && parent?.layerExplicit && rank[n.layer]! < rank[parent.layer]!)
+      out.push(finding("error", "layer-order", `${n.id} is a ${n.layer} under ${parent.id}, a ${parent.layer}`, at));
+    if (n.layerExplicit && n.layer === "capability" && n.children.length === 0 && n.state !== "open")
+      out.push(finding("warn", "uncovered-capability", `${n.id} is a capability with no requirements under it`, at));
+
+    // Consolidation signals (PRN-1): a child that restates its parent, a parent that has grown wide.
+    if (parent && titleOverlap(n.title, parent.title) >= 0.6)
+      out.push(finding("warn", "restates-parent", `${n.id} restates its parent ${parent.id}: the titles share most of their words`, at));
+    if (n.children.length > 8)
+      out.push(finding("info", "many-children", `${n.id} has ${n.children.length} children; consider splitting it`, at));
   }
+  const inferred = Object.values(canon.nodes).filter((n) => !n.layerExplicit).length;
+  if (inferred > 0)
+    out.push(finding("info", "layer-inferred", `${inferred} node(s) have no layer field; their layer is inferred from depth (domain, capability, requirement)`));
 
   for (const j of canon.journeys) {
     const at = { id: j.id, file: j.file };
@@ -91,6 +108,19 @@ export function checkCanon(canon: Canon): Finding[] {
 
   const order: Record<Level, number> = { error: 0, warn: 1, info: 2 };
   return out.sort((a, b) => order[a.level] - order[b.level] || (a.id ?? "").localeCompare(b.id ?? ""));
+}
+
+const STOP = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "are", "its", "not", "all", "any", "one", "each", "every", "has", "have", "can", "than", "then", "when", "what", "how", "under", "over"]);
+
+/** Jaccard overlap of the meaningful words of two titles, 0 to 1. */
+export function titleOverlap(a: string, b: string): number {
+  const words = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)));
+  const wa = words(a);
+  const wb = words(b);
+  if (wa.size === 0 || wb.size === 0) return 0;
+  let both = 0;
+  for (const w of wa) if (wb.has(w)) both++;
+  return both / (wa.size + wb.size - both);
 }
 
 export type StateCounts = Record<State, number>;
