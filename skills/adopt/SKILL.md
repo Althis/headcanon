@@ -39,7 +39,7 @@ Read only this repository, reference.md and the human's answers. The plugin's ow
 
 - The full draft goes in the question text, once, as prose. A sentence resting on a thread ends with a footnote [1]; one "Sources:" line at the end lists them. Never a path or date inside a sentence.
 - Label each question by layer: "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
-- Options are exactly **Approve as written** and **Drop**, plus the line "To correct or rewrite, type in Other." An option carries no text.
+- Options are exactly **Approve as written** and **Drop**; the briefing has told the human that Other replaces them with their own wording or a correction, so no question repeats it. An option carries no text.
 - A list gets one multi-select: each option's label is the ID and title, its description the item's one-line draft ending with its footnote; the question body holds only the layer label, the instruction and the Sources line, never the drafts again. Then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
 - Typed text is one of three kinds. **Wording** (the statement itself) is stated, quoted verbatim, and is the entry. **A correction** ("drop the counts") is applied exactly and the merged text is asked again; neither it nor its reasons enter the entry. **A process instruction** ("one at a time") is followed for the rest of the run and recorded nowhere.
 - Anything the human must know travels with a question, as its `notice` through the page or a sentence before it in the terminal, never inside the draft; free text between tool calls may never be read.
@@ -104,16 +104,14 @@ Domains with their capabilities; open capabilities and domains; counts of stated
 Domain question, plain words, one line each, footnoted:
 Body: "Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
 
-Sources: [1] premise, [2] software project
-
-To correct or rewrite one, type in Other."
+Sources: [1] premise, [2] software project"
 Options: label "REQ-1 Statement import", description "bank statements in any common format become transactions. [1]"; label "REQ-2 Categorization", description "every transaction lands in a tax category, by rule or by hand. [1]"; label "REQ-3 Reporting", description "the categorized year becomes the forms an accountant needs. [1]"; label "REQ-4 Documentation", description "how the project records what it is and why. [2]"; label "REQ-5 Verification", description "how the project shows its code does what is intended. [2]".
 </example>
 
 <example>
 Typed correction applied exactly, then asked again:
 Human types: "Don't mention how many banks we support."
-Agent asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop. To correct, type in Other."
+Agent asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop."
 </example>
 
 <example>

@@ -109,7 +109,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   const server = new McpServer({ name: "headcanon", version: "0.1.0" });
 
   const questionShape = {
-    question: z.string().describe("The full question text: layer label, the draft, footnotes, the Sources line, and 'To correct or rewrite, type in Other.'"),
+    question: z.string().describe("The full question text: layer label, the draft, footnotes and the Sources line."),
     header: z.string().optional().describe("Short label, e.g. 'Premise (1 of 5)' or 'REQ-1.4'"),
     options: z.array(z.object({ label: z.string(), description: z.string().optional() })).optional().describe("Defaults to Approve as written / Drop. For a list, one option per item: label is the ID and title, description is the item's one-line draft with its footnote."),
     multiSelect: z.boolean().optional().describe("True for a first pass over a list: ticked means approved as written."),
