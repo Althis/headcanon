@@ -77,7 +77,21 @@ Every later question starts with its layer label. Every multi-select question re
 - Domains and capabilities in plain words. Mechanisms belong in requirements, using glossary terms.
 - One idea per node. A node that needs "and" twice is two nodes.
 - Every entry, whether a node's intent, a glossary definition, a principle or a non-goal, reads as a dictionary or encyclopedia entry: concise, about what the thing is, complete for a reader who never saw this conversation, one concept per entry. No correction history, no reasons, no "not" clauses; exclusions live only in a Not this section. Wrong examples and why they are wrong: reference.md, section 5.
-- Threads: before each step, scan the thread list for threads about that step, use them, mark them used. Unused threads feed step 9.
+- Threads: before each step, scan the thread list for threads about that step and use them in the two roles below. Mark them used. Unused threads feed step 9.
+
+## Artifacts
+
+What the human approved or typed in the layer above is the primary source for the layer below: it is the most current intent. Artifacts have two roles and no third:
+
+1. **Pre-fill.** Where the approved layers above leave a draft open, a thread supplies the first guess, with its footnote.
+2. **Evidence.** Every draft is checked against the threads before it is asked. A thread that supports a sentence is its footnote.
+
+Precedence when sources disagree: what the human approved in this run, then what the human typed, then the newest artifact, then older artifacts.
+
+Inconsistency procedure, when a thread disagrees with something the human approved or with a draft derived from it:
+1. Do not resolve it yourself and do not start the next layer.
+2. Ask: "The document says A [1]. What you approved says B. Which stands?" Options: **Keep what I approved**, **The document is right**. When the human types a third version, apply it and ask again with the merged text.
+3. Record the outcome: the entry follows the answer, and a document the human overruled is listed in DEC-001 as superseded on that point, so the sweep does not raise it again.
 
 ## Steps
 
@@ -101,12 +115,12 @@ Principles are direction: tone, taste, values, ways of working. A "never" the hu
 
 ### 6 Domains
 
-Domains come from two sources, in this order, and artifacts are not one of them:
+Domains derive from two sources, in this order; artifacts pre-fill and validate, they do not decide:
 
-1. **The premise.** What distinct areas must exist for this product to operate? A desktop app that turns bank statements into tax reports needs statement import, transaction categorization, report generation. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access.
+1. **The approved premise.** What distinct areas must exist for this product, as the human just approved it, to operate? A desktop app that turns bank statements into tax reports needs statement import, transaction categorization, report generation. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access.
 2. **The kind of project.** Every software project needs documentation and verification regardless of premise. Propose those too, with "software project" as source.
 
-Then scan the threads for areas the artifacts treat as their own that you missed. Propose two to six premise domains plus the project-kind ones: `REQ-n`, a plain title, one line saying what the domain must do and why the premise needs it. Multi-select, one by one, "anything missing?".
+Then check the threads: an area the artifacts treat as their own that the derived list lacks is added as a candidate with its footnote; an artifact that contradicts a derived domain goes through the inconsistency procedure. Propose two to six premise domains plus the project-kind ones: `REQ-n`, a plain title, one line saying what the domain must do and why the premise needs it. Multi-select, one by one, "anything missing?".
 
 Gap procedure, when you believe an area is needed and the project has nothing on it:
 1. Ask: "Does this project need <area>?" Options: **Yes, add it**, **No**. When the answer is one of those two, act on it and stop here.
@@ -116,11 +130,11 @@ Fewer than about eight areas in total: those areas are the top level and there i
 
 ### 7 Capabilities
 
-For each domain, in turn: what does every system of this kind need to be fully defined as one? Archetype first, threads second. Propose up to eight: a plain title, one line, a source (an artifact, or `archetype` when nothing in the project covers it). A capability nothing in the project covers is proposed as an `open` node titled as the question. Judge each against the principles and name any drift in the question. One multi-select per domain, then one by one.
+For each domain, in turn: given the domain as the human approved it, what does every system of this kind need to be fully defined as one? Derive from the approved domain and the kind of system; pre-fill the wording from the threads; check every candidate against the threads and the approved layers above. Propose up to eight: a plain title, one line, a source (an artifact, or `archetype` when nothing in the project covers it). A capability nothing in the project covers is proposed as an `open` node titled as the question. Judge each against the principles and name any drift in the question. One multi-select per domain, then one by one.
 
 ### 8 Requirements
 
-For each capability, in turn: what the threads state, as assumed nodes with sources. Before proposing one, name to yourself a check in content or code that would show it met. No check means it is a principle or too vague: do not propose it. A requirement that is already a yes-or-no check gets `kind`. Judge each against the principles. One multi-select per capability that has candidates, then one by one. Stop at this depth; deeper levels fill when work touches a branch.
+For each capability, in turn: the concrete requirements under it, as assumed nodes with sources. The approved capability says what must be covered; the threads pre-fill the concrete requirements and are their evidence. A thread that contradicts the approved capability or a principle goes through the inconsistency procedure before anything from it is proposed. Before proposing a requirement, name to yourself a check in content or code that would show it met. No check means it is a principle or too vague: do not propose it. A requirement that is already a yes-or-no check gets `kind`. Judge each against the principles. One multi-select per capability that has candidates, then one by one. Stop at this depth; deeper levels fill when work touches a branch.
 
 Two artifacts disagree: offer both readings. Neither chosen: write the node as `contested` with both positions.
 

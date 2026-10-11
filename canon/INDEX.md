@@ -47,6 +47,7 @@ flowchart LR
     REQ_5_2["REQ-5.2<br/>Undefined or badly defined elements are modeled…"]:::stated
     REQ_5_3["REQ-5.3<br/>Five certainty states: stated, assumed, open, c…"]:::stated
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
+    REQ_5_5["REQ-5.5<br/>The human's latest approval outranks every arti…"]:::stated
     REQ_6["REQ-6<br/>The canon is plain files that existing tools al…"]:::stated
     REQ_6_1["REQ-6.1<br/>Canon stored as Markdown with front-matter, in …"]:::stated
     REQ_6_2["REQ-6.2<br/>Generated views: a text tree inside the agent, …"]:::stated
@@ -141,6 +142,7 @@ flowchart LR
     REQ_5 --> REQ_5_2
     REQ_5 --> REQ_5_3
     REQ_5 --> REQ_5_4
+    REQ_5 --> REQ_5_5
     REQ_6 --> REQ_6_1
     REQ_6 --> REQ_6_2
     REQ_6 --> REQ_6_3
@@ -324,6 +326,7 @@ flowchart LR
     REQ_5_3_3["REQ-5.3.3<br/>One state per node; sections may carry their ow…"]:::resolved
     REQ_5_3_4["REQ-5.3.4<br/>A glossary term the agent infers enters as assu…"]:::assumed
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
+    REQ_5_5["REQ-5.5<br/>The human's latest approval outranks every arti…"]:::stated
     REQ_5 --> REQ_5_1
     REQ_5_1 --> REQ_5_1_1
     REQ_5 --> REQ_5_2
@@ -333,6 +336,7 @@ flowchart LR
     REQ_5_3 --> REQ_5_3_3
     REQ_5_3 --> REQ_5_3_4
     REQ_5 --> REQ_5_4
+    REQ_5 --> REQ_5_5
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -629,7 +633,8 @@ REQ-5             Terms and certainty are modeled, never hidden                 
 │  ├─ REQ-5.3.2   Resolved only on the human's explicit agreement; tacit approval never c…  stated    · unrefined
 │  ├─ REQ-5.3.3   One state per node; sections may carry their own marker and may be expa…  resolved  · unrefined
 │  └─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
-└─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
+├─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
+└─ REQ-5.5        The human's latest approval outranks every artifact; artifacts pre-fill…  stated    · unrefined
 REQ-6             The canon is plain files that existing tools already render               stated    · unrefined
 ├─ REQ-6.1        Canon stored as Markdown with front-matter, in a folder tree mirroring …  stated    · unrefined
 ├─ REQ-6.2        Generated views: a text tree inside the agent, a Mermaid index on GitHub  stated    · unrefined

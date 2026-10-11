@@ -11,6 +11,7 @@ The canon under \`canon/\` holds this project's intent: requirement tree, journe
 - **stated** is the human's exact words, quoted. A paraphrase is **assumed**. (REQ-5.3.1)
 - **resolved** only on the human's explicit yes; silence or "fine" leaves the state as it was. (REQ-5.3.2)
 - Record every interpretation you act on as assumed, every unknown as open, every disagreement as contested, before proceeding. (REQ-5.4)
+- What the human approved most recently outranks every document. Documents pre-fill drafts and serve as evidence; when one disagrees with an approval, raise the inconsistency as a question and do not carry on past it. (REQ-5.5)
 - Resolve ambiguous terms against the root README's Glossary; propose missing ones as assumed. A definition says what the term is and covers one concept. (REQ-5.1)
 
 ### Content
