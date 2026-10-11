@@ -319,6 +319,7 @@ flowchart LR
     REQ_5_3_2["REQ-5.3.2<br/>Resolved only on the human's explicit agreement…"]:::stated
     REQ_5_3_3["REQ-5.3.3<br/>One state per node; sections may carry their ow…"]:::resolved
     REQ_5_3_4["REQ-5.3.4<br/>A glossary term the agent infers enters as assu…"]:::assumed
+    REQ_5_3_5["REQ-5.3.5<br/>A correction changes only what it names; the hu…"]:::stated
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
     REQ_5 --> REQ_5_1
     REQ_5_1 --> REQ_5_1_1
@@ -328,6 +329,7 @@ flowchart LR
     REQ_5_3 --> REQ_5_3_2
     REQ_5_3 --> REQ_5_3_3
     REQ_5_3 --> REQ_5_3_4
+    REQ_5_3 --> REQ_5_3_5
     REQ_5 --> REQ_5_4
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
@@ -621,7 +623,8 @@ REQ-5             Terms and certainty are modeled, never hidden                 
 │  ├─ REQ-5.3.1   Stated items are always verbatim quotes collected from the conversation   stated    · unrefined
 │  ├─ REQ-5.3.2   Resolved only on the human's explicit agreement; tacit approval never c…  stated    · unrefined
 │  ├─ REQ-5.3.3   One state per node; sections may carry their own marker and may be expa…  resolved  · unrefined
-│  └─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
+│  ├─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
+│  └─ REQ-5.3.5   A correction changes only what it names; the human's reasons never ente…  stated    · unrefined
 └─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
 REQ-6             The canon is plain files that existing tools already render               stated    · unrefined
 ├─ REQ-6.1        Canon stored as Markdown with front-matter, in a folder tree mirroring …  stated    · unrefined
@@ -718,4 +721,6 @@ Decisions
   DEC-008         The session context fits Claude Code's 10,000-character hook limit by shallowing the tree, never by dropping the rules  assumed  origin: obstacle
   DEC-009         The adopt skill was rewritten top-down after its first run asked the human for file provenance  assumed  origin: misread
   DEC-010         Skills and the injected rules follow the published skill-authoring guidance, and the rules stay short  assumed
+  DEC-011         The Valley test sessions run on Opus, not Fable  stated
+  DEC-012         Skill examples never come from the project the skill is being tested on  assumed  origin: side-effect
 ```

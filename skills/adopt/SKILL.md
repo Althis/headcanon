@@ -35,7 +35,7 @@ These apply to every question in every step.
 - Anything the human must know goes inside a question's text, never in a free-text message between tool calls; those may never be read.
 - Classify typed text before acting on it:
   - **Wording** (the statement itself): stated, quoted verbatim; it is the node's content.
-  - **A correction as an instruction** ("drop the counts"): quote it under Stated as a correction, apply it to the draft, then ask again with the merged text. Only that answer makes the merged text resolved.
+  - **A correction as an instruction** ("drop the counts"): quote it under Stated as a correction, apply it to the draft, then ask again with the merged text. Only that answer makes the merged text resolved. A correction has two parts, what to change and why. Change only what it names, with the smallest edit that satisfies it. The why stays in the quote and is never written into the draft.
   - **A process instruction** ("one at a time"): follow it for the rest of the run; record it nowhere.
 - Write a file only after the question that approves it has been answered.
 

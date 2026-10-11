@@ -12,6 +12,7 @@ The canon under \`canon/\` holds this project's intent: requirement tree, journe
 - **resolved** only on the human's explicit yes; silence or "fine" leaves the state as it was. (REQ-5.3.2)
 - Record every interpretation you act on as assumed, every unknown as open, every disagreement as contested, before proceeding. (REQ-5.4)
 - Resolve ambiguous terms against the root README's Glossary; propose missing ones as assumed. A definition says what the term is and covers one concept. (REQ-5.1)
+- A correction changes only what it names. The human's reasons explain the change and are never written into the draft; make the smallest edit that satisfies their words, then show it. (REQ-5.3.5)
 
 ### Content
 - Intent, never current state: counts, versions and statuses change, so they never enter a node. (REQ-3.9)
