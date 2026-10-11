@@ -84,7 +84,7 @@ Principles are direction: tone, taste, values, ways of working. A "never" the hu
 
 Domains come from two sources, in this order, and artifacts are not one of them:
 
-1. **The premise.** What distinct areas must exist for this product to operate? A game that ships its own engine and in-game editor needs content, engine, editor. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access.
+1. **The premise.** What distinct areas must exist for this product to operate? A desktop app that turns bank statements into tax reports needs statement import, transaction categorization, report generation. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access.
 2. **The kind of project.** Every software project needs documentation and verification regardless of premise. Propose those too, with "software project" as source.
 
 Then scan the threads for areas the artifacts treat as their own that you missed. Propose two to six premise domains plus the project-kind ones: `REQ-n`, a plain title, one line saying what the domain must do and why the premise needs it. Multi-select, one by one, "anything missing?".
@@ -121,21 +121,21 @@ List the domains with their capabilities; the open capabilities and domains; the
 
 <example>
 Domain question, plain words, one line each, sources named:
-"DOMAINS. For The Valley to operate, these areas must exist. Select every one to keep.
-REQ-1 Game content: the world, characters, scenes and prose the player experiences. (premise)
-REQ-2 Game engine: runs the content, keeps state, resolves rules. (premise)
-REQ-3 Editor: lets a creator author and play content without code. (premise)
+"Step 6 of 11: domains. For Ledgerline to operate, these areas must exist. Selected means approved as written; unselected items are asked about next.
+REQ-1 Statement import: bank statements in any common format become transactions. (premise)
+REQ-2 Categorization: every transaction lands in a tax category, by rule or by hand. (premise)
+REQ-3 Reporting: the categorized year becomes the forms an accountant needs. (premise)
 REQ-4 Documentation: how the project records what it is and why. (software project)
-REQ-5 Verification: how the project shows its content and code do what is intended. (software project)
+REQ-5 Verification: how the project shows its code does what is intended. (software project)
 To correct or rewrite one, type in Other."
 </example>
 
 <example>
 Typed correction handled as an instruction, then re-asked:
-Human types: "Don't mention the questline counts."
-Agent: quotes that line under Stated as a correction, removes the counts from the draft, and asks: "Merged text: 'The Valley is an explorable open world of areas, locations and sub-locations, with NPCs, passing time and questlines that link to one another.' Approve as written / Drop. To correct, type in Other."
+Human types: "Don't mention how many banks we support."
+Agent: quotes that line under Stated as a correction, removes the count from the draft, and asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop. To correct, type in Other."
 </example>
 
 <example>
-Glossary entries. Wrong: "Effect: a layered modifier on computed stats; a trait is a permanent base-layer effect. NOT a direct write." Right: two entries. "Effect: a layered modifier (base, buff, equipment) on computed stats, constants and resistances." "Trait: a permanent characteristic of a character, applied as a base-layer effect."
+Glossary entries. Wrong: "Category: a label on a transaction; a rule is a saved category assignment. NOT a tag." Right: two entries. "Category: a label that places a transaction on one line of the tax report." "Rule: a saved condition that assigns a category to every transaction matching it."
 </example>
