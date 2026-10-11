@@ -37,6 +37,7 @@ flowchart LR
     REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
     REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
     REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
+    REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
     REQ_4["REQ-4<br/>User journeys are first-class intent records"]:::stated
     REQ_4_1["REQ-4.1<br/>User journeys are intent records, not tests, ke…"]:::stated
     REQ_4_2["REQ-4.2<br/>Journeys are decision graphs whose steps link m…"]:::stated
@@ -132,6 +133,7 @@ flowchart LR
     REQ_3 --> REQ_3_8
     REQ_3 --> REQ_3_9
     REQ_3 --> REQ_3_10
+    REQ_3 --> REQ_3_11
     REQ_4 --> REQ_4_1
     REQ_4 --> REQ_4_2
     REQ_4 --> REQ_4_3
@@ -270,6 +272,7 @@ flowchart LR
     REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
     REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
     REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
+    REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
     REQ_3 --> REQ_3_1
     REQ_3 --> REQ_3_2
     REQ_3 --> REQ_3_3
@@ -281,6 +284,7 @@ flowchart LR
     REQ_3 --> REQ_3_8
     REQ_3 --> REQ_3_9
     REQ_3 --> REQ_3_10
+    REQ_3 --> REQ_3_11
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -319,7 +323,6 @@ flowchart LR
     REQ_5_3_2["REQ-5.3.2<br/>Resolved only on the human's explicit agreement…"]:::stated
     REQ_5_3_3["REQ-5.3.3<br/>One state per node; sections may carry their ow…"]:::resolved
     REQ_5_3_4["REQ-5.3.4<br/>A glossary term the agent infers enters as assu…"]:::assumed
-    REQ_5_3_5["REQ-5.3.5<br/>A correction changes only what it names; the hu…"]:::stated
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
     REQ_5 --> REQ_5_1
     REQ_5_1 --> REQ_5_1_1
@@ -329,7 +332,6 @@ flowchart LR
     REQ_5_3 --> REQ_5_3_2
     REQ_5_3 --> REQ_5_3_3
     REQ_5_3 --> REQ_5_3_4
-    REQ_5_3 --> REQ_5_3_5
     REQ_5 --> REQ_5_4
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
@@ -610,7 +612,8 @@ REQ-3             Intent is a tree of requirements refined to binary leaves     
 ├─ REQ-3.7        Principles are a layer above the tree: tested against requirements by a…  stated    · unrefined
 ├─ REQ-3.8        The top of the tree is derived from the premise and from what every sof…  stated    · unrefined
 ├─ REQ-3.9        The canon records intent, never current state                             stated    · unrefined
-└─ REQ-3.10       The upper layers of the tree are written in plain words                   stated    · unrefined
+├─ REQ-3.10       The upper layers of the tree are written in plain words                   stated    · unrefined
+└─ REQ-3.11       Every canon entry reads as a dictionary or encyclopedia entry, complete…  stated    · unrefined
 REQ-4             User journeys are first-class intent records                              stated    · unrefined
 ├─ REQ-4.1        User journeys are intent records, not tests, kept separate from the tree  stated    · unrefined
 ├─ REQ-4.2        Journeys are decision graphs whose steps link many-to-many to requireme…  stated    · unrefined
@@ -623,8 +626,7 @@ REQ-5             Terms and certainty are modeled, never hidden                 
 │  ├─ REQ-5.3.1   Stated items are always verbatim quotes collected from the conversation   stated    · unrefined
 │  ├─ REQ-5.3.2   Resolved only on the human's explicit agreement; tacit approval never c…  stated    · unrefined
 │  ├─ REQ-5.3.3   One state per node; sections may carry their own marker and may be expa…  resolved  · unrefined
-│  ├─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
-│  └─ REQ-5.3.5   A correction changes only what it names; the human's reasons never ente…  stated    · unrefined
+│  └─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
 └─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
 REQ-6             The canon is plain files that existing tools already render               stated    · unrefined
 ├─ REQ-6.1        Canon stored as Markdown with front-matter, in a folder tree mirroring …  stated    · unrefined

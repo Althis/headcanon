@@ -35,6 +35,8 @@ List the operations, one per line:
 
 Before showing the request, judge every created or updated requirement against the principles in the root README (`## Principles`, `PRN-n` entries). For each one that drifts from a principle, add a line to the request naming the principle and why, and offer the human the choice: amend the requirement, amend the principle (an intent change in its own right), or reject the item. Drift is never applied silently.
 
+Every entry you write reads as a dictionary or encyclopedia entry: concise, about what the thing is, complete for a reader who never saw this conversation. The human's remarks, reasons and corrections from the conversation are not content; only wording they typed is quoted, under Stated.
+
 Show the whole request to the human. Ask them to approve, amend or drop items. A node whose state you set to `stated` must contain their quote; if you cannot quote, it is `assumed`.
 
 ## 4. Apply only after an explicit yes

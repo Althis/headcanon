@@ -24,7 +24,7 @@ For each item:
 ## 3. Record the outcome
 
 - **Explicit agreement** ("yes", "correct", "approved", "that's it"): set `state: resolved`, add `## Resolution` with the human's words quoted verbatim and the date. If they agreed with a correction, quote the correction under `## Stated` and keep your original reading under `## Intent [assumed]` only if it still adds something.
-- **Correction without full agreement**: change only what the correction names, with the smallest edit that satisfies it; the reasons they give stay in the quote and never enter the text. Quote their words as stated, and keep `state: assumed` for whatever remains yours.
+- **Correction without full agreement**: apply exactly what the correction names and show the result. The entry must still read as an encyclopedia entry for someone who never saw this conversation, so neither the correction nor its reasons enter the text. If they typed the wording itself, quote it as stated; otherwise keep `state: assumed` for whatever remains yours.
 - **Disagreement**: set `state: contested`, add `## Contested` with both positions in two short paragraphs. Do not argue past one round; record and move on.
 - **"Not now" or "I don't know"**: keep or set `state: open`, add a line under `## Open` with the date and what would settle it.
 - **Tacit approval never counts.** If the human skips an item, says "fine" without engaging, or changes the subject, leave the state as it was.

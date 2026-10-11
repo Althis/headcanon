@@ -8,6 +8,7 @@ Formats the adopt skill writes. Use the Write tool, one file per call; shell her
 2. Requirement node
 3. Adoption scope decision
 4. Question shapes
+5. Entry quality: what not to write
 
 ## 1. Root README (`canon/README.md`)
 
@@ -118,3 +119,42 @@ List first pass:
 ```
 
 Keep four options or fewer per question; split longer lists across questions in the same call.
+
+## 5. Entry quality: what not to write
+
+An entry is read later, by someone who was not in this conversation, the way a dictionary or encyclopedia entry is read. It says what the thing is, concisely, and nothing else. Each example below is wrong, with the reason, then the entry as it should be. The product is invented.
+
+**Correction history inside the entry.**
+Wrong: "Statement import: reads CSV and OFX statements from a bank (PDF statements were removed after the owner said they are out of scope)."
+Why: the parenthesis is a story about how the entry changed. A reader wants the definition, and the history is already in git.
+Right: "Statement import: reads CSV and OFX statements from a bank and turns each line into a transaction."
+
+**The reason given for a correction, written as content.**
+Wrong: "Category: a label that places a transaction on one line of the tax report. This is a bookkeeping rule, and asking for an exception does not change it."
+Why: the second sentence is the human's explanation of why an earlier draft was wrong. It argues with a draft the reader never saw.
+Right: "Category: a label that places a transaction on one line of the tax report."
+
+**A "not" clause.**
+Wrong: "Rule: a saved condition that assigns a category to matching transactions. Not a tag, and not a one-off edit."
+Why: the reader learns two neighbors and still has to infer the thing. Exclusions belong only in a Not this section, where they are read as exclusions.
+Right: "Rule: a saved condition that assigns a category to every transaction matching it."
+
+**Dependence on the conversation.**
+Wrong: "Reconciliation: as discussed above, matches the same transaction across two statements."
+Why: "as discussed above" points at nothing the reader has.
+Right: "Reconciliation: finds the same transaction in two statements and keeps one record of it."
+
+**Current state as definition.**
+Wrong: "Reporting: produces the forms an accountant needs; three report types as of version 0.4."
+Why: the count and the version describe one day. Written here, they become a requirement to have exactly three.
+Right: "Reporting: turns a categorized year into the forms an accountant needs."
+
+**Two concepts in one entry.**
+Wrong: "Rule: a saved condition that assigns a category; a filter is a rule that is not saved."
+Why: the entry defines a second term in passing, and a reader looking up Filter never finds it.
+Right: two entries. "Rule: a saved condition that assigns a category to every transaction matching it." "Filter: a condition applied once to the transactions in view."
+
+**Rationale inside the entry.**
+Wrong: "Duplicate detection: flags a transaction that appears twice, which matters because duplicates caused wrong totals in the first release."
+Why: the second clause is a reason. Reasons live in decision records, where they can be read with their context.
+Right: "Duplicate detection: flags a transaction that appears more than once in the imported statements."

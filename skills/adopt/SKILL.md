@@ -35,7 +35,7 @@ These apply to every question in every step.
 - Anything the human must know goes inside a question's text, never in a free-text message between tool calls; those may never be read.
 - Classify typed text before acting on it:
   - **Wording** (the statement itself): stated, quoted verbatim; it is the node's content.
-  - **A correction as an instruction** ("drop the counts"): quote it under Stated as a correction, apply it to the draft, then ask again with the merged text. Only that answer makes the merged text resolved. A correction has two parts, what to change and why. Change only what it names, with the smallest edit that satisfies it. The why stays in the quote and is never written into the draft.
+  - **A correction as an instruction** ("drop the counts"): apply exactly what it names to the draft, then ask again with the merged text. Only that answer makes the merged text resolved. Neither the correction nor the reasons given for it are recorded in the entry; the entry reads as if the conversation never happened.
   - **A process instruction** ("one at a time"): follow it for the rest of the run; record it nowhere.
 - Write a file only after the question that approves it has been answered.
 
@@ -73,7 +73,7 @@ Every later question starts with its step name and number ("Step 6 of 11: domain
 - Intent only. Counts, versions and statuses describe today and never enter a node.
 - Domains and capabilities in plain words. Mechanisms belong in requirements, using glossary terms.
 - One idea per node. A node that needs "and" twice is two nodes.
-- A glossary definition says what the term is, covers one concept, and has no "not" clause. Add a disambiguation only when the human asks for one.
+- Every entry, whether a node's intent, a glossary definition, a principle or a non-goal, reads as a dictionary or encyclopedia entry: concise, about what the thing is, complete for a reader who never saw this conversation, one concept per entry. No correction history, no reasons, no "not" clauses; exclusions live only in a Not this section. Wrong examples and why they are wrong: reference.md, section 5.
 - Threads: before each step, scan the thread list for threads about that step, use them, mark them used. Unused threads feed step 9.
 
 ## Steps
