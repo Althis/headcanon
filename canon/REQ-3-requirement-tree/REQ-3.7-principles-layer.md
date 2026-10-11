@@ -23,11 +23,17 @@ Source: Claude Code session, 2026-10-11, correcting the agent's reading that pri
 
 Source: Claude Code session, 2026-10-11.
 
+> Nevers should primarily be principles, because usually they define a DIRECTION the user doesn't want to go towards. From there, it could be made into a non-goal (not have any underage content in the game), or a requirement(all content of the game is tested, and LLM-judge agrees nothing is underage content).
+
+Source: Claude Code session, 2026-10-11, answering where the Nevers belong.
+
 ## Intent [assumed]
 
 The canon has two layers. The tree holds requirements: goals that can be refined into leaves a test or a human answers yes or no. Verifiability is part of the definition, so nodes carry no section about it; the agent names a check to itself before proposing a requirement, and refuses to propose one it cannot check. Tests are proposed in the requirements-then-tests step (REQ-7.1), not written on the node. Above the tree sit principles: the direction the project takes, such as tone, taste, values and ways of working. Principles live in the root README under a Principles section, each with an ID (`PRN-1`, `PRN-2`, …), a statement and a source.
 
 Principles are tested against requirements, not code. Whenever a requirement is created or changed, a model judge checks it against the principles and reports, with a justification, whether it drifts from any of them. In the session, the agent does this when it proposes a change request and flags any tension before the human approves. In CI, Writ's intent check does it independently (REQ-9.18). Drift is a negotiation: the human either approves it, which is an intent change to the principle or the requirement recorded in the history, or rejects the change. A principle therefore never shows as untested; it shows as upheld or drifting.
+
+A "never" the human states is first a principle, since it names a direction the project does not take. From it the human may derive a non-goal in the root README ("no underage content in the game") or a requirement in the tree ("all content is tested, and a model judge agrees nothing is underage"), and the principle is what both are judged against.
 
 ## Not this [assumed]
 
