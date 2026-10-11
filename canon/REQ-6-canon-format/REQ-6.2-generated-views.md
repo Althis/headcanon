@@ -4,7 +4,7 @@ parent: REQ-6
 title: "Generated views: a text tree inside the agent, a Mermaid index on GitHub"
 state: stated
 source: "docs/design-brief-v0.md:74"
-files: [packages/canon/src/tree.ts]
+files: [packages/canon/src/tree.ts, packages/canon/src/render.ts]
 ---
 
 # Generated views: a text tree inside the agent, a Mermaid index on GitHub

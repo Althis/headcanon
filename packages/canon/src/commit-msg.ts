@@ -1,0 +1,129 @@
+import type { Canon } from "./types.js";
+
+export const COMMIT_TYPES = ["feat", "fix", "docs", "chore", "refactor", "test", "build", "ci", "perf", "style", "revert"] as const;
+
+export interface CommitCheck {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  header: string | undefined;
+  trailers: Record<string, string[]>;
+}
+
+const HEADER = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<bang>!)?: (?<subject>\S.*)$/;
+const TRAILER = /^(?<key>[A-Za-z][A-Za-z0-9-]*): (?<value>.*)$/;
+const INTENT_ID = /^(REQ|JRN|DEC)-[0-9][0-9.]*(?:\/S[0-9]+)?$/;
+const CHANGE = /^(?<op>create|update|delete) (?<id>ROOT|(?:REQ|JRN|DEC|TERM)-\S+)$/;
+
+/** Strip git's comment lines and anything after a scissors line. */
+export function cleanMessage(raw: string): string {
+  const lines: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    if (/^# -{8,} >8 -{8,}$/.test(line)) break;
+    if (line.startsWith("#")) continue;
+    lines.push(line);
+  }
+  return lines.join("\n").trim();
+}
+
+/** The final paragraph, when every line is `Key: value`, is the trailer block. */
+export function parseTrailers(message: string): Record<string, string[]> {
+  const paragraphs = message.split(/\n\s*\n/);
+  const last = paragraphs[paragraphs.length - 1] ?? "";
+  const lines = last.split("\n").filter((l) => l.trim());
+  if (lines.length === 0 || !lines.every((l) => TRAILER.test(l))) return {};
+  const out: Record<string, string[]> = {};
+  for (const l of lines) {
+    const m = TRAILER.exec(l)!;
+    (out[m.groups!["key"]!] ??= []).push(m.groups!["value"]!.trim());
+  }
+  return out;
+}
+
+/**
+ * Validate a commit message against the commit format (REQ-8.5, REQ-8.5.1).
+ * With a canon, every referenced ID must exist. Merge, fixup and squash messages pass untouched.
+ */
+export function checkCommitMessage(raw: string, canon?: Canon): CommitCheck {
+  const message = cleanMessage(raw);
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const header = message.split("\n")[0];
+  const result = (trailers: Record<string, string[]>): CommitCheck => ({ ok: errors.length === 0, errors, warnings, header, trailers });
+
+  if (!header) {
+    errors.push("empty commit message");
+    return result({});
+  }
+  if (/^(Merge |fixup! |squash! )/.test(header)) return result({});
+
+  const h = HEADER.exec(header);
+  if (!h) errors.push(`header must follow Conventional Commits, e.g. "feat(scope): subject"; got "${header}"`);
+  else if (!(COMMIT_TYPES as readonly string[]).includes(h.groups!["type"]!))
+    errors.push(`unknown commit type "${h.groups!["type"]}"; use one of ${COMMIT_TYPES.join(", ")}`);
+  if (header.length > 100) warnings.push("header is longer than 100 characters");
+
+  const trailers = parseTrailers(message);
+  const known = (id: string) => {
+    if (!canon) return true;
+    const base = id.split("/")[0]!;
+    if (base === "ROOT") return canon.root !== undefined;
+    if (base.startsWith("REQ-")) return base in canon.nodes;
+    if (base.startsWith("JRN-")) {
+      const j = canon.journeys.find((x) => x.id === base);
+      if (!j) return false;
+      const step = id.split("/")[1];
+      return !step || j.steps.some((s) => s.id === step);
+    }
+    if (base.startsWith("DEC-")) return canon.decisions.some((d) => d.id === base);
+    if (base.startsWith("TERM-")) return canon.terms.some((t) => t.id === base);
+    return false;
+  };
+
+  const intent = trailers["Intent"];
+  if (!intent || intent.length === 0) {
+    errors.push('missing "Intent:" trailer; list the requirement or journey IDs this commit serves, or "none (reason)"');
+  } else {
+    for (const value of intent) {
+      if (/^none\b/.test(value)) {
+        if (!/^none\s*[(:-]\s*\S/.test(value) && value.trim() !== "none") warnings.push(`Intent: none should carry a reason, e.g. "none (tooling only)"`);
+        if (value.trim() === "none") errors.push('"Intent: none" needs a reason in parentheses');
+        continue;
+      }
+      for (const id of value.split(/[,\s]+/).filter(Boolean)) {
+        if (!INTENT_ID.test(id)) errors.push(`Intent value "${id}" is not a REQ, JRN or DEC id`);
+        else if (!known(id)) errors.push(`Intent ${id} does not exist in the canon`);
+      }
+    }
+  }
+
+  const changes = trailers["Intent-Change"] ?? [];
+  for (const value of changes) {
+    const m = CHANGE.exec(value);
+    if (!m) {
+      errors.push(`Intent-Change "${value}" must be "create|update|delete <ID>", one per trailer`);
+      continue;
+    }
+    if (!known(m.groups!["id"]!)) {
+      const op = m.groups!["op"];
+      errors.push(op === "delete"
+        ? `Intent-Change deletes ${m.groups!["id"]}, which is not in the canon (a delete retires the node; keep its file)`
+        : `Intent-Change ${op}s ${m.groups!["id"]}, but no canon file carries that id`);
+    }
+  }
+  for (const value of trailers["Decision"] ?? []) {
+    if (!/^DEC-\d+$/.test(value)) errors.push(`Decision "${value}" is not a DEC id`);
+    else if (!known(value)) errors.push(`Decision ${value} does not exist in the canon`);
+  }
+  for (const value of trailers["Test-Change"] ?? []) {
+    if (!value.trim()) errors.push("Test-Change trailer is empty; cite the test and the intent change it relies on");
+  }
+
+  const needsApproval = changes.length > 0 || (trailers["Test-Change"]?.length ?? 0) > 0;
+  const approved = trailers["Approved-By"] ?? [];
+  if (needsApproval && approved.length === 0)
+    errors.push('an Intent-Change or Test-Change needs an "Approved-By:" trailer: the approving human, or "pending (how approval is being sought)"');
+  for (const value of approved) if (!value.trim()) errors.push("Approved-By trailer is empty");
+
+  return result(trailers);
+}
