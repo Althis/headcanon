@@ -139,14 +139,14 @@ intents: [ROOT, REQ-1, REQ-2]
 Single draft. The draft reads as prose; footnote markers sit at the end of sentences and the sources are listed once at the end:
 
 ```json
-{"questions":[{"header":"<Layer>","question":"<Layer label>: <item>.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1] It runs on the owner's own computer and keeps every file it was given. [2]\"\n\nSources: [1] README.md:3, [2] docs/design.md:40-44\n\nTo correct or rewrite, type in Other.","multiSelect":false,
+{"questions":[{"header":"<Layer>","question":"<Layer label>: <item>.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1] It runs on the owner's own computer and keeps every file it was given. [2]\"\n\nSources: [1] README.md:3, [2] docs/design.md:40-44","multiSelect":false,
   "options":[{"label":"Approve as written","description":"Enters as resolved."},{"label":"Drop","description":"Left out; recorded in DEC-001 if it came from an artifact."}]}]}
 ```
 
 List first pass. Each option carries its draft as the description, ending with its footnote; the body carries the label, the instruction and the Sources line, so a draft appears once:
 
 ```json
-{"questions":[{"header":"<Layer>","question":"<Layer label>. Tick every item that is right as written; unticked items come back one by one.\n\nSources: [1] docs/design.md:12-15, [2] conversation, <date>\n\nTo correct or rewrite one, type in Other.","multiSelect":true,
+{"questions":[{"header":"<Layer>","question":"<Layer label>. Tick every item that is right as written; unticked items come back one by one.\n\nSources: [1] docs/design.md:12-15, [2] conversation, <date>","multiSelect":true,
   "options":[{"label":"PRN-1 Keep the original","description":"<paragraph> [1]"},{"label":"PRN-2 Explain every number","description":"<paragraph> [2]"}]}]}
 ```
 
@@ -205,5 +205,5 @@ When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_
 Example call:
 
 ```json
-{"header":"Premise (1 of 5)","question":"Premise (1 of 5): what it is.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1]\"\n\nSources: [1] README.md:3\n\nTo correct or rewrite, type in Other.","nodeId":"ROOT","terms":[{"term":"OFX","definition":"a file format banks use to export statements"}]}
+{"header":"Premise (1 of 5)","question":"Premise (1 of 5): what it is.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1]\"\n\nSources: [1] README.md:3","nodeId":"ROOT","terms":[{"term":"OFX","definition":"a file format banks use to export statements"}]}
 ```
