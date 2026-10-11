@@ -1,14 +1,41 @@
 # Adopt: reference
 
-Formats the adopt skill writes. Use the Write tool, one file per call; shell heredocs fail on quoting.
+Text the adopt skill pastes and formats it writes. Use the Write tool, one file per call; shell heredocs fail on quoting.
 
 ## Contents
 
+0. The briefing
 1. Root README
 2. Requirement node
 3. Adoption scope decision
 4. Question shapes
 5. Entry quality: what not to write
+
+## 0. The briefing
+
+The first question's text begins with this block, verbatim, followed by the draft.
+
+```
+Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
+
+We build it in five layers, each approved before the next:
+- Premise: what the project is, its purpose, what it is not, and its vocabulary.
+- Principles: the direction it follows. Every requirement is later judged against them.
+- Domains: the areas the project must cover to operate at all.
+- Capabilities: what each domain must be able to do to be complete.
+- Requirements: the concrete, checkable goals under each capability.
+Then: anything from your documents that did not fit.
+
+How you decide on each draft I show:
+- Approve as written: my draft stands, recorded as approved by you.
+- Drop: it is left out.
+- Other: type your own wording to replace mine, or a correction, and I show the corrected draft again. Only what you type is recorded as your words.
+
+In a list, tick every item that is right as written. Each unticked item comes back as its own question.
+Nothing is saved until you approve it.
+
+Premise (1 of 5): what the project is.
+```
 
 ## 1. Root README (`canon/README.md`)
 
