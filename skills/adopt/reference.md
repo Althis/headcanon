@@ -10,6 +10,7 @@ Text the adopt skill pastes and formats it writes. Use the Write tool, one file 
 3. Adoption scope decision
 4. Question shapes
 5. Entry quality: what not to write
+6. Asking through the page
 
 ## 0. The briefing
 
@@ -189,3 +190,20 @@ Right: two entries. "Rule: a saved condition that assigns a category to every tr
 Wrong: "Duplicate detection: flags a transaction that appears twice, which matters because duplicates caused wrong totals in the first release."
 Why: the second clause is a reason. Reasons live in decision records, where they can be read with their context.
 Right: "Duplicate detection: flags a transaction that appears more than once in the imported statements."
+
+## 6. Asking through the page
+
+When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_changes` and `headcanon_open` are present, the human answers in the HeadCanon viewer instead of the terminal. The question content is unchanged; only the channel is.
+
+1. Build the question text exactly as section 4 shows: layer label, the draft as prose with footnotes, the Sources line, "To correct or rewrite, type in Other."
+2. Run `HC terms --text "<draft>" --json` and give every listed word a one-sentence guessed definition. Pass them as `terms`. The page marks each one; the human keeps it (it enters the glossary at once) or drops it and names a replacement. The answer's `terms` list says what they decided; reword a dropped term with its replacement before writing anything.
+3. Call `headcanon_ask` with `header`, `question`, `options` (omit for Approve as written / Drop; one option per item with `multiSelect: true` for a list), `nodeId` when the question is about an existing node, and `terms`. On the first call the page opens in the browser.
+4. The result is the answer, or `{pending: true, questionId}`. When pending, call `headcanon_wait` with the `questionId` and keep calling it until the answer arrives. Never give up on a pending question and never re-ask it.
+5. Read the answer like a terminal answer: `selected` holds the chosen labels; `other` holds typed text, which is wording, a correction or a process instruction as the skill defines.
+6. Before each layer, call `headcanon_changes` with the last cursor. `node-edited` and `node-created` entries are the human's own wording, stated; `term-enshrined` and `term-dropped` update the glossary you work from; `message` is free text to answer or follow; `refine-request` names the branch the human wants decomposed next, which takes precedence over your own order.
+
+Example call:
+
+```json
+{"header":"Premise (1 of 5)","question":"Premise (1 of 5): what it is.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1]\"\n\nSources: [1] README.md:3\n\nTo correct or rewrite, type in Other.","nodeId":"ROOT","terms":[{"term":"OFX","definition":"a file format banks use to export statements"}]}
+```

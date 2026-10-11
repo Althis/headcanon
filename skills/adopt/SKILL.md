@@ -8,7 +8,7 @@ when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The briefing, formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 2.
 
-Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The human decides every draft through AskUserQuestion. You read the repository; they judge drafts, never files.
+Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The human decides every draft through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. You read the repository; they judge drafts, never files.
 
 ## Checklist
 
@@ -33,7 +33,7 @@ What the human approved or typed in the layer above is the primary source for th
 
 When a thread disagrees with an approval or with a draft derived from one: do not settle it and do not start the next layer. Ask "The document says A [1]. What you approved says B. Which stands?" with options **Keep what I approved** and **The document is right**; a typed third version is applied and asked again. Record the outcome, and list an overruled document in DEC-001 as superseded on that point.
 
-Read only this repository, reference.md and the human's answers. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent.
+Read only this repository, reference.md and the human's answers. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent. With the viewer's tools present, call `headcanon_changes` before each layer: wording the human typed in the page is stated, and a refine-request names the branch to decompose next.
 
 ## Asking
 

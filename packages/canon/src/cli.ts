@@ -5,6 +5,8 @@ import { checkCommitMessage, gitAppendOnlyFiles } from "./commit-msg.js";
 import { execFileSync } from "node:child_process";
 import { relative } from "node:path";
 import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
+import { runMcp } from "./mcp.js";
+import { detectTerms } from "./terms.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { loadCanon } from "./load.js";
@@ -25,10 +27,14 @@ Commands
   review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
   session-start  Print the session context as a Claude Code SessionStart hook result.
   ui             Serve the local viewer.
+  mcp            Serve the MCP tools for Claude Code over stdio (starts the viewer when none runs).
+  terms          List candidate jargon in a draft (--text or stdin) that the glossary does not define.
 
 Options
-  --canon <dir>   Canon directory (default: ./canon)
-  --port <n>      Port for ui (default: 4317)
+  --canon <dir>   Canon directory (default: ./canon, or $CLAUDE_PROJECT_DIR/canon for mcp)
+  --port <n>      Port for ui and mcp (default: 4317)
+  --no-open       For mcp: do not open the browser on the first question
+  --text <draft>  For terms: the draft to scan
   --out <file>    Output file for render
   --json          Machine-readable output for check and attention
   --force         For init: replace a commit-msg hook HeadCanon did not install
@@ -47,10 +53,12 @@ interface Args {
   json: boolean;
   force: boolean;
   depth: number | undefined;
+  open: boolean;
+  text: string | undefined;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined };
+  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined, open: true, text: undefined };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]!;
     const next = () => argv[++i];
@@ -64,6 +72,9 @@ function parseArgs(argv: string[]): Args {
     else if (x.startsWith("--depth=")) a.depth = Number(x.slice(8));
     else if (x === "--json") a.json = true;
     else if (x === "--force") a.force = true;
+    else if (x === "--no-open") a.open = false;
+    else if (x === "--text") a.text = next();
+    else if (x.startsWith("--text=")) a.text = x.slice(7);
     else if (x.startsWith("-")) process.stderr.write(`ignoring unknown option ${x}\n`);
     else if (!a.command) a.command = x;
     else a.positional.push(x);
@@ -110,6 +121,23 @@ export async function main(argv: string[]): Promise<number> {
       context = `# HeadCanon\n\nThe canon at ${canonDir} could not be read: ${e instanceof Error ? e.message : String(e)}\nRun \`headcanon check\` and fix the file it names before relying on the canon.`;
     }
     out(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } }) + "\n");
+    return 0;
+  }
+
+  // mcp runs for the whole session; the canon is the project's, which Claude Code names in the environment.
+  if (args.command === "mcp") {
+    const projectDir = process.env["CLAUDE_PROJECT_DIR"] || process.cwd();
+    const canonDir = resolve(args.canon ?? resolve(projectDir, "canon"));
+    await runMcp({ canonDir, port: args.port, openBrowser: args.open });
+    return 0;
+  }
+
+  if (args.command === "terms") {
+    const draft = args.text ?? (await readStdin());
+    const glossaryDir = resolve(args.canon ?? "canon");
+    const glossary = existsSync(glossaryDir) ? loadCanon(glossaryDir).terms : [];
+    const found = detectTerms(draft, glossary);
+    out(args.json ? JSON.stringify(found) + "\n" : found.length ? found.join("\n") + "\n" : "");
     return 0;
   }
 

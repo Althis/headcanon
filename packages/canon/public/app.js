@@ -209,6 +209,12 @@ function nodeDetail(id) {
       ${n.baseline ? `<dt>Baseline</dt><dd>${esc(n.baseline)}</dd>` : ""}
       ${sub.length ? `<dt>Subtree</dt><dd>${sub.length} nodes ${bar(countBy(sub), sub.length)}</dd>` : ""}
     </dl>
+    <div class="row node-actions">
+      <button class="btn small" data-refine="${esc(id)}" title="Ask the session to define this branch next">Define this branch</button>
+      <button class="btn small" data-edit="${esc(id)}" title="Edit this node's file">Edit</button>
+      <button class="btn small" data-newchild="${esc(id)}" title="Add a child node under this one">New child</button>
+    </div>
+    <div id="node-editor" class="editor"></div>
     <div class="body">${markSections(html)}</div>
     <div class="related">
       ${kids ? `<h3>Children</h3><ul>${kids}</ul>` : ""}
@@ -335,6 +341,7 @@ function afterRender(view) {
     for (const n of $main.querySelectorAll(".node")) n.addEventListener("click", () => { const id = n.dataset.id; let p = id; while (p) { ui.collapsed.delete(p); p = node(p)?.parent; } location.hash = `#/node/${id}`; });
     const sel = $main.querySelector(".node.selected");
     sel?.scrollIntoView({ block: "nearest" });
+    wireNodeActions();
   }
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
   if ((view === "journeys" || view === "journey") && window.mermaid) {
@@ -347,4 +354,161 @@ function afterRender(view) {
 document.getElementById("refresh").addEventListener("click", async () => { await load().catch(showError); render(); });
 window.addEventListener("hashchange", render);
 function showError(e) { $main.innerHTML = `<div class="card"><b>Could not load the canon.</b><pre>${esc(e.stack ?? e.message ?? e)}</pre></div>`; }
-load().then(render).catch(showError);
+
+// ---------------------------------------------------------------- node actions: define, edit, create
+async function post(url, body, method = "POST") {
+  const r = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `${r.status}`);
+  return j;
+}
+function wireNodeActions() {
+  const editor = $main.querySelector("#node-editor");
+  for (const b of $main.querySelectorAll("[data-refine]")) b.addEventListener("click", async () => {
+    await post("/api/refine", { id: b.dataset.refine }).catch(showToast);
+    showToast(`Asked the session to define ${b.dataset.refine} next.`);
+  });
+  for (const b of $main.querySelectorAll("[data-edit]")) b.addEventListener("click", async () => {
+    const id = b.dataset.edit;
+    const raw = await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json());
+    editor.innerHTML = `<p class="sub">Editing <span class="mono">canon/${esc(raw.path)}</span>. Keep the front-matter id.</p>
+      <textarea id="edit-text" rows="18">${esc(raw.text)}</textarea>
+      <div class="row"><button class="btn" id="edit-save">Save</button><button class="btn" id="edit-cancel">Cancel</button></div>`;
+    editor.querySelector("#edit-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.querySelector("#edit-save").addEventListener("click", async () => {
+      try { await post(`/api/node/${encodeURIComponent(id)}`, { text: editor.querySelector("#edit-text").value }, "PUT"); editor.innerHTML = ""; await load(); render(); showToast(`Saved ${id}; the session will read it.`); }
+      catch (e) { showToast(e); }
+    });
+  });
+  for (const b of $main.querySelectorAll("[data-newchild]")) b.addEventListener("click", () => {
+    const parent = b.dataset.newchild;
+    editor.innerHTML = `<p class="sub">New child under <span class="id">${esc(parent)}</span>. Your words are recorded as stated.</p>
+      <input id="new-title" placeholder="Title, in plain words" />
+      <textarea id="new-intent" rows="4" placeholder="What must hold, in your words (one or two sentences)"></textarea>
+      <div class="row"><button class="btn" id="new-create">Create</button><button class="btn" id="new-cancel">Cancel</button></div>`;
+    editor.querySelector("#new-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.querySelector("#new-create").addEventListener("click", async () => {
+      try {
+        const r = await post("/api/node", { parent, title: editor.querySelector("#new-title").value, intent: editor.querySelector("#new-intent").value });
+        await load(); location.hash = `#/node/${r.id}`; showToast(`Created ${r.id}; the session will read it.`);
+      } catch (e) { showToast(e); }
+    });
+  });
+}
+function showToast(msg) {
+  const li = document.createElement("li");
+  li.textContent = typeof msg === "string" ? msg : (msg.message || String(msg));
+  const list = document.getElementById("activity");
+  list.prepend(li);
+  while (list.children.length > 6) list.lastChild.remove();
+  openSession();
+}
+
+// ---------------------------------------------------------------- session panel: questions from the agent, jargon gate, focus, messages
+const $session = document.getElementById("session");
+const $question = document.getElementById("question");
+const $tooltip = document.getElementById("tooltip");
+let shownQuestionId = null, lastFocusSeq = 0, lastCursor = 0, termState = {};
+function openSession() { $session.classList.remove("collapsed"); document.getElementById("session-toggle").textContent = "Hide"; }
+document.getElementById("session-toggle").addEventListener("click", () => {
+  const collapsed = $session.classList.toggle("collapsed");
+  document.getElementById("session-toggle").textContent = collapsed ? "Show" : "Hide";
+});
+document.getElementById("msg-send").addEventListener("click", async () => {
+  const ta = document.getElementById("msg");
+  if (!ta.value.trim()) return;
+  await post("/api/message", { text: ta.value }).catch(showToast);
+  showToast(`Sent: ${ta.value.trim().slice(0, 80)}`);
+  ta.value = "";
+});
+async function pollSession() {
+  try {
+    const s = await fetch("/api/session", { cache: "no-store" }).then((r) => r.json());
+    const pill = document.getElementById("session-pending");
+    pill.textContent = s.pending; pill.hidden = s.pending === 0;
+    document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
+    if (s.focus && s.focus.seq !== lastFocusSeq) { lastFocusSeq = s.focus.seq; if (s.focus.id) location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`; }
+    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question); openSession(); }
+    if (!s.question && shownQuestionId) { shownQuestionId = null; $question.innerHTML = `<p class="muted">Answered. Waiting for the session's next step…</p>`; }
+    if (s.cursor !== lastCursor) { lastCursor = s.cursor; if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); } }
+  } catch (e) { /* server away; try again */ }
+  setTimeout(pollSession, 2000);
+}
+function renderQuestion(q) {
+  const opts = q.options.map((o, i) => `<label class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <b>${esc(o.label)}</b>${o.description ? ` <span class="muted">${esc(o.description)}</span>` : ""}</label>`).join("");
+  $question.innerHTML = `
+    <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}</div>
+    <div class="q-body body">${q.html}</div>
+    ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
+    <div class="opts">${opts}</div>
+    <textarea id="q-other" rows="3" placeholder="Other: your own wording, or a correction"></textarea>
+    <div class="row"><button class="btn" id="q-submit">Answer</button><span class="sub" id="q-hint"></span></div>`;
+  for (const span of $question.querySelectorAll(".jargon")) {
+    span.addEventListener("mouseenter", () => showTooltip(span, q));
+    span.addEventListener("click", (e) => { e.preventDefault(); showTooltip(span, q, true); });
+  }
+  $question.querySelector("#q-submit").addEventListener("click", () => submitAnswer(q));
+  updateSubmit(q);
+}
+function updateSubmit(q) {
+  const unresolved = q.terms.filter((t) => !termState[t.term.toLowerCase()]);
+  const btn = $question.querySelector("#q-submit"), hint = $question.querySelector("#q-hint");
+  if (!btn) return;
+  btn.disabled = unresolved.length > 0;
+  hint.textContent = unresolved.length ? `${unresolved.length} term${unresolved.length > 1 ? "s" : ""} to keep or drop first: ${unresolved.map((t) => t.term).join(", ")}` : "";
+  for (const span of $question.querySelectorAll(".jargon")) {
+    const st = termState[span.dataset.term.toLowerCase()];
+    span.classList.toggle("kept", st?.decision === "keep");
+    span.classList.toggle("dropped", st?.decision === "drop");
+    if (st?.decision === "drop" && st.replacement) span.title = `replaced by: ${st.replacement}`;
+  }
+}
+let tooltipPinned = false;
+function showTooltip(span, q, pinned = false) {
+  tooltipPinned = pinned || tooltipPinned && $tooltip.dataset.term === span.dataset.term;
+  $tooltip.dataset.term = span.dataset.term;
+  const term = span.dataset.term;
+  const guess = q.terms.find((t) => t.term.toLowerCase() === term.toLowerCase());
+  if (!guess) return;
+  const st = termState[term.toLowerCase()];
+  $tooltip.innerHTML = `<div class="tt-term">${esc(term)}</div><div class="tt-def">${esc(guess.definition)}</div>
+    ${st ? `<div class="sub">${st.decision === "keep" ? "In the glossary." : `Dropped${st.replacement ? `, use "${esc(st.replacement)}"` : ""}.`}</div>` : `
+    <div class="row"><button class="btn small ok" data-keep>✓ Keep, enshrine in the glossary</button><button class="btn small no" data-drop>✗ Drop</button></div>
+    <div class="tt-replace" hidden><input placeholder="Word to use instead" /><button class="btn small" data-replace>Use this</button></div>`}`;
+  $tooltip.hidden = false;
+  const r = span.getBoundingClientRect();
+  $tooltip.style.left = `${Math.min(r.left, window.innerWidth - 340)}px`;
+  $tooltip.style.top = `${r.bottom + 6 + window.scrollY}px`;
+  const hide = () => { if (!tooltipPinned && !$tooltip.matches(":hover")) $tooltip.hidden = true; };
+  span.addEventListener("mouseleave", () => setTimeout(hide, 250), { once: true });
+  $tooltip.onmouseleave = () => { if (!tooltipPinned) $tooltip.hidden = true; };
+  $tooltip.querySelector("[data-keep]")?.addEventListener("click", async () => {
+    await post("/api/term", { term, definition: guess.definition, decision: "keep" }).catch(showToast);
+    termState[term.toLowerCase()] = { term, decision: "keep", definition: guess.definition };
+    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" enshrined in the glossary.`);
+  });
+  $tooltip.querySelector("[data-drop]")?.addEventListener("click", () => {
+    $tooltip.querySelector(".tt-replace").hidden = false;
+    $tooltip.querySelector(".tt-replace input").focus();
+  });
+  $tooltip.querySelector("[data-replace]")?.addEventListener("click", async () => {
+    const replacement = $tooltip.querySelector(".tt-replace input").value.trim();
+    await post("/api/term", { term, decision: "drop", replacement }).catch(showToast);
+    termState[term.toLowerCase()] = { term, decision: "drop", replacement };
+    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" dropped${replacement ? `; use "${replacement}"` : ""}.`);
+  });
+}
+async function submitAnswer(q) {
+  const selected = [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => i.value);
+  const other = $question.querySelector("#q-other").value.trim();
+  if (!selected.length && !other) { showToast("Pick an option or type in Other."); return; }
+  const terms = Object.values(termState);
+  try {
+    await post("/api/answer", { questionId: q.id, selected: other ? [] : selected, other, terms });
+    $question.innerHTML = `<p class="muted">Answered. Waiting for the session's next step…</p>`;
+    shownQuestionId = null;
+  } catch (e) { showToast(e); }
+}
+document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && !e.target.classList?.contains("jargon")) { $tooltip.hidden = true; tooltipPinned = false; } });
+
+load().then(render).catch(showError).finally(pollSession);
