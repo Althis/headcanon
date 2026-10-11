@@ -14,7 +14,7 @@ Text the adopt skill pastes and formats it writes. Use the Write tool, one file 
 
 ## 0. The briefing
 
-The first question's text begins with this block, verbatim, followed by the draft.
+The first question's text is this block, verbatim, with one option, **Let's begin**. The premise draft is the question after it.
 
 ```
 Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
@@ -35,7 +35,7 @@ How you decide on each draft I show:
 In a list, tick every item that is right as written. Each unticked item comes back as its own question.
 Nothing is saved until you approve it.
 
-Premise (1 of 5): what the project is.
+Sources appear as numbered markers; hover one to see where a sentence comes from.
 ```
 
 ## 1. Root README (`canon/README.md`)
@@ -143,14 +143,14 @@ Single draft. The draft reads as prose; footnote markers sit at the end of sente
   "options":[{"label":"Approve as written","description":"Enters as resolved."},{"label":"Drop","description":"Left out; recorded in DEC-001 if it came from an artifact."}]}]}
 ```
 
-List first pass. The drafts are in the question body, each ending with its footnote; the options carry the ID and title only:
+List first pass. Each option carries its draft as the description, ending with its footnote; the body carries the label, the instruction and the Sources line, so a draft appears once:
 
 ```json
-{"questions":[{"header":"<Layer>","question":"<Layer label>. Tick every item that is right as written; unticked items come back one by one.\n\nPRN-1 Keep the original. <paragraph> [1]\n\nPRN-2 Explain every number. <paragraph> [2]\n\nSources: [1] docs/design.md:12-15, [2] conversation, <date>\n\nTo correct or rewrite one, type in Other.","multiSelect":true,
-  "options":[{"label":"PRN-1 Keep the original","description":""},{"label":"PRN-2 Explain every number","description":""}]}]}
+{"questions":[{"header":"<Layer>","question":"<Layer label>. Tick every item that is right as written; unticked items come back one by one.\n\nSources: [1] docs/design.md:12-15, [2] conversation, <date>\n\nTo correct or rewrite one, type in Other.","multiSelect":true,
+  "options":[{"label":"PRN-1 Keep the original","description":"<paragraph> [1]"},{"label":"PRN-2 Explain every number","description":"<paragraph> [2]"}]}]}
 ```
 
-Keep four options or fewer per question; split longer lists across questions in the same call.
+Through AskUserQuestion, four options or fewer per question, its limit; split longer lists across questions in the same call. The page takes any number.
 
 ## 5. Entry quality: what not to write
 

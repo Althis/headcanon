@@ -438,13 +438,24 @@ async function pollSession() {
     document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
     if (s.focus && s.focus.seq !== lastFocusSeq) { lastFocusSeq = s.focus.seq; if (s.focus.id) location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`; }
     if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question); openSession(); }
-    if (!s.question && shownQuestionId) { shownQuestionId = null; $question.innerHTML = `<p class="muted">Answered. Waiting for the session's next step…</p>`; }
+    if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
+    if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     if (s.cursor !== lastCursor) { lastCursor = s.cursor; if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); } }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
 }
+// Between questions: the session is reading, writing or thinking; show that it is, and for how long.
+let working = null;
+const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
+function showWorking() {
+  if (!working) working = { since: Date.now(), answer: "" };
+  $question.innerHTML = `
+    <div class="working"><span class="spinner"></span><div><b>The session is working.</b> Its next question appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
+    ${working.answer ? `<p class="muted">You answered: <b>${esc(working.answer.slice(0, 200))}</b></p>` : ""}`;
+}
 function renderQuestion(q) {
-  const opts = q.options.map((o, i) => `<label class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <b>${esc(o.label)}</b>${o.description ? ` <span class="muted">${esc(o.description)}</span>` : ""}</label>`).join("");
+  working = null;
+  const opts = q.options.map((o, i) => `<label class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><b>${esc(o.label)}</b>${o.html ? `<span class="opt-desc">${o.html}</span>` : o.description ? `<span class="opt-desc">${esc(o.description)}</span>` : ""}</span></label>`).join("");
   $question.innerHTML = `
     <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}</div>
     <div class="q-body body">${q.html}</div>
@@ -514,8 +525,9 @@ async function submitAnswer(q) {
   const terms = Object.values(termState);
   try {
     await post("/api/answer", { questionId: q.id, selected: other ? [] : selected, other, terms });
-    $question.innerHTML = `<p class="muted">Answered. Waiting for the session's next step…</p>`;
+    working = { since: Date.now(), answer: other ? `Other: ${other}` : selected.join(", ") };
     shownQuestionId = null;
+    showWorking();
   } catch (e) { showToast(e); }
 }
 document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && !e.target.classList?.contains("jargon")) { $tooltip.hidden = true; tooltipPinned = false; } });

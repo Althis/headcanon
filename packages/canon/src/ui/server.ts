@@ -154,17 +154,41 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   createReadStream(file).pipe(res);
 }
 
-/** The question as the page shows it: rendered HTML with each jargon term wrapped in a span. */
+/** The `Sources: [1] a, [2] b` line of a question, as a map from footnote number to source. */
+export function parseSources(question: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const line = /^Sources:\s*(.+)$/m.exec(question)?.[1];
+  if (!line) return out;
+  for (const m of line.matchAll(/\[(\d+)\]\s*([^[]+?)\s*(?=[,;.]?\s*\[\d+\]|[.]?\s*$)/g)) out.set(m[1]!, (m[2] ?? "").replace(/[,;]$/, "").trim());
+  return out;
+}
+
+/** Replace text outside tags, leaving the HTML tags themselves alone. */
+function mapText(html: string, fn: (text: string) => string): string {
+  return html.split(/(<[^>]+>)/).map((seg) => (seg.startsWith("<") ? seg : fn(seg))).join("");
+}
+
+/**
+ * The question as the page shows it: rendered HTML with each jargon term wrapped in a span, and
+ * each footnote marker carrying its source as a tooltip instead of a Sources line at the end.
+ */
 function presentQuestion(q: PendingQuestion) {
-  let html = marked.parse(q.question, { async: false }) as string;
-  for (const t of q.terms) {
-    const re = new RegExp(`\\b(${t.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi");
-    html = html
-      .split(/(<[^>]+>)/)
-      .map((seg) => (seg.startsWith("<") ? seg : seg.replace(re, (m) => `<span class="jargon" data-term="${escapeAttr(t.term)}">${m}</span>`)))
-      .join("");
-  }
-  return { ...q, html };
+  const sources = parseSources(q.question);
+  const decorate = (input: string) => {
+    let html = input;
+    if (sources.size) {
+      html = html.replace(/<p>Sources:[\s\S]*?<\/p>\s*/i, "");
+      html = mapText(html, (text) => text.replace(/\[(\d+)\]/g, (m, n: string) => (sources.has(n) ? `<sup class="fn" title="${escapeAttr(sources.get(n)!)}">${m}</sup>` : m)));
+    }
+    for (const t of q.terms) {
+      const re = new RegExp(`\\b(${t.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi");
+      html = mapText(html, (seg) => seg.replace(re, (m) => `<span class="jargon" data-term="${escapeAttr(t.term)}">${m}</span>`));
+    }
+    return html;
+  };
+  // An option's description is the item's draft; it gets the same tooltips and jargon marks as the body.
+  const options = q.options.map((o) => ({ ...o, html: o.description ? decorate(marked.parseInline(o.description, { async: false }) as string) : "" }));
+  return { ...q, options, html: decorate(marked.parse(q.question, { async: false }) as string) };
 }
 
 function escapeAttr(s: string): string {

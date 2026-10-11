@@ -16,7 +16,7 @@ Write this list to your scratch file and tick items as you go. The human sees pr
 
 - [ ] 0 `HC check` reports no canon; otherwise point to `/headcanon:review` and stop.
 - [ ] 1 Read the repository silently; write the thread list.
-- [ ] 2 The first question opens with the briefing.
+- [ ] 2 The briefing, as its own question; the premise waits for its answer.
 - [ ] 3 Premise: what it is, purpose, not this, glossary.
 - [ ] 4 `HC init`; write `canon/README.md`.
 - [ ] 5 Principles.
@@ -40,7 +40,7 @@ Read only this repository, reference.md and the human's answers. The plugin's ow
 - The full draft goes in the question text, once, as prose. A sentence resting on a thread ends with a footnote [1]; one "Sources:" line at the end lists them. Never a path or date inside a sentence.
 - Label each question by layer: "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
 - Options are exactly **Approve as written** and **Drop**, plus the line "To correct or rewrite, type in Other." An option carries no text.
-- A list gets one multi-select whose options are ID and title only, then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
+- A list gets one multi-select: each option's label is the ID and title, its description the item's one-line draft ending with its footnote; the question body holds only the layer label, the instruction and the Sources line, never the drafts again. Then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
 - Typed text is one of three kinds. **Wording** (the statement itself) is stated, quoted verbatim, and is the entry. **A correction** ("drop the counts") is applied exactly and the merged text is asked again; neither it nor its reasons enter the entry. **A process instruction** ("one at a time") is followed for the rest of the run and recorded nowhere.
 - Anything the human must know goes inside a question; free text between tool calls may never be read.
 - Write a file only after the question approving it is answered.
@@ -54,7 +54,7 @@ Read only this repository, reference.md and the human's answers. The plugin's ow
 
 ## Briefing
 
-The first question begins with the briefing block in reference.md section 0, pasted verbatim, then the draft.
+The first question is the briefing block in reference.md section 0, pasted verbatim, with the single option **Let's begin** and no draft, so the human agrees to the process before judging anything. The premise draft is the next question, asked only once that answer is in.
 
 ## Steps
 
@@ -102,16 +102,12 @@ Domains with their capabilities; open capabilities and domains; counts of stated
 
 <example>
 Domain question, plain words, one line each, footnoted:
-"Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
-REQ-1 Statement import: bank statements in any common format become transactions. [1]
-REQ-2 Categorization: every transaction lands in a tax category, by rule or by hand. [1]
-REQ-3 Reporting: the categorized year becomes the forms an accountant needs. [1]
-REQ-4 Documentation: how the project records what it is and why. [2]
-REQ-5 Verification: how the project shows its code does what is intended. [2]
+Body: "Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
 
 Sources: [1] premise, [2] software project
 
 To correct or rewrite one, type in Other."
+Options: label "REQ-1 Statement import", description "bank statements in any common format become transactions. [1]"; label "REQ-2 Categorization", description "every transaction lands in a tax category, by rule or by hand. [1]"; label "REQ-3 Reporting", description "the categorized year becomes the forms an accountant needs. [1]"; label "REQ-4 Documentation", description "how the project records what it is and why. [2]"; label "REQ-5 Verification", description "how the project shows its code does what is intended. [2]".
 </example>
 
 <example>

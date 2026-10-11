@@ -17,9 +17,15 @@ files: [skills/adopt/SKILL.md, skills/adopt/reference.md]
 
 Source: Claude Code session, 2026-10-11, at the principles step of the fourth adopt run on The Valley.
 
+> please use tooltips for sources.
+
+> Instead of having this duplicated format, please for the next version also add the detailed explanation to the checkmark and remove the text version up top.
+
+Source: Claude Code session, 2026-10-11, during the fifth adopt run.
+
 ## Intent [assumed]
 
-In a question, a draft reads as prose. A sentence that rests on an artifact ends with a footnote marker, and the sources are listed once at the end of the question. No path or date appears inside a sentence. The entry written to the canon carries no markers; its sources live in the node's `source` field or on a Source line after a principle or glossary entry. In a multi-select, the drafts appear once, in the question body, and each option is the ID and title only.
+In a question, a draft reads as prose. A sentence that rests on an artifact ends with a footnote marker, and the sources are listed once at the end of the question; in the viewer each marker shows its source as a tooltip and the list itself is not shown. No path or date appears inside a sentence. The entry written to the canon carries no markers; its sources live in the node's `source` field or on a Source line after a principle or glossary entry. In a multi-select, each draft appears once, as the description of its own option under the ID and title; the question body holds only the label, the instruction and the sources.
 
 Length follows the layer. Requirements and glossary entries are one or two sentences. A principle is a title and a paragraph of two to four sentences that says what the direction is, what it means for the project's choices and where it applies, because a reader must be able to judge from the paragraph alone whether a requirement follows it.
 

@@ -27,13 +27,20 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
   });
 
   it("asks, shows, answers and hands the answer to a waiter", async () => {
-    const asked = await send("/api/ask", { question: "Premise (1 of 5): what it is.\n\nDraft: \"A thing that uses a Widget.\" [1]\n\nSources: [1] README.md:1", header: "Premise", nodeId: "REQ-1", terms: [{ term: "Widget", definition: "a small part" }] });
+    const asked = await send("/api/ask", { question: "Premise (1 of 5): what it is.\n\nDraft: \"A thing that uses a Widget.\" [1]\n\nSources: [1] README.md:1", header: "Premise", nodeId: "REQ-1", terms: [{ term: "Widget", definition: "a small part" }], options: [{ label: "Approve as written", description: "The Widget stays. [1]" }, { label: "Drop" }] });
     const id = asked.body["questionId"] as string;
     expect(id).toBeTruthy();
     const s = await get("/api/session");
     const q = s["question"] as Record<string, unknown>;
     expect(q["id"]).toBe(id);
     expect(String(q["html"])).toContain('class="jargon" data-term="Widget"');
+    // Footnote markers carry their source as a tooltip; the Sources line itself is not shown.
+    expect(String(q["html"])).toContain('<sup class="fn" title="README.md:1">[1]</sup>');
+    expect(String(q["html"])).not.toContain("Sources:");
+    // An option's description gets the same treatment, since list drafts live in the options.
+    const opt = (q["options"] as Array<Record<string, string>>)[0]!;
+    expect(opt["html"]).toContain('class="jargon" data-term="Widget"');
+    expect(opt["html"]).toContain('title="README.md:1"');
     expect((s["focus"] as Record<string, unknown>)["id"]).toBe("REQ-1");
     const pending = await get(`/api/wait?id=${id}&timeout=1`);
     expect(pending["pending"]).toBe(true);
