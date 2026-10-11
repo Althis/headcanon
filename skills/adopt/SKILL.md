@@ -1,6 +1,6 @@
 ---
 name: adopt
-description: "Creates a project's first canon from its repository and the human's answers, top-down: overview, principles, domains, capabilities, requirements, then a sweep of leftover artifact threads. Use when the session context says the project has no canon, or when the human asks to set up, adopt, install or start HeadCanon on a project."
+description: "Creates a project's first canon from its repository and the human's answers, top-down: premise, principles, domains, capabilities, requirements, then a sweep of leftover artifact threads. Use when the session context says the project has no canon, or when the human asks to set up, adopt, install or start HeadCanon on a project."
 when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a project."
 ---
 
@@ -15,7 +15,7 @@ Write this list to your scratch file next to the thread list, and tick items as 
 - [ ] 0 `HC check` reports no canon. Only proceed when it does; otherwise point the human to `/headcanon:review` and stop.
 - [ ] 1 Read the artifacts silently; write the thread list to a scratch file.
 - [ ] 2 Put the briefing in the first question's text.
-- [ ] 3 Overview: what it is, purpose, not this, glossary.
+- [ ] 3 Premise: what it is, purpose, not this, glossary.
 - [ ] 4 `HC init`; write `canon/README.md`.
 - [ ] 5 Principles into the root README.
 - [ ] 6 Domains.
@@ -44,17 +44,23 @@ These apply to every question in every step.
 Free text you send between tool calls may never reach the human, so the briefing goes inside the first question. The human is using HeadCanon for the first time, so the briefing says what is happening before it says how the buttons work. Begin the first question's text with this block, verbatim, then the draft:
 
 ```
-Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository. From here on I show you short drafts, one at a time, and you decide on each.
+Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
 
-Your choices on every draft:
+We build it in five layers, each approved before the next:
+- Premise: what the project is, its purpose, what it is not, and its vocabulary.
+- Principles: the direction it follows. Every requirement is later judged against them.
+- Domains: the areas the project must cover to operate at all.
+- Capabilities: what each domain must be able to do to be complete.
+- Requirements: the concrete, checkable goals under each capability.
+Then: anything from your documents that did not fit.
+
+How you decide on each draft I show:
 - Approve as written: my draft stands, recorded as approved by you.
 - Drop: it is left out.
-- Other: type your own wording and it replaces mine, or type a correction and I show the corrected draft again. Only what you type is recorded as your words.
+- Other: type your own wording to replace mine, or a correction, and I show the corrected draft again. Only what you type is recorded as your words.
 
-When I show a list, tick every item that is right as written. Each unticked item comes back as its own question.
+In a list, tick every item that is right as written. Each unticked item comes back as its own question.
 Nothing is saved until you approve it.
-
-We go in this order: what the project is, its purpose, what it is not, its vocabulary; then the principles it follows; then the areas it must cover, what each area must do, and the requirements under them; and finally anything from your documents that did not fit.
 
 Step 1 of 11: what the project is.
 ```
@@ -78,7 +84,7 @@ Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGE
 
 Read only files inside this repository, this skill's reference file, and the human's answers. Do not open the plugin directory's own `canon/`, earlier session transcripts, or other projects: their content is not this project's intent, and drafts built from them are invented.
 
-### 3 Overview
+### 3 Premise
 
 One question each, in order: what it is (one or two sentences); purpose and for whom (one paragraph); not this (three to six; multi-select, one by one, then "anything missing?"); glossary (six to ten terms; multi-select, one by one).
 

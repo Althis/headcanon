@@ -19,9 +19,13 @@ Source: Claude Code session, 2026-10-11, answering the question whether a multi-
 
 Source: Claude Code session, 2026-10-11, on the first briefing text.
 
+> Explain at this point also Premise, Principles, Domains, Capacities and Requirements at the top instead of the bottom, and in a more structured way. Humans are bad at blocks of text, so small bulletpoint lists are best when explaining sucessive  concepts like this.
+
+Source: Claude Code session, 2026-10-11, on the second briefing text.
+
 ## Intent [assumed]
 
-A draft the human selects in a multi-select becomes resolved: the agent's wording is the Intent, and the selection, with its date, is the Resolution. Items left unselected are asked about one at a time. The first question of an adopt run opens with a briefing written for someone who has never used HeadCanon: first what is happening (writing down what the project is for, re-read every session), then the three choices on every draft, then what ticking means in a list, then that nothing is saved before approval, then the order of the steps. The exact text lives in the skill and is pasted verbatim.
+A draft the human selects in a multi-select becomes resolved: the agent's wording is the Intent, and the selection, with its date, is the Resolution. Items left unselected are asked about one at a time. The first question of an adopt run opens with a briefing written for someone who has never used HeadCanon: first what is happening (writing down what the project is for, re-read every session), then the five layers as a short bullet list (premise, principles, domains, capabilities, requirements, and the leftovers), then the three choices on every draft as a bullet list, then what ticking means in a list, then that nothing is saved before approval. The exact text lives in the skill and is pasted verbatim.
 
 ## Assumptions
 
