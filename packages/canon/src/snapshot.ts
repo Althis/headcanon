@@ -39,7 +39,8 @@ export function buildSnapshot(canonDir: string): Snapshot {
 
   const html: Record<string, string> = {};
   const render = (md: string) => marked.parse(stripTitle(md), { async: false }) as string;
-  if (canon.root) html["ROOT"] = render(canon.root.body);
+  // The root's Glossary has its own page; the purpose text should not repeat it.
+  if (canon.root) html["ROOT"] = render(stripSection(canon.root.body, "Glossary"));
   for (const n of Object.values(canon.nodes)) html[n.id] = render(n.body);
   for (const j of canon.journeys) html[j.id] = render(j.body.replace(/```mermaid[\s\S]*?```/, ""));
   for (const d of canon.decisions) html[d.id] = render(d.body);
@@ -65,6 +66,12 @@ export function buildSnapshot(canonDir: string): Snapshot {
     },
     textTree: renderTextTree(canon, findings),
   };
+}
+
+/** Remove one `## Heading [marker]` section, up to the next H2 or the end. */
+function stripSection(md: string, heading: string): string {
+  const re = new RegExp(`^##\\s+${heading}\\b[^\\n]*\\n[\\s\\S]*?(?=^##\\s|(?![\\s\\S]))`, "m");
+  return md.replace(re, "");
 }
 
 /** The body's H1 repeats the title; the viewer shows the title itself. */

@@ -71,6 +71,20 @@ h3 { font-size: 14px; margin: 18px 0 8px; }
 .tile.warn .n { color: var(--warn); }
 .tile a { color: inherit; }
 
+.tile-group { margin-top: 14px; }
+.tile-group .tg-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+.tile-group .tiles { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+.alert { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--radius); margin-bottom: 16px; border: 1px solid; color: var(--text); text-decoration: none; }
+.alert:hover { text-decoration: none; filter: brightness(1.03); }
+.alert.warn { background: var(--assumed-bg); border-color: var(--assumed); }
+.alert.ok { background: var(--stated-bg); border-color: var(--stated); }
+.alert-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-weight: 800; font-size: 13px; color: #fff; flex: none; }
+.alert.warn .alert-icon { background: var(--assumed); }
+.alert.ok .alert-icon { background: var(--stated); }
+.alert-items { display: flex; gap: 6px; flex-wrap: wrap; }
+.alert-go { margin-left: auto; color: var(--accent); font-weight: 600; white-space: nowrap; }
+
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
 .card + .card { margin-top: 10px; }
 .card h3 { margin-top: 0; }

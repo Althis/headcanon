@@ -84,17 +84,38 @@ function render() {
 function overview() {
   const { stats, health } = snap;
   const att = attentionItems();
-  const tiles = [
-    `<div class="tile"><div class="n">${stats.nodes}</div><div class="l">requirements in ${health.length} branches</div></div>`,
-    ...STATES.map((s) => `<div class="tile s-${s}"><div class="n">${stats.counts[s]}</div><div class="l">${s} · ${pct(stats.counts[s], stats.nodes)}%</div></div>`),
-    `<div class="tile ${stats.errors ? "err" : ""}"><div class="n"><a href="#/health">${stats.errors}</a></div><div class="l">errors</div></div>`,
-    `<div class="tile ${stats.warnings ? "warn" : ""}"><div class="n"><a href="#/health">${stats.warnings}</a></div><div class="l">warnings</div></div>`,
-    `<div class="tile ${att.pending.length ? "warn" : ""}"><div class="n"><a href="#/attention">${att.pending.length}</a></div><div class="l">pending approvals</div></div>`,
-    `<div class="tile"><div class="n">${stats.unrefined}</div><div class="l">not yet measurable</div></div>`,
-    `<div class="tile"><div class="n"><a href="#/journeys">${stats.journeys}</a></div><div class="l">journeys · ${stats.steps} steps</div></div>`,
-    `<div class="tile"><div class="n"><a href="#/decisions">${stats.decisions}</a></div><div class="l">decisions</div></div>`,
-    `<div class="tile"><div class="n"><a href="#/glossary">${stats.terms}</a></div><div class="l">glossary terms</div></div>`,
+  const tile = (n, label, cls = "", href = "") => `<div class="tile ${cls}"><div class="n">${href ? `<a href="${href}">${n}</a>` : n}</div><div class="l">${label}</div></div>`;
+  const groups = [
+    ["Requirements", "What the tree holds", [
+      tile(stats.nodes, `in ${health.length} branches`),
+      tile(stats.nodes - stats.unrefined, "measurable leaves"),
+      tile(stats.unrefined, "not yet measurable"),
+    ]],
+    ["Certainty", "Who has confirmed each node", STATES.map((s) => tile(stats.counts[s], `${s} · ${pct(stats.counts[s], stats.nodes)}%`, `s-${s}`, `#/tree`))],
+    ["Findings", "From headcanon check", [
+      tile(stats.errors, "errors", stats.errors ? "err" : "", "#/health"),
+      tile(stats.warnings, "warnings", stats.warnings ? "warn" : "", "#/health"),
+      tile(stats.infos, "notes", "", "#/health"),
+    ]],
+    ["Approvals", "From git trailers", [
+      tile(att.pending.length, "pending", att.pending.length ? "warn" : "", "#/attention"),
+      tile(att.unmerged.length, "unmerged intent changes", att.unmerged.length ? "warn" : "", "#/attention"),
+      tile(att.uncommitted.length, "uncommitted edits", att.uncommitted.length ? "warn" : "", "#/attention"),
+    ]],
+    ["Other records", "Linked to the tree", [
+      tile(stats.journeys, `journeys · ${stats.steps} steps`, "", "#/journeys"),
+      tile(stats.decisions, "decisions", "", "#/decisions"),
+      tile(stats.terms, "glossary terms", "", "#/glossary"),
+    ]],
   ];
+  const tileGroups = groups.map(([name, hint, tiles]) => `<section class="tile-group"><div class="tg-head"><b>${name}</b><span class="muted">${hint}</span></div><div class="grid tiles">${tiles.join("")}</div></section>`).join("");
+  const blocking = [
+    [att.pending.length, "pending approvals"], [att.unmerged.length, "unmerged intent changes"], [att.uncommitted.length, "uncommitted canon edits"],
+    [att.errors.length, "broken links"], [att.contested.length, "contested"], [att.open.length, "open questions"], [att.assumedDecisions.length, "unconfirmed decisions"],
+  ].filter(([n]) => n > 0);
+  const alert = blocking.length
+    ? `<a class="alert warn" href="#/attention"><span class="alert-icon">!</span><b>${att.total} items need your attention</b><span class="alert-items">${blocking.map(([n, l]) => `<span class="badge warn">${n} ${l}</span>`).join("")}</span><span class="alert-go">Open Attention →</span></a>`
+    : `<div class="alert ok"><span class="alert-icon">✓</span><b>Nothing is waiting on you.</b></div>`;
   const rows = health.map((b) => `
     <tr class="click" data-href="#/node/${esc(b.id)}">
       <td class="id">${esc(b.id)}</td>
@@ -104,25 +125,17 @@ function overview() {
       <td class="num">${pct(b.counts.assumed + b.counts.open + b.counts.contested, b.size)}%</td>
       <td class="num">${b.errors ? `<span class="badge error">${b.errors}</span>` : ""} ${b.warnings ? `<span class="badge warn">${b.warnings}</span>` : ""}</td>
     </tr>`).join("");
-  const top = [
-    ...att.errors.slice(0, 3).map((f) => `<li>${badge("error")} ${esc(f.message)}</li>`),
-    ...att.pending.map((c) => `<li>${badge("warn")} Pending approval: <b>${esc(c.subject)}</b> <span class="id">${esc(c.short)}</span> with ${(c.trailers["Intent-Change"] ?? []).length} intent changes</li>`),
-    ...att.contested.slice(0, 3).map((n) => `<li>${badge("contested")} ${idLink(n.id)} ${esc(n.title)}</li>`),
-    ...att.open.slice(0, 5).map((n) => `<li>${badge("open")} ${idLink(n.id)} ${esc(n.title)}</li>`),
-    ...att.assumedDecisions.slice(0, 3).map((d) => `<li>${badge("assumed")} ${idLink(d.id)} ${esc(d.title)}</li>`),
-  ];
   return `
+    ${alert}
     <h1>${esc(snap.canon.root?.title ?? "Canon")}</h1>
     <p class="lede">Requirements at a glance. ${stats.counts.stated + stats.counts.resolved} of ${stats.nodes} nodes are confirmed by the human; ${stats.counts.assumed + stats.counts.open + stats.counts.contested} still need a word from you.</p>
-    <div class="grid tiles">${tiles.join("")}</div>
+    ${tileGroups}
     <h2>Branches</h2>
     ${legend()}
     <table class="list" style="margin-top:8px">
       <thead><tr><th>ID</th><th>Requirement</th><th>Certainty mix</th><th class="num">Nodes</th><th class="num">Unconfirmed</th><th class="num">Findings</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <h2>Needs your attention <a class="sub" href="#/attention">see all ${att.total}</a></h2>
-    ${top.length ? `<div class="card"><ul>${top.join("")}</ul></div>` : `<p class="empty">Nothing is waiting on you.</p>`}
     <h2>Purpose</h2>
     <div class="card body">${snap.html.ROOT ?? ""}</div>`;
 }
