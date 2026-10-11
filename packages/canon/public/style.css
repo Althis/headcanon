@@ -191,7 +191,9 @@ details ul.ops-list { columns: 3; column-gap: 20px; font-family: var(--mono); fo
 .q-body { border: 0; padding: 0 6px 0 0; max-height: 40vh; overflow: auto; }
 .q-body p { margin: 6px 0; }
 .opts { display: flex; flex-direction: column; gap: 4px; }
-.opt { display: flex; gap: 8px; align-items: flex-start; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.opt { display: flex; gap: 8px; align-items: flex-start; padding: 4px 6px; border-radius: 6px; }
+.opt label { cursor: pointer; }
+.opt-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .session .opt input { width: auto; flex: none; margin: 3px 0 0; }
 .opt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .opt-desc { color: var(--muted); }

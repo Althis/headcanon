@@ -455,7 +455,14 @@ function showWorking() {
 }
 function renderQuestion(q, pending = 1) {
   working = null;
-  const opts = q.options.map((o, i) => `<label class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><b>${esc(o.label)}</b>${o.html ? `<span class="opt-desc">${o.html}</span>` : o.description ? `<span class="opt-desc">${esc(o.description)}</span>` : ""}</span></label>`).join("");
+  // An option reads as ID, title, then description. The ID links to the node's page when the node
+  // exists, and the link sits outside the label so following it does not toggle the box.
+  const opts = q.options.map((o, i) => {
+    const m = /^((?:REQ|JRN|DEC|PRN|TERM)-\S+)\s+(.+)$/.exec(o.label);
+    const head = m ? `${idLink(m[1])} <label for="opt-${i}"><b>${esc(m[2])}</b></label>` : `<label for="opt-${i}"><b>${esc(o.label)}</b></label>`;
+    const desc = o.html ? `<label for="opt-${i}" class="opt-desc">${o.html}</label>` : o.description ? `<label for="opt-${i}" class="opt-desc">${esc(o.description)}</label>` : "";
+    return `<div class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" id="opt-${i}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${head}</span>${desc}</span></div>`;
+  }).join("");
   $question.innerHTML = `
     ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
     <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
