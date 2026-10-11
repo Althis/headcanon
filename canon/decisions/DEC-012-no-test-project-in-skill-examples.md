@@ -16,3 +16,7 @@ The consolidated adopt skill carried four examples written from The Valley: the 
 The examples were written from the freshest material to hand, which was the test project. That is a side effect of iterating on the skill and the test in the same day, not a misreading of intent, so the origin is side-effect. From now on every example in a skill uses an invented product (Ledgerline, a desktop app that turns bank statements into tax reports) or one the human supplied from outside the test, and a check before each test run greps the skills for the test project's name and vocabulary.
 
 Run 3's overview, non-goals and question mechanics remain valid evidence; its glossary and domain steps do not, and the next run is the first real test of both.
+
+## Second pass, same day
+
+A line-by-line review found one more hint, the open-node example "How is game time modeled?" in the reference file, which is the test project's roadmap keystone; it now reads "How are duplicate transactions detected?". Two channels outside the skill text were closed by instruction: the plugin directory's own canon, which quotes the test project, and earlier session transcripts, which the second run's agent had opened. The test project's own Claude Code memory and agent charters already name its three areas; that is the project's state, not a leak, and it is left alone. Run 3 is discarded as evidence in full.

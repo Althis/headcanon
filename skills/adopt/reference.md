@@ -81,7 +81,7 @@ Source: conversation, <date>
 - <date>: <what would settle it>
 ```
 
-An open domain or capability is a node whose `state` is `open` and whose title is the question, for example "How is game time modeled?".
+An open domain or capability is a node whose `state` is `open` and whose title is the question, for example "How are duplicate transactions detected?".
 
 ## 3. Adoption scope decision (`canon/decisions/DEC-001-adoption-scope.md`)
 

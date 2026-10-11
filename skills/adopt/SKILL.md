@@ -55,7 +55,7 @@ Every later question starts with its step name and number ("Step 6 of 11: domain
 
 ## Drafting rules
 
-- Every clause cites a source, as `path:lines` or `conversation, <date>`. No source, no clause.
+- Every clause cites a source, as `path:lines` inside this repository or `conversation, <date>`. No source, no clause.
 - Intent only. Counts, versions and statuses describe today and never enter a node.
 - Domains and capabilities in plain words. Mechanisms belong in requirements, using glossary terms.
 - One idea per node. A node that needs "and" twice is two nodes.
@@ -67,6 +67,8 @@ Every later question starts with its step name and number ("Step 6 of 11: domain
 ### 1 Read
 
 Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. A thread is one thing an artifact says plus its `path:lines`. Note contradictions and which artifact is newer. Never present the list and never ask about provenance; the human judges drafts, not files.
+
+Read only files inside this repository, this skill's reference file, and the human's answers. Do not open the plugin directory's own `canon/`, earlier session transcripts, or other projects: their content is not this project's intent, and drafts built from them are invented.
 
 ### 3 Overview
 
