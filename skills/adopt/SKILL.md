@@ -6,44 +6,55 @@ when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a
 
 # Adopt: create the first canon
 
-`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. File formats and question templates are in [reference.md](reference.md); read it before step 4.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. Formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 4.
+
+Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The human decides every draft through AskUserQuestion. You read the repository; they judge drafts, never files.
 
 ## Checklist
 
-Write this list to your scratch file next to the thread list, and tick items as you complete them. The human sees progress through the step names in each question, not through this list.
+Write this list to your scratch file and tick items as you go. The human sees progress through the layer label on each question.
 
-- [ ] 0 `HC check` reports no canon. Only proceed when it does; otherwise point the human to `/headcanon:review` and stop.
-- [ ] 1 Read the artifacts silently; write the thread list to a scratch file.
-- [ ] 2 Put the briefing in the first question's text.
+- [ ] 0 `HC check` reports no canon; otherwise point to `/headcanon:review` and stop.
+- [ ] 1 Read the repository silently; write the thread list.
+- [ ] 2 The first question opens with the briefing.
 - [ ] 3 Premise: what it is, purpose, not this, glossary.
 - [ ] 4 `HC init`; write `canon/README.md`.
-- [ ] 5 Principles into the root README.
+- [ ] 5 Principles.
 - [ ] 6 Domains.
 - [ ] 7 Capabilities, one domain at a time.
 - [ ] 8 Requirements, one capability at a time.
-- [ ] 9 Sweep unused threads: add, merge or drop.
+- [ ] 9 Sweep unused threads.
 - [ ] 10 `HC check` clean, `HC summary`, `HC render`, `/headcanon:commit`.
 - [ ] 11 Report.
 
+## Sources
+
+What the human approved or typed in the layer above is the primary source for the layer below. Threads (one thing an artifact says, with its `path:lines`) have two roles and no third: they **pre-fill** a draft where the layers above leave it open, and they are the **evidence** every draft is checked against. Precedence: the human's approval in this run, their typed words, the newest artifact, older artifacts. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 9.
+
+When a thread disagrees with an approval or with a draft derived from one: do not settle it and do not start the next layer. Ask "The document says A [1]. What you approved says B. Which stands?" with options **Keep what I approved** and **The document is right**; a typed third version is applied and asked again. Record the outcome, and list an overruled document in DEC-001 as superseded on that point.
+
+Read only this repository, reference.md and the human's answers. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent.
+
 ## Asking
 
-These apply to every question in every step.
+- The full draft goes in the question text, once, as prose. A sentence resting on a thread ends with a footnote [1]; one "Sources:" line at the end lists them. Never a path or date inside a sentence.
+- Label each question by layer: "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
+- Options are exactly **Approve as written** and **Drop**, plus the line "To correct or rewrite, type in Other." An option carries no text.
+- A list gets one multi-select whose options are ID and title only, then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
+- Typed text is one of three kinds. **Wording** (the statement itself) is stated, quoted verbatim, and is the entry. **A correction** ("drop the counts") is applied exactly and the merged text is asked again; neither it nor its reasons enter the entry. **A process instruction** ("one at a time") is followed for the rest of the run and recorded nowhere.
+- Anything the human must know goes inside a question; free text between tool calls may never be read.
+- Write a file only after the question approving it is answered.
 
-- Ask with AskUserQuestion. The full draft goes in the question text, once.
-- Options are exactly two: **Approve as written** and **Drop**. Add to the question: "To correct or rewrite, type in Other." An option carries no text, so a "correct" option would arrive empty.
-- Lists get one multi-select first. **A selected item is approved as written** and becomes resolved. Then ask one question per unselected item, restating the original draft. In a multi-select, each option's label is the ID and title only, with no description; the drafts are in the question body and are not repeated in the options.
-- **Citations are footnotes.** A sentence that rests on an artifact ends with a marker like [1], and the question ends with one line per marker: "Sources: [1] path:lines, [2] conversation". Never put a path or a date in parentheses inside a sentence; it makes the draft unreadable. The entry written to the canon carries no markers at all: sources go in the node's `source` front-matter, or on a Source line after a principle or glossary entry.
-- **Label every question by layer**, not by checklist number: "Premise (1 of 5): what the project is", "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
-- Anything the human must know goes inside a question's text, never in a free-text message between tool calls; those may never be read.
-- Classify typed text before acting on it:
-  - **Wording** (the statement itself): stated, quoted verbatim; it is the node's content.
-  - **A correction as an instruction** ("drop the counts"): apply exactly what it names to the draft, then ask again with the merged text. Only that answer makes the merged text resolved. Neither the correction nor the reasons given for it are recorded in the entry; the entry reads as if the conversation never happened.
-  - **A process instruction** ("one at a time"): follow it for the rest of the run; record it nowhere.
-- Write a file only after the question that approves it has been answered.
+## Entries
 
-## The briefing
+- An entry reads as an encyclopedia entry: what the thing is, complete for a reader who never saw this conversation, one concept per entry; no history, no reasons, no "not" clauses (exclusions live only in Not this), no counts, versions or statuses. Wrong examples and why: reference.md, section 5.
+- A requirement or a glossary entry is one or two sentences. A principle is a title and a paragraph of two to four sentences, because principles are the main alignment point and a one-liner cannot be judged.
+- Domains and capabilities in plain words; mechanisms and jargon only in requirements, using glossary terms.
+- A written entry carries no footnote markers; sources go in the node's `source` field, or on a Source line after a principle or glossary entry.
 
-Free text you send between tool calls may never reach the human, so the briefing goes inside the first question. The human is using HeadCanon for the first time, so the briefing says what is happening before it says how the buttons work. Begin the first question's text with this block, verbatim, then the draft:
+## Briefing
+
+The first question begins with this block, verbatim, then the draft:
 
 ```
 Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
@@ -67,93 +78,54 @@ Nothing is saved until you approve it.
 Premise (1 of 5): what the project is.
 ```
 
-Every later question starts with its layer label. Every multi-select question repeats one line: "Tick every item that is right as written; unticked items come back one by one."
-
-## Drafting rules
-
-- Every sentence rests on a source, `path:lines` inside this repository or `conversation, <date>`, shown as a footnote in the question and recorded in the node's `source` field. No source, no sentence.
-- Length follows the layer. A requirement or a glossary entry is one or two sentences. A principle is a title and a short paragraph of two to four sentences, because principles are the main point of alignment with the human and a one-liner cannot be judged.
-- Intent only. Counts, versions and statuses describe today and never enter a node.
-- Domains and capabilities in plain words. Mechanisms belong in requirements, using glossary terms.
-- One idea per node. A node that needs "and" twice is two nodes.
-- Every entry, whether a node's intent, a glossary definition, a principle or a non-goal, reads as a dictionary or encyclopedia entry: concise, about what the thing is, complete for a reader who never saw this conversation, one concept per entry. No correction history, no reasons, no "not" clauses; exclusions live only in a Not this section. Wrong examples and why they are wrong: reference.md, section 5.
-- Threads: before each step, scan the thread list for threads about that step and use them in the two roles below. Mark them used. Unused threads feed step 9.
-
-## Artifacts
-
-What the human approved or typed in the layer above is the primary source for the layer below: it is the most current intent. Artifacts have two roles and no third:
-
-1. **Pre-fill.** Where the approved layers above leave a draft open, a thread supplies the first guess, with its footnote.
-2. **Evidence.** Every draft is checked against the threads before it is asked. A thread that supports a sentence is its footnote.
-
-Precedence when sources disagree: what the human approved in this run, then what the human typed, then the newest artifact, then older artifacts.
-
-Inconsistency procedure, when a thread disagrees with something the human approved or with a draft derived from it:
-1. Do not resolve it yourself and do not start the next layer.
-2. Ask: "The document says A [1]. What you approved says B. Which stands?" Options: **Keep what I approved**, **The document is right**. When the human types a third version, apply it and ask again with the merged text.
-3. Record the outcome: the entry follows the answer, and a document the human overruled is listed in DEC-001 as superseded on that point, so the sweep does not raise it again.
-
 ## Steps
 
 ### 1 Read
 
-Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. A thread is one thing an artifact says plus its `path:lines`. Note contradictions and which artifact is newer. Never present the list and never ask about provenance; the human judges drafts, not files.
-
-Read only files inside this repository, this skill's reference file, and the human's answers. Do not open the plugin directory's own `canon/`, earlier session transcripts, or other projects: their content is not this project's intent, and drafts built from them are invented.
+Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. Note contradictions and which artifact is newer. Never present the list; never ask about provenance.
 
 ### 3 Premise
 
-One question each, in order: what it is (one or two sentences); purpose and for whom (one paragraph); not this (three to six; multi-select, one by one, then "anything missing?"); glossary (six to ten terms; multi-select, one by one).
+One question each, in order: what it is (one or two sentences); purpose and for whom (one paragraph); not this (three to six non-goals, the only place for what the project is not; multi-select, one by one, then "anything missing?"); glossary (six to ten terms; multi-select, one by one).
 
 ### 4 Init
 
-Run `HC init`. Tell the human in one sentence that the commit-msg hook now requires an Intent trailer on every commit. Write `canon/README.md` in the root format from reference.md.
+Run `HC init`; tell the human in one sentence that the commit-msg hook now requires an Intent trailer on every commit. Write `canon/README.md` in the root format.
 
 ### 5 Principles
 
-Principles are direction: tone, taste, values, ways of working. A "never" the human states is a principle first. Each principle is a **title** and a **paragraph of two to four sentences** that says what the direction is, what it means for the choices the project makes, and where it applies; a reader should be able to tell from the paragraph alone whether a given requirement follows it. Draw first on the human's premise answers, then on the artifacts that state direction (charters, style guides, decision records), preferring the newest when two disagree; a milestone from an old plan is not a current principle. Draft three to eight. Multi-select, one by one, "anything missing?". Write them under `## Principles` in the root README in the format from reference.md.
+Direction: tone, taste, values, ways of working; a "never" the human states is a principle first. Draw on the premise answers first, then on the newest artifacts that state direction (charters, style guides, decision records); a milestone from an old plan is not a principle. Draft three to eight, each a title and a paragraph. Multi-select, one by one, "anything missing?". Write them under `## Principles`.
 
 ### 6 Domains
 
-Domains derive from two sources, in this order; artifacts pre-fill and validate, they do not decide:
+Derive from the approved premise: what distinct areas must exist for this product to operate? A desktop app that turns bank statements into tax reports needs statement import, categorization, reporting; a platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access. Add the domains every software project needs, documentation and verification, with source "software project". Then check the threads: an area they treat as their own is added as a candidate; a contradiction goes through the inconsistency procedure. Propose two to six premise domains plus the project-kind ones: `REQ-n`, plain title, one line on what it must do and why the premise needs it. Multi-select, one by one, "anything missing?". Fewer than about eight areas in total: they are the top level and there is no domain layer.
 
-1. **The approved premise.** What distinct areas must exist for this product, as the human just approved it, to operate? A desktop app that turns bank statements into tax reports needs statement import, transaction categorization, report generation. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access.
-2. **The kind of project.** Every software project needs documentation and verification regardless of premise. Propose those too, with "software project" as source.
-
-Then check the threads: an area the artifacts treat as their own that the derived list lacks is added as a candidate with its footnote; an artifact that contradicts a derived domain goes through the inconsistency procedure. Propose two to six premise domains plus the project-kind ones: `REQ-n`, a plain title, one line saying what the domain must do and why the premise needs it. Multi-select, one by one, "anything missing?".
-
-Gap procedure, when you believe an area is needed and the project has nothing on it:
-1. Ask: "Does this project need <area>?" Options: **Yes, add it**, **No**. When the answer is one of those two, act on it and stop here.
-2. When the human types that it is undecided: ask "Leave it as an open domain to consider later?" Options: **Leave open**, **Drop**. Leave open writes a node with `state: open`, titled as the question.
-
-Fewer than about eight areas in total: those areas are the top level and there is no domain layer.
+Gap, when you believe an area is needed and the project has nothing on it: ask "Does this project need <area>?" with **Yes, add it** and **No**, and act on the answer. Only when the human types that it is undecided, ask "Leave it as an open domain to consider later?" with **Leave open** and **Drop**; leave open writes a node with `state: open`, titled as the question.
 
 ### 7 Capabilities
 
-For each domain, in turn: given the domain as the human approved it, what does every system of this kind need to be fully defined as one? Derive from the approved domain and the kind of system; pre-fill the wording from the threads; check every candidate against the threads and the approved layers above. Propose up to eight: a plain title, one line, a source (an artifact, or `archetype` when nothing in the project covers it). A capability nothing in the project covers is proposed as an `open` node titled as the question. Judge each against the principles and name any drift in the question. One multi-select per domain, then one by one.
+Per domain, in turn: given the domain as approved, what does every system of this kind need to be complete? Pre-fill the wording from threads; check each candidate against the threads and the layers above. Up to eight: plain title, one line, source (an artifact, or `archetype` when nothing in the project covers it, in which case it is an `open` node titled as the question). Judge each against the principles and name any drift in the question. One multi-select per domain, then one by one.
 
 ### 8 Requirements
 
-For each capability, in turn: the concrete requirements under it, as assumed nodes with sources. The approved capability says what must be covered; the threads pre-fill the concrete requirements and are their evidence. A thread that contradicts the approved capability or a principle goes through the inconsistency procedure before anything from it is proposed. Before proposing a requirement, name to yourself a check in content or code that would show it met. No check means it is a principle or too vague: do not propose it. A requirement that is already a yes-or-no check gets `kind`. Judge each against the principles. One multi-select per capability that has candidates, then one by one. Stop at this depth; deeper levels fill when work touches a branch.
-
-Two artifacts disagree: offer both readings. Neither chosen: write the node as `contested` with both positions.
+Per capability, in turn: the concrete requirements under it, pre-filled from threads, as assumed nodes with sources. A thread that contradicts the capability or a principle goes through the inconsistency procedure first. A requirement is verifiable by definition: name to yourself a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it. Already a yes-or-no check: set `kind`. Judge each against the principles. One multi-select per capability with candidates, then one by one. Stop at this depth. Two artifacts disagree: offer both readings; neither chosen: `contested` with both positions.
 
 ### 9 Sweep
 
-Take every unused thread, at most eight per question, as a multi-select whose options per thread are **add under <capability>**, **merge into <ID>**, **drop**. Added threads become assumed nodes with their source. Merged threads update the named node, citing the source. Dropped threads go into `canon/decisions/DEC-001-adoption-scope.md` in the format from reference.md, one line each with source and reason. An artifact the human calls obsolete gets one line for the whole artifact.
+Unused threads, at most eight per question, as a multi-select with per-thread options **add under <capability>**, **merge into <ID>**, **drop**. Adds become assumed nodes with their source; merges update the named node, citing the source; drops go to `canon/decisions/DEC-001-adoption-scope.md`, one line each with source and reason. An artifact the human calls obsolete gets one line for the whole artifact.
 
 ### 10 Verify and commit
 
-Run `HC check` and fix every error. Only proceed when it reports 0 errors. Run `HC summary` and show the tree, then `HC render`. Run `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `Intent-Change: update ROOT`, `Decision: DEC-001`, and `Approved-By` set to the human's git `user.name`, because they approved every item in this conversation.
+`HC check`; fix every error; only proceed at 0 errors. `HC summary` and show the tree; `HC render`. `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `Intent-Change: update ROOT`, `Decision: DEC-001`, and `Approved-By` set to the human's git `user.name`, because they approved every item here.
 
 ### 11 Report
 
-List the domains with their capabilities; the open capabilities and domains; the counts of stated, resolved and assumed nodes; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the assumed and open items when they are ready. The canon is a seed, not complete.
+Domains with their capabilities; open capabilities and domains; counts of stated, resolved and assumed nodes; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the assumed and open items when they are ready. The canon is a seed, not complete.
 
 ## Examples
 
 <example>
-Domain question, plain words, one line each, sources named:
+Domain question, plain words, one line each, footnoted:
 "Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
 REQ-1 Statement import: bank statements in any common format become transactions. [1]
 REQ-2 Categorization: every transaction lands in a tax category, by rule or by hand. [1]
@@ -167,9 +139,9 @@ To correct or rewrite one, type in Other."
 </example>
 
 <example>
-Typed correction handled as an instruction, then re-asked:
+Typed correction applied exactly, then asked again:
 Human types: "Don't mention how many banks we support."
-Agent: quotes that line under Stated as a correction, removes the count from the draft, and asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop. To correct, type in Other."
+Agent asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop. To correct, type in Other."
 </example>
 
 <example>

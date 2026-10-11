@@ -22,3 +22,7 @@ The structure adopted, from Anthropic's skill authoring best practices, the Clau
 - The injected rules are grouped under four headers, one line per rule, under about 2,000 characters, because every line is paid for on every turn and the skills carry the procedures.
 
 Rules are context, not enforcement; behavior that must happen stays in hooks (the commit-msg hook, and later the Stop and PreToolUse hooks).
+
+## Consolidation trigger, added the same evening
+
+The first consolidation was followed by five appends in one afternoon, and the human asked whether consolidation was happening regularly. It was not. The trigger is now explicit: the injected rules stay under 2,000 characters and the adopt skill under 130 lines, and either limit being crossed means consolidate before adding. Both were brought back under their limits in the same change, keeping every instruction.
