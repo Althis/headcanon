@@ -266,6 +266,7 @@ flowchart LR
 flowchart LR
     REQ_3["REQ-3<br/>Intent is a tree of requirements refined to bin…"]:::stated
     REQ_3_1["REQ-3.1<br/>HeadCanon's own model is the description framew…"]:::stated
+    REQ_3_1_1["REQ-3.1.1<br/>Aim: the canon holds explanation, requirements …"]:::stated
     REQ_3_2["REQ-3.2<br/>KAOS obstacle analysis is kept in mind, not ado…"]:::stated
     REQ_3_3["REQ-3.3<br/>Requirements form a tree, refined down to binar…"]:::stated
     REQ_3_4["REQ-3.4<br/>The tree is filled lazily: gaps surface when re…"]:::stated
@@ -278,6 +279,7 @@ flowchart LR
     REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
     REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
     REQ_3 --> REQ_3_1
+    REQ_3_1 --> REQ_3_1_1
     REQ_3 --> REQ_3_2
     REQ_3 --> REQ_3_3
     REQ_3 --> REQ_3_4
@@ -619,6 +621,7 @@ REQ-2             Two products share one intent format                          
 └─ REQ-2.9        Writ's v1 test environment is Node                                        stated    · unrefined
 REQ-3             Intent is a tree of requirements refined to binary leaves                 stated    · unrefined
 ├─ REQ-3.1        HeadCanon's own model is the description framework; Diataxis maybe for …  stated    · unrefined
+│  └─ REQ-3.1.1   Aim: the canon holds explanation, requirements are the reference, how-t…  stated    · unrefined
 ├─ REQ-3.2        KAOS obstacle analysis is kept in mind, not adopted now                   stated    · unrefined
 ├─ REQ-3.3        Requirements form a tree, refined down to binary-measurable leaves        stated    · unrefined
 ├─ REQ-3.4        The tree is filled lazily: gaps surface when relevant; deeper details m…  stated    · unrefined
