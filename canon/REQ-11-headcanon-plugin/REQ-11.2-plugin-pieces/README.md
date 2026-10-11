@@ -4,6 +4,7 @@ parent: REQ-11
 title: "What lives where inside the plugin"
 state: assumed
 source: "docs/design-brief-v0.md:464-478"
+files: [.claude-plugin/plugin.json, hooks/hooks.json, skills]
 ---
 
 # What lives where inside the plugin

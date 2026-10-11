@@ -4,6 +4,7 @@ parent: REQ-6
 title: "Mermaid index limits and generated-view freshness"
 state: assumed
 source: "docs/design-brief-v0.md:254"
+files: [packages/canon/src/render.ts]
 ---
 
 # Mermaid index limits and generated-view freshness

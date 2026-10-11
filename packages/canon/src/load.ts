@@ -57,6 +57,8 @@ export function loadCanon(dirInput: string): Canon {
       canon.unparsed.push(file);
       continue;
     }
+    // Generated views carry id INDEX and are not canon objects.
+    if (id === "INDEX") continue;
     const prev = seen.get(id);
     if (prev) {
       (canon.duplicates[id] ??= [prev]).push(file);

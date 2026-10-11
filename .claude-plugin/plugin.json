@@ -1,0 +1,11 @@
+{
+  "name": "headcanon",
+  "displayName": "HeadCanon",
+  "version": "0.1.0",
+  "description": "Keeps the agent aligned with human intent: a canon of requirements, journeys, glossary and decisions, injected every session, changed only through approved change requests, and carried in every commit.",
+  "author": { "name": "Althis Mendes", "url": "https://github.com/Althis" },
+  "homepage": "https://github.com/Althis/headcanon",
+  "repository": "https://github.com/Althis/headcanon",
+  "license": "Apache-2.0",
+  "keywords": ["intent", "requirements", "alignment", "canon", "hooks"]
+}

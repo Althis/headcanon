@@ -4,6 +4,7 @@ parent: REQ-11
 title: "SessionStart summary instead of editing CLAUDE.md; Stop hook as the \"done\" gate"
 state: assumed
 source: "docs/design-brief-v0.md:110"
+files: [hooks/hooks.json, packages/canon/src/context.ts, packages/canon/src/rules.ts]
 ---
 
 # SessionStart summary instead of editing CLAUDE.md; Stop hook as the "done" gate
