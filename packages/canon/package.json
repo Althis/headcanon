@@ -1,0 +1,24 @@
+{
+  "name": "@headcanon/canon",
+  "version": "0.0.0",
+  "description": "The canon: HeadCanon's intent format, plus the deterministic CLI that checks it, summarizes it and serves a local viewer.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "headcanon": "./bin/headcanon.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "public"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "marked": "^15.0.0",
+    "yaml": "^2.6.0"
+  }
+}

@@ -1,0 +1,83 @@
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
+
+const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
+
+describe("parse [REQ-6.1]", () => {
+  it("splits front-matter from the body and tolerates files without it", () => {
+    const p = parseFrontMatter("---\nid: REQ-1\nsteps: [JRN-1/S1]\n---\n\n# Title\n\nbody");
+    expect(p.data["id"]).toBe("REQ-1");
+    expect(p.data["steps"]).toEqual(["JRN-1/S1"]);
+    expect(p.body).toContain("# Title");
+    expect(parseFrontMatter("no front matter").data).toEqual({});
+  });
+
+  it("reads section markers like `## Not this [assumed]` [REQ-5.3.3]", () => {
+    const s = parseSections("## Stated\n\n> x\n\n## Not this [assumed]\n\ntext\n\n## Weird [bogus]\n");
+    expect(s).toEqual([
+      { heading: "Stated", marker: undefined },
+      { heading: "Not this", marker: "assumed" },
+      { heading: "Weird", marker: undefined },
+    ]);
+  });
+
+  it("reads a journey step table with or without a state column [REQ-4.3]", () => {
+    const three = parseStepTable("| Step | State | Linked |\n| --- | --- | --- |\n| S1 Open | stated | REQ-1, REQ-2.1 (note) |");
+    expect(three[0]).toEqual({ id: "S1", label: "Open", state: "stated", requirements: ["REQ-1", "REQ-2.1"] });
+    const two = parseStepTable("| Step | Linked |\n| --- | --- |\n| S4 Log in | REQ-9 |");
+    expect(two[0]).toEqual({ id: "S4", label: "Log in", state: "assumed", requirements: ["REQ-9"] });
+  });
+});
+
+describe("load [REQ-6.1, REQ-6.3]", () => {
+  const canon = loadCanon(MINI);
+
+  it("builds the tree, journeys, decisions and glossary from the folder", () => {
+    expect(canon.root?.title).toBe("Mini canon");
+    expect(canon.terms.map((t) => t.id)).toEqual(["TERM-widget", "TERM-skip"]);
+    expect(canon.nodes["REQ-1"]?.children).toEqual(["REQ-1.1"]);
+    expect(canon.nodes["REQ-1.1"]?.depth).toBe(1);
+    expect(canon.journeys[0]?.steps).toHaveLength(2);
+    expect(canon.journeys[0]?.mermaid).toContain("flowchart");
+    expect(canon.decisions[0]?.intents).toEqual(["REQ-1.1"]);
+  });
+
+  it("keeps an orphan visible as a root and reports the stray file", () => {
+    expect(canon.roots).toEqual(["REQ-1", "REQ-1.2"]);
+    expect(canon.unparsed).toEqual(["notes.md"]);
+  });
+});
+
+describe("check [REQ-2.6]", () => {
+  const canon = loadCanon(MINI);
+  const findings = checkCanon(canon);
+  const codes = (level?: string) => findings.filter((f) => !level || f.level === level).map((f) => `${f.code}:${f.id ?? ""}`);
+
+  it("flags broken links and missing parents as errors", () => {
+    expect(codes("error")).toContain("parent-missing:REQ-1.2");
+    expect(codes("error")).toContain("link-unknown:JRN-1/S2");
+  });
+
+  it("warns about missing files, contested sections and stray files", () => {
+    expect(codes("warn")).toContain("file-missing:REQ-1.1");
+    expect(codes("warn")).toContain("contested:REQ-1.1");
+    expect(codes("warn")).toContain("no-id:");
+  });
+
+  it("surfaces open questions and unconfirmed decisions as notes", () => {
+    expect(codes("info")).toContain("open:REQ-1.2");
+    expect(codes("info")).toContain("decision-unconfirmed:DEC-001");
+  });
+});
+
+describe("summary [REQ-6.2]", () => {
+  it("renders the text tree with ids, states and finding counts", () => {
+    const canon = loadCanon(MINI);
+    const text = renderTextTree(canon, checkCanon(canon));
+    expect(text).toMatch(/^REQ-1\s+New users get productive without help\s+stated/m);
+    expect(text).toMatch(/└─ REQ-1\.1\s+Sign-up takes under 60 seconds\s+assumed\s+numeric\s+! \d finding/m);
+    expect(text).toContain("JRN-1");
+    expect(text).toContain("origin: obstacle");
+  });
+});
