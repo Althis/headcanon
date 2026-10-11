@@ -460,9 +460,17 @@ function renderQuestion(q) {
     <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}</div>
     <div class="q-body body">${q.html}</div>
     ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
-    <div class="opts">${opts}</div>
-    <textarea id="q-other" rows="3" placeholder="Other: your own wording, or a correction"></textarea>
-    <div class="row"><button class="btn" id="q-submit">Answer</button><span class="sub" id="q-hint"></span></div>`;
+    <div class="opts" id="q-opts">${opts}</div>
+    <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
+    <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
+  // One answer shape at a time: the options, or typed text that replaces them. Never both.
+  $question.querySelector("#q-mode").addEventListener("click", () => {
+    const free = $question.querySelector("#q-free"), optsEl = $question.querySelector("#q-opts"), mode = $question.querySelector("#q-mode");
+    const toFree = free.hidden;
+    free.hidden = !toFree; optsEl.hidden = toFree;
+    if (toFree) { for (const i of optsEl.querySelectorAll("input")) i.checked = false; free.querySelector("textarea").focus(); } else free.querySelector("textarea").value = "";
+    mode.textContent = toFree ? "Back to the options" : "Other: correct or rewrite instead";
+  });
   for (const span of $question.querySelectorAll(".jargon")) {
     span.addEventListener("mouseenter", () => showTooltip(span, q));
     span.addEventListener("click", (e) => { e.preventDefault(); showTooltip(span, q, true); });
@@ -520,11 +528,13 @@ function showTooltip(span, q, pinned = false) {
 }
 async function submitAnswer(q) {
   const selected = [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => i.value);
-  const other = $question.querySelector("#q-other").value.trim();
-  if (!selected.length && !other) { showToast("Pick an option or type in Other."); return; }
+  const freeMode = !$question.querySelector("#q-free").hidden;
+  const other = freeMode ? $question.querySelector("#q-other").value.trim() : "";
+  if (freeMode && !other) { showToast("Type your wording or correction, or go back to the options."); return; }
+  if (!freeMode && !selected.length && !q.multiSelect) { showToast("Pick an option, or switch to a correction."); return; }
   const terms = Object.values(termState);
   try {
-    await post("/api/answer", { questionId: q.id, selected: other ? [] : selected, other, terms });
+    await post("/api/answer", { questionId: q.id, selected: freeMode ? [] : selected, other, terms });
     working = { since: Date.now(), answer: other ? `Other: ${other}` : selected.join(", ") };
     shownQuestionId = null;
     showWorking();
