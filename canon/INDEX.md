@@ -94,7 +94,7 @@ flowchart LR
     REQ_11_3["REQ-11.3<br/>All hooks live at plugin level"]:::assumed
     REQ_11_4["REQ-11.4<br/>The E2E target is discovered by developing Head…"]:::stated
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
-    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project start…"]:::stated
+    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project is to…"]:::stated
     REQ_12["REQ-12<br/>Viewing surfaces and the paid team layer come a…"]:::assumed
     REQ_12_1["REQ-12.1<br/>A local viewer now; an MCP App later"]:::stated
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
@@ -479,7 +479,7 @@ flowchart LR
     REQ_11_3["REQ-11.3<br/>All hooks live at plugin level"]:::assumed
     REQ_11_4["REQ-11.4<br/>The E2E target is discovered by developing Head…"]:::stated
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
-    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project start…"]:::stated
+    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project is to…"]:::stated
     REQ_11 --> REQ_11_1
     REQ_11_1 --> REQ_11_1_1
     REQ_11_1 --> REQ_11_1_2
@@ -653,7 +653,7 @@ REQ-11            HeadCanon keeps the agent aligned from inside Claude Code     
 ├─ REQ-11.3       All hooks live at plugin level                                            assumed   · unrefined  ! 1 finding
 ├─ REQ-11.4       The E2E target is discovered by developing HeadCanon alongside a real p…  stated    · unrefined
 ├─ REQ-11.5       HeadCanon is built with itself from the first commit                      resolved  · unrefined
-└─ REQ-11.6       Adopting HeadCanon in an existing project starts from the repository's …  stated    · unrefined
+└─ REQ-11.6       Adopting HeadCanon in an existing project is top-down: concepts, then r…  stated    · unrefined
 REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   · unrefined  ! 1 finding
 ├─ REQ-12.1       A local viewer now; an MCP App later                                      stated    · unrefined
 │  ├─ REQ-12.1.1  Overview: requirements at a glance                                        assumed   · unrefined
@@ -685,4 +685,5 @@ Decisions
   DEC-006         Commits awaiting review carry `Approved-By: pending (...)`  assumed  origin: obstacle
   DEC-007         The plugin root is the repository root, loaded with --plugin-dir during development  assumed
   DEC-008         The session context fits Claude Code's 10,000-character hook limit by shallowing the tree, never by dropping the rules  assumed  origin: obstacle
+  DEC-009         The adopt skill was rewritten top-down after its first run asked the human for file provenance  assumed  origin: misread
 ```

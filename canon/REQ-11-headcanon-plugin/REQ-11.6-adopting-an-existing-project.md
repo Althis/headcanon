@@ -1,13 +1,13 @@
 ---
 id: REQ-11.6
 parent: REQ-11
-title: "Adopting HeadCanon in an existing project starts from the repository's own artifacts"
+title: "Adopting HeadCanon in an existing project is top-down: concepts, then requirements, then a sweep for dropped intents"
 state: stated
 source: "Claude Code session, 2026-10-11"
 files: [skills/adopt/SKILL.md, packages/canon/src/init.ts]
 ---
 
-# Adopting HeadCanon in an existing project starts from the repository's own artifacts
+# Adopting HeadCanon in an existing project is top-down: concepts, then requirements, then a sweep for dropped intents
 
 ## Stated
 
@@ -19,16 +19,21 @@ files: [skills/adopt/SKILL.md, packages/canon/src/init.ts]
 
 Source: Claude Code session, 2026-10-11, answers 2 and 5 about The Valley.
 
+> The process for intaking a project with no canon is kinda complicated. We should be guiding this process more. For example, it is currently asking me for provenance of a bunch of files that I have no idea where they came from, instead, I think humans should work better from a top down approach: Have it start creating the core concepts, what it is, purpose, etc, basic concepts for the project and ask for approval or correction. Ask it to use the question answering interface, because that is quite nice. From those we start with the requirements and instruct the model to start by generating assumptions based on artifacts and ask for corrections/approvals, and then once it thinks it's done double check the artifacts again to look for dropped intents and then request approval for whether those do need to be dropped or modify current intents to include them.
+
+Source: Claude Code session, 2026-10-11, after the first adopt run on The Valley.
+
 ## Intent [assumed]
 
-The `adopt` skill runs when a project has no canon. It inventories README, requirements, specification, roadmap and decision files, plus project instructions and test names, and asks the human to confirm each artifact's provenance. It then creates the skeleton with `headcanon init`, elicits the purpose, non-goals and glossary in the human's own words, and proposes a first-level tree as assumed nodes that cite their sources. Depth is added lazily later. Nothing from an existing document becomes stated unless the human wrote it themselves and says so.
+The `adopt` skill reads the repository's artifacts silently and never asks the human about provenance. It then works top-down through the question interface: core concepts first (what it is, purpose and audience, non-goals, glossary), each drafted from the artifacts and approved, corrected or rewritten by the human; then the requirement tree, drafted as assumptions one level at a time and approved branch by branch, stopping at two levels; then a sweep that compares the artifacts against the tree and asks, for every intent the tree dropped, whether to add it, merge it into an existing node, or drop it. Drops are recorded in a decision so they are conscious, not silent.
 
 ## Not this [assumed]
 
-Converting an existing requirements document wholesale into the tree. That would be the agent substituting a document for the human's intent, the first failure mode in REQ-1.1.
+An inventory interview, where the human is asked file by file who wrote what. Also not a wholesale conversion of a requirements document into the tree.
 
 ## Assumptions
 
-- Provenance is decided per artifact by the human, with the agent's guess as a starting point; "agent-written with the human's guidance" counts as assumed. (model assumption)
-- The first-level tree has between five and twelve branches, with at most one level of children at adoption time. (model assumption)
-- Decision records found in the repository are proposed as DEC records, assumed, rather than copied or ignored. (model assumption)
+- A draft the human approves as written becomes resolved, with the chosen option as the resolution; only words the human types become stated. (model assumption)
+- The question interface is Claude Code's AskUserQuestion tool, with at most four options and always a way to type a correction. (model assumption)
+- Dropped intents live in one decision record, DEC-001 of the adopted project, listing each with its source and reason. (model assumption)
+- Adoption stops at two levels of the tree; `kind`, `files` and `steps` are left for refinement. (model assumption)
