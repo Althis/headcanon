@@ -10,11 +10,11 @@ when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a
 
 ## Checklist
 
-Copy this list into your first reply and tick items as you complete them.
+Write this list to your scratch file next to the thread list, and tick items as you complete them. The human sees progress through the step names in each question, not through this list.
 
 - [ ] 0 `HC check` reports no canon. Only proceed when it does; otherwise point the human to `/headcanon:review` and stop.
 - [ ] 1 Read the artifacts silently; write the thread list to a scratch file.
-- [ ] 2 Brief the human on how approval works (one message, no question).
+- [ ] 2 Put the briefing in the first question's text.
 - [ ] 3 Overview: what it is, purpose, not this, glossary.
 - [ ] 4 `HC init`; write `canon/README.md`.
 - [ ] 5 Principles into the root README.
@@ -32,6 +32,7 @@ These apply to every question in every step.
 - Ask with AskUserQuestion. The full draft goes in the question text.
 - Options are exactly two: **Approve as written** and **Drop**. Add to the question: "To correct or rewrite, type in Other." An option carries no text, so a "correct" option would arrive empty.
 - Lists get one multi-select first. **A selected item is approved as written** and becomes resolved. Then ask one question per unselected item, restating the original draft.
+- Anything the human must know goes inside a question's text, never in a free-text message between tool calls; those may never be read.
 - Classify typed text before acting on it:
   - **Wording** (the statement itself): stated, quoted verbatim; it is the node's content.
   - **A correction as an instruction** ("drop the counts"): quote it under Stated as a correction, apply it to the draft, then ask again with the merged text. Only that answer makes the merged text resolved.
@@ -40,7 +41,17 @@ These apply to every question in every step.
 
 ## The briefing
 
-Before the first question, send one message: selecting an item approves it as written; unselected items will be asked about one by one; typing in Other corrects or rewrites; only typed words become stated; nothing is written to disk before approval. Then begin step 3.
+Free text you send between tool calls may never reach the human, so the briefing goes inside the first question. Begin the first question's text with these five lines, then the draft:
+
+```
+How this works: Approve as written records my draft as approved by you. Drop leaves it out.
+Typing in Other replaces or corrects the draft, and only your typed words are recorded as yours.
+In a list, every item you select is approved as written; unselected items are asked about one by one.
+Nothing is written to disk before you approve it.
+Step 1 of 11: what it is.
+```
+
+Every later question starts with its step name and number ("Step 6 of 11: domains"). Every multi-select question repeats one line: "Selected means approved as written; unselected items are asked about next."
 
 ## Drafting rules
 
