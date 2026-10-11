@@ -675,7 +675,7 @@ REQ-10            Writ sits a layer above the team's tools and runs where they r
 ├─ REQ-10.5       Requirements link to files or functions; Writ scopes checks to a commit…  stated    · unrefined
 └─ REQ-10.6       Links are many-to-many; unlinked changes are flagged; E2E and per-relea…  assumed   · unrefined
 REQ-11            HeadCanon keeps the agent aligned from inside Claude Code                 stated    · unrefined
-├─ REQ-11.1       SessionStart summary instead of editing CLAUDE.md; Stop hook as the "do…  assumed   · unrefined
+├─ REQ-11.1       SessionStart summary instead of editing CLAUDE.md; Stop hook as the "do…  assumed   · unrefined  ! 1 finding
 │  ├─ REQ-11.1.1  The Stop gate ships in warn mode and blocks only once its checks prove …  resolved  · unrefined
 │  └─ REQ-11.1.2  A blocking Stop hook must check stop_hook_active                          assumed   · unrefined
 ├─ REQ-11.2       What lives where inside the plugin                                        assumed   · unrefined  ! 1 finding
@@ -717,4 +717,5 @@ Decisions
   DEC-007         The plugin root is the repository root, loaded with --plugin-dir during development  assumed
   DEC-008         The session context fits Claude Code's 10,000-character hook limit by shallowing the tree, never by dropping the rules  assumed  origin: obstacle
   DEC-009         The adopt skill was rewritten top-down after its first run asked the human for file provenance  assumed  origin: misread
+  DEC-010         Skills and the injected rules follow the published skill-authoring guidance, and the rules stay short  assumed
 ```
