@@ -199,7 +199,6 @@ function tree(selectedId) {
     </div>`;
 }
 // ---------------------------------------------------------------- graph: the canon is a DAG, one home per node plus typed links
-const mid = (id) => id.replace(/[^A-Za-z0-9]/g, "_");
 /** The nodes worth drawing: with nothing selected, the top level and its children; with a selection, its
  *  ancestors, siblings, children and every node linked to it, plus their parents for context. */
 function graphScope(selectedId) {
@@ -221,24 +220,53 @@ function graphScope(selectedId) {
   return show;
 }
 function graphBlock(selectedId) {
-  const nodes = snap.canon.nodes;
   const show = graphScope(selectedId);
-  const label = (n) => { const hidden = n.children.filter((c) => !show.has(c)).length; return `${n.id} ${n.title}${hidden ? ` (+${hidden})` : ""}`.replace(/"/g, "'"); };
-  const lines = ["flowchart TB"];
-  for (const id of show) lines.push(`  ${mid(id)}["${label(nodes[id])}"]:::${nodes[id].state}${id === selectedId ? " " : ""}`);
-  for (const id of show) { const n = nodes[id]; if (n.parent && show.has(n.parent)) lines.push(`  ${mid(n.parent)} --> ${mid(id)}`); }
+  return `<div class="graph">
+    <div class="legend graph-legend"><span>solid: contains</span><span>dashed: requires</span><span>dotted: relates</span><span>red: conflicts</span><span class="muted">${selectedId ? "the branch and links of " + esc(selectedId) : "the top levels"}; drag to pan, wheel to zoom, click a node to open it</span><button class="btn small" data-fit="1">Fit</button></div>
+    <div id="cy" data-ids="${esc(JSON.stringify([...show]))}"></div>
+  </div>`;
+}
+/** Draw the scoped canon on the canvas: a layered layout, nodes coloured by state, edges by kind. */
+function buildGraph(selectedId) {
+  const el = $main.querySelector("#cy");
+  if (!el || !window.cytoscape) return;
+  if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
+  const nodes = snap.canon.nodes;
+  const show = new Set(JSON.parse(el.dataset.ids || "[]"));
+  const elements = [];
   for (const id of show) {
     const n = nodes[id];
-    for (const t of n.requires) if (show.has(t)) lines.push(`  ${mid(id)} -. requires .-> ${mid(t)}`);
-    for (const t of n.relates) if (show.has(t) && (!nodes[t].relates.includes(id) || id < t)) lines.push(`  ${mid(id)} <-. relates .-> ${mid(t)}`);
-    for (const t of n.conflicts) if (show.has(t) && (!nodes[t].conflicts.includes(id) || id < t)) lines.push(`  ${mid(id)} x-. conflicts .-x ${mid(t)}`);
+    const hidden = n.children.filter((c) => !show.has(c)).length;
+    elements.push({ data: { id, label: `${id}
+${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: id === selectedId ? "selected" : "" });
   }
-  lines.push("  classDef stated fill:#dcfce7,stroke:#16a34a,color:#14532d", "  classDef resolved fill:#dbeafe,stroke:#2563eb,color:#1e3a8a", "  classDef assumed fill:#fef3c7,stroke:#d97706,color:#78350f", "  classDef open fill:#ede9fe,stroke:#7c3aed,color:#4c1d95", "  classDef contested fill:#fee2e2,stroke:#dc2626,color:#7f1d1d");
-  if (selectedId && show.has(selectedId)) lines.push(`  style ${mid(selectedId)} stroke-width:3px`);
-  return `<div class="graph">
-    <div class="legend graph-legend"><span>solid: contains</span><span>dashed: requires</span><span>dotted: relates</span><span>x: conflicts</span><span class="muted">${selectedId ? "showing the branch and links of " + esc(selectedId) : "showing the top levels"}; click a node to open it</span></div>
-    <pre class="mermaid" data-ids="${esc(JSON.stringify([...show]))}">${esc(lines.join("\n"))}</pre>
-  </div>`;
+  const edge = (s, t, kind) => elements.push({ data: { id: `${kind}:${s}>${t}`, source: s, target: t, kind, label: kind === "contains" ? "" : kind }, classes: kind });
+  for (const id of show) {
+    const n = nodes[id];
+    if (n.parent && show.has(n.parent)) edge(n.parent, id, "contains");
+    for (const t of n.requires) if (show.has(t)) edge(id, t, "requires");
+    for (const t of n.relates) if (show.has(t) && (!nodes[t].relates.includes(id) || id < t)) edge(id, t, "relates");
+    for (const t of n.conflicts) if (show.has(t) && (!nodes[t].conflicts.includes(id) || id < t)) edge(id, t, "conflicts");
+  }
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const fill = { stated: "#dcfce7", resolved: "#dbeafe", assumed: "#fef3c7", open: "#ede9fe", contested: "#fee2e2" };
+  const line = { stated: "#16a34a", resolved: "#2563eb", assumed: "#d97706", open: "#7c3aed", contested: "#dc2626" };
+  const cy = window.cytoscape({
+    container: el, elements, minZoom: 0.1, maxZoom: 3,
+    style: [
+      { selector: "node", style: { shape: "round-rectangle", width: 180, height: 56, label: "data(label)", "text-wrap": "wrap", "text-max-width": 164, "font-size": 11, "text-valign": "center", "text-halign": "center", "background-color": (e) => fill[e.data("state")] ?? "#eee", "border-color": (e) => line[e.data("state")] ?? "#999", "border-width": 1.5, color: "#1f2937" } },
+      { selector: "node.selected", style: { "border-width": 4 } },
+      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.9, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
+      { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
+      { selector: "edge.relates", style: { "line-style": "dotted", "target-arrow-shape": "none", "line-color": "#7c3aed" } },
+      { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+    ],
+    layout: window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 24, rankSep: 60, edgeSep: 10, padding: 20 } : { name: "breadthfirst", directed: true, padding: 20 },
+  });
+  cy.on("tap", "node", (e) => { location.hash = `#/node/${e.target.id()}`; });
+  $main.querySelector("[data-fit]")?.addEventListener("click", () => cy.fit(undefined, 20));
+  cy.ready(() => { cy.fit(undefined, 20); if (selectedId && cy.getElementById(selectedId).length) cy.center(cy.getElementById(selectedId)); });
+  window.__cy = cy;
 }
 function nodeDetail(id) {
   const n = node(id);
@@ -403,23 +431,12 @@ function afterRender(view) {
     wireNodeActions();
   }
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
+  if ((view === "tree" || view === "node") && ui.graph) buildGraph(route().arg);
   const diagrams = $main.querySelectorAll(".mermaid");
   if (diagrams.length && window.mermaid) {
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-    window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral", securityLevel: "strict", flowchart: { useMaxWidth: true } });
-    window.mermaid.run({ nodes: diagrams }).then(() => {
-      // A node in the graph opens that node; Mermaid names each one after the id we gave it.
-      const pre = $main.querySelector(".graph .mermaid");
-      if (!pre) return;
-      const byMid = Object.fromEntries(JSON.parse(pre.dataset.ids || "[]").map((id) => [mid(id), id]));
-      for (const g of pre.querySelectorAll("g.node")) {
-        const m = /flowchart-(.+)-\d+$/.exec(g.id);
-        const id = m && byMid[m[1]];
-        if (!id) continue;
-        g.style.cursor = "pointer";
-        g.addEventListener("click", () => (location.hash = `#/node/${id}`));
-      }
-    }).catch((e) => console.warn("mermaid", e));
+    window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral", securityLevel: "strict" });
+    window.mermaid.run({ nodes: diagrams }).catch((e) => console.warn("mermaid", e));
   }
 }
 

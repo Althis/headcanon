@@ -29,6 +29,6 @@ A layout that invents a third shape: the graph draws exactly the containment of 
 
 ## Assumptions
 
-- The graph is drawn with Mermaid, already loaded for journeys, so the viewer stays a static page with no build step. (model assumption)
+- The graph is a Cytoscape canvas with a layered layout, loaded from a CDN like Mermaid, so the viewer stays a static page with no build step and the human can pan, zoom and drag. (model assumption)
 - With nothing selected and more than about forty nodes at the first two levels, only the top level is drawn, with the count of hidden children on each box. (model assumption)
 - In the list, top-level branches start expanded and deeper branches collapsed; a heading marker such as `## Not this [assumed]` renders as a badge; the reading pane strips the body's H1; filters and search combine with AND, and a non-matching ancestor is dimmed rather than hidden. (model assumption)
