@@ -36,6 +36,8 @@ async function load() {
   const res = await fetch("/api/snapshot", { cache: "no-store" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   snap = await res.json();
+  // A viewer started before the link fields existed serves nodes without them; the page must still draw.
+  for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; }
   document.getElementById("canon-path").textContent = `${snap.canon.dir}${snap.git.branch ? `  ·  ${snap.git.branch}` : ""}`;
   document.getElementById("generated").textContent = `read ${new Date(snap.generatedAt).toLocaleTimeString()}`;
   const n = attentionItems().total;
