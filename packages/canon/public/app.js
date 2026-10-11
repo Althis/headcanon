@@ -4,7 +4,8 @@ const UNCONFIRMED = new Set(["assumed", "open", "contested"]);
 
 const $main = document.getElementById("main");
 let snap = null;
-const ui = { collapsed: new Set(), filters: new Set(), flaggedOnly: false, query: "", levels: new Set(["error", "warn"]) };
+const ui = { collapsed: new Set(), filters: new Set(), flaggedOnly: false, query: "", levels: new Set(["error", "warn"]), graph: true };
+try { ui.graph = localStorage.getItem("hc-tree-mode") !== "list"; } catch {}
 
 // ---------------------------------------------------------------- helpers
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -179,18 +180,63 @@ function tree(selectedId) {
     </li>`;
   };
   const chips = STATES.map((s) => `<button class="chip ${s} ${ui.filters.has(s) ? "on" : ""}" data-filter="${s}">${s} ${snap.stats.counts[s]}</button>`).join("");
+  const graph = ui.graph;
   return `
     <div class="toolbar">
-      <input id="q" placeholder="Search id or title…" value="${esc(ui.query)}" />
+      <button class="btn ${graph ? "on" : ""}" data-mode="graph" title="The canon as a graph: containment plus the typed links">Graph</button>
+      <button class="btn ${graph ? "" : "on"}" data-mode="list" title="The canon as a nested list">List</button>
+      ${graph ? "" : `<input id="q" placeholder="Search id or title…" value="${esc(ui.query)}" />
       ${chips}
       <button class="chip flag ${ui.flaggedOnly ? "on" : ""}" data-flagged="1">! flagged</button>
       <button class="btn" data-expand="1">Expand all</button>
-      <button class="btn" data-collapse="1">Collapse</button>
+      <button class="btn" data-collapse="1">Collapse</button>`}
     </div>
     <div class="split">
-      <div class="tree"><ul>${snap.canon.roots.map(li).join("")}</ul></div>
+      ${graph ? graphBlock(selectedId) : `<div class="tree"><ul>${snap.canon.roots.map(li).join("")}</ul></div>`}
       <div class="detail">${selectedId ? nodeDetail(selectedId) : `<p class="muted">Select a requirement to read it.</p><h3>Text tree</h3><pre class="tree-text">${esc(snap.textTree)}</pre>`}</div>
     </div>`;
+}
+// ---------------------------------------------------------------- graph: the canon is a DAG, one home per node plus typed links
+const mid = (id) => id.replace(/[^A-Za-z0-9]/g, "_");
+/** The nodes worth drawing: with nothing selected, the top level and its children; with a selection, its
+ *  ancestors, siblings, children and every node linked to it, plus their parents for context. */
+function graphScope(selectedId) {
+  const nodes = snap.canon.nodes;
+  const show = new Set();
+  const addWithParents = (id) => { let p = id; while (p && nodes[p] && !show.has(p)) { show.add(p); p = nodes[p].parent; } };
+  if (selectedId && nodes[selectedId]) {
+    const n = nodes[selectedId];
+    addWithParents(selectedId);
+    for (const s of (n.parent ? nodes[n.parent].children : snap.canon.roots)) show.add(s);
+    for (const c of n.children) show.add(c);
+    for (const t of [...n.requires, ...n.relates, ...n.conflicts]) addWithParents(t);
+    for (const o of Object.values(nodes)) if ([...o.requires, ...o.relates, ...o.conflicts].includes(selectedId)) addWithParents(o.id);
+  } else {
+    for (const r of snap.canon.roots) show.add(r);
+    const wide = snap.canon.roots.reduce((a, r) => a + nodes[r].children.length, 0) > 40;
+    if (!wide) for (const r of snap.canon.roots) for (const c of nodes[r].children) show.add(c);
+  }
+  return show;
+}
+function graphBlock(selectedId) {
+  const nodes = snap.canon.nodes;
+  const show = graphScope(selectedId);
+  const label = (n) => { const hidden = n.children.filter((c) => !show.has(c)).length; return `${n.id} ${n.title}${hidden ? ` (+${hidden})` : ""}`.replace(/"/g, "'"); };
+  const lines = ["flowchart TB"];
+  for (const id of show) lines.push(`  ${mid(id)}["${label(nodes[id])}"]:::${nodes[id].state}${id === selectedId ? " " : ""}`);
+  for (const id of show) { const n = nodes[id]; if (n.parent && show.has(n.parent)) lines.push(`  ${mid(n.parent)} --> ${mid(id)}`); }
+  for (const id of show) {
+    const n = nodes[id];
+    for (const t of n.requires) if (show.has(t)) lines.push(`  ${mid(id)} -. requires .-> ${mid(t)}`);
+    for (const t of n.relates) if (show.has(t) && (!nodes[t].relates.includes(id) || id < t)) lines.push(`  ${mid(id)} <-. relates .-> ${mid(t)}`);
+    for (const t of n.conflicts) if (show.has(t) && (!nodes[t].conflicts.includes(id) || id < t)) lines.push(`  ${mid(id)} x-. conflicts .-x ${mid(t)}`);
+  }
+  lines.push("  classDef stated fill:#dcfce7,stroke:#16a34a,color:#14532d", "  classDef resolved fill:#dbeafe,stroke:#2563eb,color:#1e3a8a", "  classDef assumed fill:#fef3c7,stroke:#d97706,color:#78350f", "  classDef open fill:#ede9fe,stroke:#7c3aed,color:#4c1d95", "  classDef contested fill:#fee2e2,stroke:#dc2626,color:#7f1d1d");
+  if (selectedId && show.has(selectedId)) lines.push(`  style ${mid(selectedId)} stroke-width:3px`);
+  return `<div class="graph">
+    <div class="legend graph-legend"><span>solid: contains</span><span>dashed: requires</span><span>dotted: relates</span><span>x: conflicts</span><span class="muted">${selectedId ? "showing the branch and links of " + esc(selectedId) : "showing the top levels"}; click a node to open it</span></div>
+    <pre class="mermaid" data-ids="${esc(JSON.stringify([...show]))}">${esc(lines.join("\n"))}</pre>
+  </div>`;
 }
 function nodeDetail(id) {
   const n = node(id);
@@ -351,13 +397,27 @@ function afterRender(view) {
     for (const n of $main.querySelectorAll(".node")) n.addEventListener("click", () => { const id = n.dataset.id; let p = id; while (p) { ui.collapsed.delete(p); p = node(p)?.parent; } location.hash = `#/node/${id}`; });
     const sel = $main.querySelector(".node.selected");
     sel?.scrollIntoView({ block: "nearest" });
+    for (const b of $main.querySelectorAll("[data-mode]")) b.addEventListener("click", () => { ui.graph = b.dataset.mode === "graph"; try { localStorage.setItem("hc-tree-mode", ui.graph ? "graph" : "list"); } catch {} render(); });
     wireNodeActions();
   }
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
-  if ((view === "journeys" || view === "journey") && window.mermaid) {
+  const diagrams = $main.querySelectorAll(".mermaid");
+  if (diagrams.length && window.mermaid) {
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-    window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral", securityLevel: "strict" });
-    window.mermaid.run({ nodes: $main.querySelectorAll(".mermaid") }).catch((e) => console.warn("mermaid", e));
+    window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral", securityLevel: "strict", flowchart: { useMaxWidth: true } });
+    window.mermaid.run({ nodes: diagrams }).then(() => {
+      // A node in the graph opens that node; Mermaid names each one after the id we gave it.
+      const pre = $main.querySelector(".graph .mermaid");
+      if (!pre) return;
+      const byMid = Object.fromEntries(JSON.parse(pre.dataset.ids || "[]").map((id) => [mid(id), id]));
+      for (const g of pre.querySelectorAll("g.node")) {
+        const m = /flowchart-(.+)-\d+$/.exec(g.id);
+        const id = m && byMid[m[1]];
+        if (!id) continue;
+        g.style.cursor = "pointer";
+        g.addEventListener("click", () => (location.hash = `#/node/${id}`));
+      }
+    }).catch((e) => console.warn("mermaid", e));
   }
 }
 

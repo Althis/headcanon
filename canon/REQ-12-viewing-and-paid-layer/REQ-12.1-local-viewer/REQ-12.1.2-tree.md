@@ -1,13 +1,13 @@
 ---
 id: REQ-12.1.2
 parent: REQ-12.1
-title: "Tree: the full requirement tree with a reading pane"
-state: assumed
+title: "Tree: the canon as a graph by default, the nested list on request, and a reading pane"
+state: stated
 source: "Claude Code session, 2026-10-11"
 files: [packages/canon/public/app.js, packages/canon/src/tree.ts]
 ---
 
-# Tree: the full requirement tree with a reading pane
+# Tree: the canon as a graph by default, the nested list on request, and a reading pane
 
 ## Stated
 
@@ -15,17 +15,20 @@ files: [packages/canon/public/app.js, packages/canon/src/tree.ts]
 
 Source: Claude Code session, 2026-10-11, second bullet of the viewer request.
 
-## Intent
+> Since it is no longer a tree, allow the user to still reach this list type of visualization, but default to a DAG visualization.
 
-Every requirement is reachable in one collapsible tree, in the order of its ID, with its state badge, its kind when it has one, and a flag when it carries non-informational findings. Search and state filters narrow the tree while keeping the ancestors of every match visible, so context is never lost. Selecting a node opens a reading pane with the node's verbatim quotes, its sections with their own state markers, its children, the decisions resting on it, the journey steps that link to it, and its findings. With nothing selected, the pane shows the same plain-text tree the agent sees.
+Source: Claude Code session, 2026-10-11, during the fifth adopt run, after the canon became a directed acyclic graph (DEC-014).
+
+## Intent [assumed]
+
+The view opens as a graph: each node a box coloured by its state, containment drawn as solid edges, and the typed links drawn as labelled edges, dashed for requires, dotted for relates, crossed for conflicts. With nothing selected the graph shows the top level and its children; with a node selected it shows that node's ancestors, siblings and children, every node linked to or from it, and their parents for context, so one branch is read at a time. Clicking a box selects that node. A toggle switches to the nested list, which keeps its search, state filters, flags and expand and collapse controls, and the choice is remembered in the browser. Selecting a node in either mode opens the reading pane with the node's verbatim quotes, its sections with their own state markers, its partition and links, its children, the decisions resting on it, the journey steps that link to it, and its findings. With nothing selected, the pane shows the same plain-text tree the agent sees.
 
 ## Not this
 
-A graph or mind-map layout. The tree is a tree; the folder structure and the text tree are the same shape, and the viewer should not invent a third.
+A layout that invents a third shape: the graph draws exactly the containment of the folders and the links in the front-matter, nothing inferred.
 
 ## Assumptions
 
-- Top-level branches start expanded and deeper branches start collapsed, so the first view fits on one screen. (model assumption)
-- A heading marker such as `## Not this [assumed]` renders as a badge on the heading, which is the viewer's reading of REQ-5.3.3. (model assumption)
-- The reading pane strips the body's H1 because the title is already shown. (model assumption)
-- Filters and search combine with AND, and a non-matching ancestor is dimmed rather than hidden. (model assumption)
+- The graph is drawn with Mermaid, already loaded for journeys, so the viewer stays a static page with no build step. (model assumption)
+- With nothing selected and more than about forty nodes at the first two levels, only the top level is drawn, with the count of hidden children on each box. (model assumption)
+- In the list, top-level branches start expanded and deeper branches collapsed; a heading marker such as `## Not this [assumed]` renders as a badge; the reading pane strips the body's H1; filters and search combine with AND, and a non-matching ancestor is dimmed rather than hidden. (model assumption)
