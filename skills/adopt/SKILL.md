@@ -12,10 +12,12 @@ You are starting the canon for a project that has none. Work **top-down**: conce
 
 ## How to ask
 
-- Use **AskUserQuestion** for every approval. Put the draft in the question text so the human reads and decides in one place.
-- One concept per question. Batch only lists that belong together, with `multiSelect: true`.
-- Offer at most four options. The usual set is: **Approve as written**, **Approve with a correction** (the human types the correction), **Rewrite** (the human types their own version), **Drop**. For lists: a multi-select of the items to keep, then one follow-up question for corrections and missing items.
-- Record outcomes by the certainty rules. Words the human **typed** are **stated**, quoted verbatim. A draft the human **approved as written** is **resolved**: your draft is the Intent and the option they chose is the Resolution. A draft with no answer yet is **assumed**. A draft the human corrected is stated for their words and assumed for whatever remains yours.
+- Use **AskUserQuestion** for every approval. Put the full draft in the question text so the human reads and decides in one place.
+- **Selecting an option carries no text.** The human's corrections only reach you through "Other". So offer two options, **Approve as written** and **Drop**, and say in the question: "To correct or rewrite it, type your version in Other." Never offer an option like "Approve with a correction"; it cannot carry the correction.
+- One concept per question. Use `multiSelect: true` only for a first pass over a list, to learn which items are right as written.
+- **After a multi-select, go one by one.** For every item left unselected, ask one question each: restate the original proposal in full, offer Approve as written and Drop, and take corrections through Other. Never ask the human to correct or drop several items in one question.
+- Record outcomes by the certainty rules. Words the human **typed** are **stated**, quoted verbatim. A draft the human **approved as written** is **resolved**: your draft is the Intent and the option they chose is the Resolution. A draft the human corrected is stated for their words and assumed for whatever remains yours.
+- When typed text is an instruction about the process ("ask one at a time", "no not-clauses"), follow it for the rest of the run and do not record it as content.
 - Never write a canon file before the question that approves it has been answered.
 
 ## 0. Check
@@ -32,17 +34,22 @@ Keep a private inventory: path, date, and the intents it carries, as short bulle
 
 Ask these in order, each as one AskUserQuestion with your draft inside:
 
-1. **What it is.** One or two sentences, drafted from the artifacts. Options: approve, correct, rewrite.
-2. **Purpose, and for whom.** One short paragraph. Same options.
-3. **Not this.** Three to six non-goals drawn from the artifacts and from what the purpose excludes. Multi-select the ones to keep; then one question for corrections and additions.
-4. **Glossary.** Six to ten terms the project uses with a specific meaning, each with a definition and a "not" clause. Multi-select the ones that are right; then one question asking for corrections to the rest.
+1. **What it is.** One or two sentences, drafted from the artifacts.
+2. **Purpose, and for whom.** One short paragraph.
+3. **Not this.** Three to six non-goals drawn from the artifacts and from what the purpose excludes. Multi-select the ones to keep, then one question each for the unselected ones, then one question for anything missing. These are the only place in the canon where saying what the project is not belongs.
+4. **Glossary.** Six to ten terms the project uses with a specific meaning. Rules for a definition:
+   - It says **what the term is**, in one or two sentences, as a dictionary entry does. No "not" clauses, no contrasts with other terms, no "unlike X".
+   - **One concept per entry.** If a definition needs another concept to be understood, that concept gets its own entry. Never define two terms in one entry, and never bundle a related term into a definition ("a trait is a permanent effect" inside the Effect entry is wrong; Trait is its own entry).
+   - A disambiguation ("hook here is the engine's hook, not React's") is a separate sentence after the definition, added only when the human asks for it or two meanings genuinely collide in this codebase.
+   - No wording that refers to this conversation ("as discussed", "like every definition").
+   Multi-select the definitions that are right as written, then go one by one through the rest.
 
 After the glossary is settled, run `HC init` and tell the human in one sentence that the commit-msg hook is now installed and what it requires. Then write `canon/README.md`: the front-matter (`id: ROOT`, `title`, `state`, `source`), `## Stated` with any typed words quoted verbatim and their source, `## Intent` with approved drafts, `## Resolution` quoting the option chosen and the date, `## Not this`, and `## Glossary` in the format `**term** (`TERM-slug`): definition`, with `[assumed]` on the Glossary heading unless every term was confirmed. Set the root `state` to `stated` if the purpose was typed by the human, `resolved` if approved as written.
 
 ## 3. Requirements, top-down
 
-1. **Top level.** Draft five to twelve top-level requirements from the artifacts and the concepts just approved. Each has an ID (`REQ-1`, `REQ-2`, …), a title, a one-line intent and a source (file and lines, or "concepts, step 2"). Ask one multi-select question: which to keep. Then one question for corrections and anything missing. Write the approved nodes as folders with a `README.md` each, state `assumed` unless the human typed the wording, with `source`, `## Intent`, `## Not this` where clear, and `## Assumptions` listing what you decided.
-2. **One level down, branch by branch.** For each approved branch, draft up to eight children with one-line intents and sources, and ask one multi-select question per branch. Write the approved children as leaf files (`REQ-1.1-<slug>.md`). **Stop at this depth.** Deeper levels are filled lazily when work touches a branch.
+1. **Top level.** Draft five to twelve top-level requirements from the artifacts and the concepts just approved. Each has an ID (`REQ-1`, `REQ-2`, …), a title, a one-line intent and a source (file and lines, or "concepts, step 2"). Ask one multi-select question: which are right as written. Then one question each for the unselected ones, then one question for anything missing. Write the approved nodes as folders with a `README.md` each, state `assumed` unless the human typed the wording, with `source`, `## Intent`, `## Not this` where clear, and `## Assumptions` listing what you decided.
+2. **One level down, branch by branch.** For each approved branch, draft up to eight children with one-line intents and sources, and ask one multi-select question per branch, then one by one for the rest. Write the approved children as leaf files (`REQ-1.1-<slug>.md`). **Stop at this depth.** Deeper levels are filled lazily when work touches a branch.
 3. Where two artifacts disagree, offer both readings as options. If the human picks one, record it; if they do not, record the node as `contested` with both positions.
 
 Do not ask about `kind`, `files` or `steps` now; leave them out until a branch is refined for implementation.
@@ -71,5 +78,6 @@ End with: how many nodes are stated, resolved and assumed; what was dropped and 
 - Never write a canon file before the human has answered the question that approves it.
 - Never turn a draft into a stated item. Stated is only what the human typed.
 - Never go deeper than two levels during adoption.
+- Definitions say what a term is; one concept per entry.
 - When the human disagrees, record contested; do not argue past one round.
 - Stopping to ask is a successful outcome.

@@ -294,6 +294,7 @@ flowchart LR
 flowchart LR
     REQ_5["REQ-5<br/>Terms and certainty are modeled, never hidden"]:::stated
     REQ_5_1["REQ-5.1<br/>The root canon file's Glossary section defines …"]:::stated
+    REQ_5_1_1["REQ-5.1.1<br/>A definition says what the term is, and covers …"]:::stated
     REQ_5_2["REQ-5.2<br/>Undefined or badly defined elements are modeled…"]:::stated
     REQ_5_3["REQ-5.3<br/>Five certainty states: stated, assumed, open, c…"]:::stated
     REQ_5_3_1["REQ-5.3.1<br/>Stated items are always verbatim quotes collect…"]:::stated
@@ -302,6 +303,7 @@ flowchart LR
     REQ_5_3_4["REQ-5.3.4<br/>A glossary term the agent infers enters as assu…"]:::assumed
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
     REQ_5 --> REQ_5_1
+    REQ_5_1 --> REQ_5_1_1
     REQ_5 --> REQ_5_2
     REQ_5 --> REQ_5_3
     REQ_5_3 --> REQ_5_3_1
@@ -587,6 +589,7 @@ REQ-4             User journeys are first-class intent records                  
 └─ REQ-4.3        Journey files: a Mermaid flowchart plus a step-to-requirement table       assumed   · unrefined
 REQ-5             Terms and certainty are modeled, never hidden                             stated    · unrefined
 ├─ REQ-5.1        The root canon file's Glossary section defines the user's terms           stated    · unrefined
+│  └─ REQ-5.1.1   A definition says what the term is, and covers one concept                stated    · unrefined
 ├─ REQ-5.2        Undefined or badly defined elements are modeled; the AI maps them with …  stated    · unrefined
 ├─ REQ-5.3        Five certainty states: stated, assumed, open, contested, resolved         stated    · unrefined
 │  ├─ REQ-5.3.1   Stated items are always verbatim quotes collected from the conversation   stated    · unrefined

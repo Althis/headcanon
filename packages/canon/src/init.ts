@@ -53,7 +53,8 @@ Not yet stated.
 ## Glossary [open]
 
 No terms yet. A term enters as assumed when the agent infers it and as stated
-when the human defines it. Format: \`**term** (\`TERM-slug\`): definition\`.
+when the human defines it. A definition says what the term is, as a dictionary
+entry does, and covers one concept. Format: \`**term** (\`TERM-slug\`): definition\`.
 `;
 }
 

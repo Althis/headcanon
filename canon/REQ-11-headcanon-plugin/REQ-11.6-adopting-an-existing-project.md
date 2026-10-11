@@ -23,13 +23,19 @@ Source: Claude Code session, 2026-10-11, answers 2 and 5 about The Valley.
 
 Source: Claude Code session, 2026-10-11, after the first adopt run on The Valley.
 
+> If you will read you will see that the approval flow is good, but the interface selected is a bit cumbersome in that it lets you disselect the glossary term, but it doesn't let you correct immediately. A middle ground would be to instruct the model to go one by one directly after multiple concepts were not approved, instead of trying to correct/drop all in a batch.
+
+Source: Claude Code session, 2026-10-11, after the second adopt run reached the glossary.
+
 ## Intent [assumed]
 
 The `adopt` skill reads the repository's artifacts silently and never asks the human about provenance. It then works top-down through the question interface: core concepts first (what it is, purpose and audience, non-goals, glossary), each drafted from the artifacts and approved, corrected or rewritten by the human; then the requirement tree, drafted as assumptions one level at a time and approved branch by branch, stopping at two levels; then a sweep that compares the artifacts against the tree and asks, for every intent the tree dropped, whether to add it, merge it into an existing node, or drop it. Drops are recorded in a decision so they are conscious, not silent.
 
+A multi-select is a first pass only. Every item the human leaves unselected is then asked about one at a time, with the original proposal restated, so a correction can be typed immediately. Options never carry text, so the choices are approve or drop, and every correction comes through the free-text field.
+
 ## Not this [assumed]
 
-An inventory interview, where the human is asked file by file who wrote what. Also not a wholesale conversion of a requirements document into the tree.
+An inventory interview, where the human is asked file by file who wrote what. Also not a wholesale conversion of a requirements document into the tree. Also not a batch question that asks the human to sort out several rejected items at once.
 
 ## Assumptions
 
