@@ -73,9 +73,11 @@ export function loadCanon(dirInput: string): Canon {
       canon.terms = parseGlossary(body);
       canon.principles = parsePrinciples(body);
     } else if (id.startsWith("REQ-")) {
+      // A top-level node may say `parent: ROOT`; the root README is not a node, so that means no parent.
+      const parentField = str(data["parent"])?.trim();
       const node: ReqNode = {
         id,
-        parent: str(data["parent"])?.trim(),
+        parent: parentField && parentField !== "ROOT" ? parentField : undefined,
         title,
         state: stateOf(data["state"]),
         kind: str(data["kind"]),

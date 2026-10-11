@@ -83,7 +83,7 @@ A node with children is a folder: `canon/REQ-1-<slug>/README.md`. A leaf is a fi
 ```markdown
 ---
 id: REQ-1.2
-parent: REQ-1
+parent: REQ-1            # omit on a top-level node
 title: "Plain-language title"
 state: stated | resolved | assumed | open | contested
 layer: domain | capability | requirement

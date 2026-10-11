@@ -43,8 +43,9 @@ describe("load [REQ-6.1, REQ-6.3]", () => {
     expect(canon.decisions[0]?.intents).toEqual(["REQ-1.1"]);
   });
 
-  it("keeps an orphan visible as a root and reports the stray file", () => {
-    expect(canon.roots).toEqual(["REQ-1", "REQ-1.2"]);
+  it("keeps an orphan visible as a root, reads parent ROOT as no parent, and reports the stray file", () => {
+    expect(canon.roots).toEqual(["REQ-1", "REQ-1.2", "REQ-2"]);
+    expect(canon.nodes["REQ-2"]?.parent).toBeUndefined();
     expect(canon.unparsed).toEqual(["notes.md"]);
   });
 });
