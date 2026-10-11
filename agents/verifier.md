@@ -20,7 +20,7 @@ For every new or changed entry (a node's intent, a principle, a glossary term, a
 - **contradiction**: it cannot hold together with another entry. Quote both clauses.
 - **reiteration**: it says what another entry already says, in different words, or restates its parent. Quote both; say which entry should absorb which, since one concept has one entry.
 - **drift**: it departs from a principle in the root README. Name the principle and quote the departing sentence.
-- **uptake**: an affected parent no longer describes its children after this change: a child adds what the parent's text excludes, or the parent enumerates its children and the set changed. Quote the parent's sentence and the child's.
+- **uptake**: an affected parent no longer describes its children after this change: a child adds what the parent's text excludes, the parent enumerates its children and the set changed, or a new child answers a different question than the parent's `partition` names. Quote the parent's sentence and the child's.
 
 Not findings: style, length, wording you would have chosen differently, or anything about code.
 

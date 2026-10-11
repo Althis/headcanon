@@ -204,6 +204,9 @@ function nodeDetail(id) {
     <dl class="meta">
       <dt>File</dt><dd class="mono">canon/${esc(n.file)}</dd>
       ${n.source ? `<dt>Source</dt><dd class="mono">${esc(n.source)}</dd>` : ""}
+      ${n.partition ? `<dt>Children by</dt><dd>${esc(n.partition)}</dd>` : ""}
+      ${n.relates.length ? `<dt>Relates to</dt><dd>${n.relates.map(idLink).join(", ")}</dd>` : ""}
+      ${n.conflicts.length ? `<dt>Conflicts with</dt><dd>${n.conflicts.map(idLink).join(", ")}</dd>` : ""}
       ${n.files.length ? `<dt>Files</dt><dd class="mono">${n.files.map(esc).join(", ")}</dd>` : ""}
       ${n.steps.length ? `<dt>Steps</dt><dd>${n.steps.map(idLink).join(", ")}</dd>` : ""}
       ${n.baseline ? `<dt>Baseline</dt><dd>${esc(n.baseline)}</dd>` : ""}

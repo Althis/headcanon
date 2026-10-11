@@ -39,7 +39,7 @@ Source: docs/design-brief-v0.md:211-234
 
 ## Intent
 
-Fields: id, parent, state, kind (binary | numeric | open-ended), steps, files, baseline. This canon adds `title` and `source`, and makes `kind` optional; see DEC-005.
+Fields: id, parent, state, kind (binary | numeric | open-ended), steps, files, baseline. This canon adds `title` and `source`, and makes `kind` optional; see DEC-005. It also adds `layer` (REQ-6.7); `partition`, the question a node's children answer, written on the node when it is refined (REQ-3.14); and `relates` and `conflicts`, lists of node IDs for the typed links (DEC-014). In the body, a `## Deferred` section lists, one line each with its origin in parentheses, what a node will hold once it is refined in turn.
 
 ## Assumptions
 

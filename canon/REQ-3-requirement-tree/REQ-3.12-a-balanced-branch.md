@@ -29,5 +29,5 @@ Proportion is not a criterion. A parent with many children and a branch far deep
 
 ## Assumptions
 
-- The dimension is recorded on the parent as `partition` and approved before any children are proposed. (model assumption)
+- The dimension is recorded on the parent as `partition`, read off the child set and approved together with it (REQ-3.14, DEC-015). (model assumption)
 - The link fields are `relates` and `conflicts`, after KAOS and Volere. (model assumption)

@@ -41,6 +41,10 @@ export function checkCanon(canon: Canon): Finding[] {
       if (!existsSync(join(repoRoot, f)))
         out.push(finding("warn", "file-missing", `${n.id} lists ${f}, which is not in the repository`, at));
     }
+    // Typed links (DEC-014) point at nodes; a dangling one is as broken as a missing parent.
+    for (const [field, targets] of [["relates", n.relates], ["conflicts", n.conflicts]] as const)
+      for (const t of targets)
+        if (!canon.nodes[t]) out.push(finding("error", "link-unknown", `${n.id} ${field} ${t}, which does not exist`, at));
     if (n.state === "contested") out.push(finding("warn", "contested", `${n.id} is contested: ${n.title}`, at));
     if (n.state === "open") out.push(finding("info", "open", `${n.id} is an open question: ${n.title}`, at));
 
@@ -65,10 +69,16 @@ export function checkCanon(canon: Canon): Finding[] {
       out.push(finding("warn", "restates-parent", `${n.id} restates its parent ${parent.id}: the titles share most of their words`, at));
     if (n.children.length > 8)
       out.push(finding("info", "many-children", `${n.id} has ${n.children.length} children; consider splitting it`, at));
+    // A set of one usually restates its parent or hides its siblings (REQ-3.14).
+    if (n.children.length === 1)
+      out.push(finding("info", "single-child", `${n.id} has one child, ${n.children[0]}; a set of one usually restates its parent or hides siblings`, at));
   }
   const inferred = Object.values(canon.nodes).filter((n) => !n.layerExplicit).length;
   if (inferred > 0)
     out.push(finding("info", "layer-inferred", `${inferred} node(s) have no layer field; their layer is inferred from depth (domain, capability, requirement)`));
+  const unpartitioned = Object.values(canon.nodes).filter((n) => n.children.length >= 2 && !n.partition).length;
+  if (unpartitioned > 0)
+    out.push(finding("info", "no-partition", `${unpartitioned} parent(s) record no partition, the question their children answer; refine writes one when it cuts a node`));
 
   for (const j of canon.journeys) {
     const at = { id: j.id, file: j.file };

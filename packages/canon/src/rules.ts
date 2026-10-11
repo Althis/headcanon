@@ -10,21 +10,21 @@ export const RULES = `## HeadCanon rules
 \`canon/\` holds this project's intent. Read it before acting; keep it honest.
 
 ### Certainty
-- **stated** is the human's exact words, quoted; a paraphrase is **assumed**; **resolved** needs their explicit yes, and silence or "fine" changes nothing.
+- **stated** is the human's exact words, quoted; a paraphrase is **assumed**; **resolved** needs their explicit yes; silence or "fine" changes nothing.
 - Record an interpretation as assumed, an unknown as open, a disagreement as contested, before acting.
 - The human's latest approval outranks every document; one that disagrees with it is raised as a question, never settled by you.
 
 ### Entries
 - An entry reads as an encyclopedia entry: what the thing is, complete without this conversation. No history, reasons, "not" clauses, counts, versions or statuses; exclusions live only in Not this.
 - Every sentence rests on a document or the human's words; nothing invented. Terms mean what the Glossary says. Domains and capabilities in plain words; jargon only in requirements.
-- Principles (PRN-n, root README) are direction: judge every entry you propose or change against them; name any drift for the human.
+- Principles (PRN-n, root README) are direction: judge every entry you propose or change against them; name drift for the human.
 
 ### Changes
-- Consolidation over addition: before creating an entry, check its parent and siblings; one that already says it is updated instead; a child that restates its parent is merged up.
+- Consolidation over addition: before creating an entry, check its parent and siblings; one that already says it is updated; a child that restates its parent is merged up.
 - Only via change requests the human approves: create carries a full node, update only what changed and why, delete retires with a reason.
-- Refine the touched branch to binary leaves, derive tests, then code.
+- Refine the touched branch to binary leaves with the refine skill, derive tests, then code.
 - Commits: Conventional header, then trailers Intent, Intent-Change per operation, Decision, Test-Change, Approved-By on intent or test changes, Intent-Review on canon changes; the hook rejects others.
-- Never edit CLAUDE.md for HeadCanon; this context is injected each session.
+- Never put these rules in CLAUDE.md; they are injected each session.
 
 ### Obstacles
 - Stop and say so if you cannot proceed without changing intent, an assumption becomes decisive, intents contradict, or a leaf has no binary test; stopping is a success.

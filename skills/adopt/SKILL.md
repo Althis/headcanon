@@ -8,7 +8,7 @@ when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The briefing, formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 2.
 
-Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The human decides every draft through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. You read the repository; they judge drafts, never files.
+Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The three lower layers are cut by the `refine` skill (`/headcanon:refine <ID> <layer>`), one node at a time, and it returns to this skill. The human decides every draft through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. You read the repository; they judge drafts, never files.
 
 ## Checklist
 
@@ -20,9 +20,9 @@ Write this list to your scratch file and tick items as you go. The human sees pr
 - [ ] 3 Premise: what it is, purpose, not this, glossary.
 - [ ] 4 `HC init`; write `canon/README.md`.
 - [ ] 5 Principles.
-- [ ] 6 Domains.
-- [ ] 7 Capabilities, one domain at a time.
-- [ ] 8 Requirements, one capability at a time.
+- [ ] 6 Domains: refine ROOT.
+- [ ] 7 Capabilities: refine each domain.
+- [ ] 8 Requirements: refine each capability.
 - [ ] 9 Sweep unused threads.
 - [ ] 10 `HC check` clean, `HC summary`, `HC render`, `/headcanon:commit`.
 - [ ] 11 Report.
@@ -76,17 +76,15 @@ Direction: tone, taste, values, ways of working; a "never" the human states is a
 
 ### 6 Domains
 
-Derive from the approved premise: what distinct areas must exist for this product to operate? A desktop app that turns bank statements into tax reports needs statement import, categorization, reporting; a platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access. Add the domains every software project needs, documentation and verification, with source "software project". Then check the threads: an area they treat as their own is added as a candidate; a contradiction goes through the inconsistency procedure. Propose two to six premise domains plus the project-kind ones: `REQ-n`, plain title, one line on what it must do and why the premise needs it. Multi-select, one by one, "anything missing?". Write each as a folder with a `README.md`, `layer: domain`. Fewer than about eight areas in total: they are the top level with `layer: capability`, and there is no domain layer.
-
-Gap, when you believe an area is needed and the project has nothing on it: ask "Does this project need <area>?" with **Yes, add it** and **No**, and act on the answer. Only when the human types that it is undecided, ask "Leave it as an open domain to consider later?" with **Leave open** and **Drop**; leave open writes a node with `state: open`, titled as the question.
+Refine `ROOT` with layer `domain`, labelled "Domains (3 of 5)", passing two candidates every software project needs, documentation and verification, with source `software project`. The node is the approved premise and the archetype prompt reads "what distinct areas must exist for this product to operate?": a desktop app that turns bank statements into tax reports needs statement import, categorization, reporting; a platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access. Each domain is a folder with a `README.md`, `layer: domain`; the partition goes in the root README's front-matter. Fewer than about eight areas in total: they are the top level with `layer: capability`, and there is no domain layer.
 
 ### 7 Capabilities
 
-Per domain, in turn: given the domain as approved, what does every system of this kind need to be complete? Pre-fill the wording from threads; check each candidate against the threads and the layers above. Up to eight: plain title, one line, source (an artifact, or `archetype` when nothing in the project covers it, in which case it is an `open` node titled as the question). Judge each against the principles and name any drift in the question. One multi-select per domain, then one by one. Write them as the domain's children, `layer: capability`.
+Per approved domain, in turn: refine it with layer `capability`, labelled "Capabilities (4 of 5): <domain>". The archetype prompt reads "what does every system of this kind need for this domain to be complete?". The children are written under the domain, `layer: capability`.
 
 ### 8 Requirements
 
-Per capability, in turn: the concrete requirements under it, pre-filled from threads, as assumed nodes with sources and `layer: requirement`. Before proposing one, check the capability's text and its existing children: an entry that already says it is updated, never duplicated. A thread that contradicts the capability or a principle goes through the inconsistency procedure first. A requirement is verifiable by definition: name to yourself a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it. Already a yes-or-no check: set `kind`. Judge each against the principles. One multi-select per capability with candidates, then one by one. Stop at this depth. Two artifacts disagree: offer both readings; neither chosen: `contested` with both positions.
+Per capability, in turn: refine it with layer `requirement`, labelled "Requirements (5 of 5): <capability>". Stop at this depth; deeper levels wait for the human's Define this branch.
 
 ### 9 Sweep
 

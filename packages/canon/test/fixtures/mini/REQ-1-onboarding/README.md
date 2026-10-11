@@ -3,6 +3,7 @@ id: REQ-1
 title: "New users get productive without help"
 state: stated
 layer: domain
+partition: "step of onboarding"
 source: "conversation"
 ---
 

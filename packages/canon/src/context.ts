@@ -21,7 +21,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
       "",
       `This project has no canon yet (expected at ${canonDir}).`,
       "",
-      "Before doing any implementation work, run `/headcanon:adopt`. It searches the repository for existing intent artifacts (README, requirements documents, roadmaps, decision records), presents an inventory, and elicits the project's purpose, non-goals and glossary in the human's own words. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
+      "Before doing any implementation work, run `/headcanon:adopt`. It reads the repository silently, then walks the human top-down through premise, principles, domains, capabilities and requirements, each approved before the next, with the refine skill cutting every node into its children. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
       "",
       RULES,
     ].join("\n");

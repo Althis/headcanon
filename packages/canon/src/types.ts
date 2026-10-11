@@ -39,6 +39,11 @@ export interface ReqNode {
   layer: Layer;
   layerExplicit: boolean;
   source: string | undefined;
+  /** The question this node's children answer (REQ-3.14), written by refine when it cuts the node. */
+  partition: string | undefined;
+  /** Typed links to other nodes (DEC-014): what this bears on, and what it pulls against. */
+  relates: string[];
+  conflicts: string[];
   steps: string[];
   files: string[];
   baseline: string | undefined;
@@ -88,6 +93,8 @@ export interface Term {
 export interface CanonRoot {
   title: string;
   state: State;
+  /** The question the top-level nodes answer, when refine has cut the premise. */
+  partition: string | undefined;
   file: string;
   body: string;
 }

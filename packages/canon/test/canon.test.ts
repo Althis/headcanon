@@ -75,6 +75,25 @@ describe("layers and principles [REQ-6.7, REQ-3.7]", () => {
   });
 });
 
+describe("partition and typed links [REQ-3.14, DEC-014]", () => {
+  const canon = loadCanon(MINI);
+  const codes = checkCanon(canon).map((f) => `${f.level}:${f.code}:${f.id ?? ""}`);
+
+  it("reads the partition a refined node records and the relates and conflicts lists", () => {
+    expect(canon.nodes["REQ-1"]?.partition).toBe("step of onboarding");
+    expect(canon.nodes["REQ-1.1"]?.relates).toEqual(["REQ-2"]);
+    expect(canon.nodes["REQ-1.1"]?.conflicts).toEqual(["REQ-9"]);
+    expect(canon.nodes["REQ-2"]?.partition).toBeUndefined();
+    expect(canon.nodes["REQ-2"]?.relates).toEqual([]);
+  });
+
+  it("reports a link to a node that does not exist, and a set of one child", () => {
+    expect(codes).toContain("error:link-unknown:REQ-1.1");
+    expect(codes).toContain("info:single-child:REQ-1");
+    expect(codes.filter((c) => c.startsWith("info:no-partition"))).toHaveLength(0);
+  });
+});
+
 describe("check [REQ-2.6]", () => {
   const canon = loadCanon(MINI);
   const findings = checkCanon(canon);

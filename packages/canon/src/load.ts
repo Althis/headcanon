@@ -69,7 +69,7 @@ export function loadCanon(dirInput: string): Canon {
 
     const title = str(data["title"]) ?? firstHeading(body) ?? id;
     if (id === "ROOT") {
-      canon.root = { title, state: stateOf(data["state"], "stated"), file, body };
+      canon.root = { title, state: stateOf(data["state"], "stated"), partition: str(data["partition"]), file, body };
       canon.terms = parseGlossary(body);
       canon.principles = parsePrinciples(body);
     } else if (id.startsWith("REQ-")) {
@@ -84,6 +84,9 @@ export function loadCanon(dirInput: string): Canon {
         layer: isLayer(data["layer"]) ? data["layer"] : "requirement",
         layerExplicit: isLayer(data["layer"]),
         source: str(data["source"]),
+        partition: str(data["partition"]),
+        relates: strList(data["relates"]),
+        conflicts: strList(data["conflicts"]),
         steps: strList(data["steps"]),
         files: strList(data["files"]),
         baseline: str(data["baseline"]),
