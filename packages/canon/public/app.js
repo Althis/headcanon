@@ -437,7 +437,7 @@ async function pollSession() {
     pill.textContent = s.pending; pill.hidden = s.pending === 0;
     document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
     if (s.focus && s.focus.seq !== lastFocusSeq) { lastFocusSeq = s.focus.seq; if (s.focus.id) location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`; }
-    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question); openSession(); }
+    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     if (s.cursor !== lastCursor) { lastCursor = s.cursor; if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); } }
@@ -453,11 +453,12 @@ function showWorking() {
     <div class="working"><span class="spinner"></span><div><b>The session is working.</b> Its next question appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
     ${working.answer ? `<p class="muted">You answered: <b>${esc(working.answer.slice(0, 200))}</b></p>` : ""}`;
 }
-function renderQuestion(q) {
+function renderQuestion(q, pending = 1) {
   working = null;
   const opts = q.options.map((o, i) => `<label class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><b>${esc(o.label)}</b>${o.html ? `<span class="opt-desc">${o.html}</span>` : o.description ? `<span class="opt-desc">${esc(o.description)}</span>` : ""}</span></label>`).join("");
   $question.innerHTML = `
-    <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}</div>
+    ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
+    <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
     <div class="q-body body">${q.html}</div>
     ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
     <div class="opts" id="q-opts">${opts}</div>

@@ -108,27 +108,53 @@ export async function runMcp(opts: McpOptions): Promise<void> {
 
   const server = new McpServer({ name: "headcanon", version: "0.1.0" });
 
+  const questionShape = {
+    question: z.string().describe("The full question text: layer label, the draft, footnotes, the Sources line, and 'To correct or rewrite, type in Other.'"),
+    header: z.string().optional().describe("Short label, e.g. 'Premise (1 of 5)' or 'REQ-1.4'"),
+    options: z.array(z.object({ label: z.string(), description: z.string().optional() })).optional().describe("Defaults to Approve as written / Drop. For a list, one option per item: label is the ID and title, description is the item's one-line draft with its footnote."),
+    multiSelect: z.boolean().optional().describe("True for a first pass over a list: ticked means approved as written."),
+    nodeId: z.string().optional().describe("A canon node to focus on the human's screen while they answer."),
+    terms: z.array(z.object({ term: z.string(), definition: z.string() })).optional().describe("Jargon in the draft with the agent's guessed definition, from `headcanon terms`."),
+    notice: z.string().optional().describe("One sentence the human must know that is not part of the draft, e.g. that the commit-msg hook is now installed; shown apart from the question."),
+  };
+
   server.registerTool(
     "headcanon_ask",
     {
       title: "Ask the human through the HeadCanon page",
       description:
-        "Shows a question in the HeadCanon viewer beside the canon tree and waits for the human's answer. Use it instead of AskUserQuestion whenever the viewer is available. The question text holds the full draft as prose with footnote markers and a Sources line. Options default to Approve as written and Drop; the human can always type in Other. Pass `terms` for every word in the draft that the glossary does not define, each with your guessed definition: the page marks them and the human keeps (enshrines in the glossary) or drops each one before answering. Pass `nodeId` to open that node on the human's screen. Returns the answer, or {pending: true, questionId} after waitSeconds; then call headcanon_wait.",
+        "Shows a question in the HeadCanon viewer beside the canon tree and waits for the human's answer. Use it instead of AskUserQuestion whenever the viewer is available. The question text holds the full draft as prose with footnote markers and a Sources line; the page turns the markers into tooltips. Options default to Approve as written and Drop; the human can always switch to typing in Other. Pass `terms` for every word in the draft that the glossary does not define, each with your guessed definition: the page marks them and the human keeps (enshrines in the glossary) or drops each one before answering. Pass `nodeId` to open that node on the human's screen. To ask several questions in one turn, as AskUserQuestion allows, pass `questions`: the page shows them one after another and the result holds every answer in order. Returns the answer(s), or pending question ids after waitSeconds; then call headcanon_wait for each.",
       inputSchema: {
-        question: z.string().describe("The full question text: layer label, the draft, footnotes, the Sources line, and 'To correct or rewrite, type in Other.'"),
-        header: z.string().optional().describe("Short label, e.g. 'Premise (1 of 5)' or 'REQ-1.4'"),
-        options: z.array(z.object({ label: z.string(), description: z.string().optional() })).optional().describe("Defaults to Approve as written / Drop. For a list, one option per item with its ID and title."),
-        multiSelect: z.boolean().optional().describe("True for a first pass over a list: ticked means approved as written."),
-        nodeId: z.string().optional().describe("A canon node to focus on the human's screen while they answer."),
-        terms: z.array(z.object({ term: z.string(), definition: z.string() })).optional().describe("Jargon in the draft with the agent's guessed definition, from `headcanon terms`."),
-        waitSeconds: z.number().optional().describe(`How long to wait for the answer before returning pending (default ${WAIT_DEFAULT}, max ${WAIT_MAX}).`),
+        question: questionShape.question.optional(),
+        header: questionShape.header,
+        options: questionShape.options,
+        multiSelect: questionShape.multiSelect,
+        nodeId: questionShape.nodeId,
+        terms: questionShape.terms,
+        notice: questionShape.notice,
+        questions: z.array(z.object(questionShape)).optional().describe("Several questions for one turn, shown one after another; use this instead of `question`."),
+        waitSeconds: z.number().optional().describe(`How long to wait for the answers before returning pending (default ${WAIT_DEFAULT}, max ${WAIT_MAX}).`),
       },
     },
     async (args) => {
       ensureOpen();
-      const { waitSeconds, ...req } = args;
-      const q = await api<{ questionId: string }>(base, "/api/ask", { method: "POST", body: JSON.stringify(req) });
-      return text({ questionId: q.questionId, url: `${base}/`, ...(await waitFor(q.questionId, waitSeconds ?? WAIT_DEFAULT)) });
+      const { waitSeconds, questions, ...single } = args;
+      const list = questions && questions.length ? questions : single.question ? [single] : [];
+      if (!list.length) return text({ error: "pass `question` or `questions`" });
+      const ids: string[] = [];
+      for (const req of list) ids.push((await api<{ questionId: string }>(base, "/api/ask", { method: "POST", body: JSON.stringify(req) })).questionId);
+      if (ids.length === 1) return text({ questionId: ids[0], url: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
+      // Several: the human answers them in order, so wait for each in turn within one deadline.
+      const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? WAIT_DEFAULT, 1), WAIT_MAX) * 1000;
+      const answers: unknown[] = [];
+      const pending: string[] = [];
+      for (const id of ids) {
+        const left = Math.ceil((deadline - Date.now()) / 1000);
+        const r = left > 0 && pending.length === 0 ? await waitFor(id, left) : { answered: false as const };
+        if (r.answered) answers.push({ questionId: id, answer: (r as { answer: unknown }).answer });
+        else pending.push(id);
+      }
+      return text({ questionIds: ids, url: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The human has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
     },
   );
 

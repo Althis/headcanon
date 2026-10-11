@@ -24,6 +24,8 @@ export interface AskRequest {
   multiSelect?: boolean;
   nodeId?: string;
   terms?: TermGuess[];
+  /** Something the human must know that is not part of the draft, shown apart from the question. */
+  notice?: string;
 }
 
 export interface TermDecision {
@@ -50,6 +52,7 @@ export interface PendingQuestion {
   multiSelect: boolean;
   nodeId: string | undefined;
   terms: TermGuess[];
+  notice: string | undefined;
 }
 
 export type FeedKind = "answer" | "message" | "refine-request" | "node-edited" | "node-created" | "term-enshrined" | "term-dropped";
@@ -88,9 +91,11 @@ export class SessionState {
       multiSelect: req.multiSelect ?? false,
       nodeId: req.nodeId,
       terms: req.terms ?? [],
+      notice: req.notice,
     };
     this.queue.push(q);
-    if (req.nodeId) this.setFocus(req.nodeId);
+    // Focus follows the question on screen: the head of the queue, not the last one queued.
+    if (req.nodeId && this.queue.length === 1) this.setFocus(req.nodeId);
     return q;
   }
 
@@ -116,6 +121,8 @@ export class SessionState {
     this.push("answer", { id: q?.nodeId, text: `${q?.header}: ${ans.selected.join(", ")}${ans.other ? ` / ${ans.other}` : ""}` });
     for (const w of this.waiters.get(ans.questionId) ?? []) w(ans);
     this.waiters.delete(ans.questionId);
+    const next = this.queue[0];
+    if (i === 0 && next?.nodeId) this.setFocus(next.nodeId);
     return true;
   }
 

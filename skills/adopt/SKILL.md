@@ -42,7 +42,7 @@ Read only this repository, reference.md and the human's answers. The plugin's ow
 - Options are exactly **Approve as written** and **Drop**, plus the line "To correct or rewrite, type in Other." An option carries no text.
 - A list gets one multi-select: each option's label is the ID and title, its description the item's one-line draft ending with its footnote; the question body holds only the layer label, the instruction and the Sources line, never the drafts again. Then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
 - Typed text is one of three kinds. **Wording** (the statement itself) is stated, quoted verbatim, and is the entry. **A correction** ("drop the counts") is applied exactly and the merged text is asked again; neither it nor its reasons enter the entry. **A process instruction** ("one at a time") is followed for the rest of the run and recorded nowhere.
-- Anything the human must know goes inside a question; free text between tool calls may never be read.
+- Anything the human must know travels with a question, as its `notice` through the page or a sentence before it in the terminal, never inside the draft; free text between tool calls may never be read.
 - Write a file only after the question approving it is answered.
 
 ## Entries
@@ -68,7 +68,7 @@ One question each, in order: what it is (one or two sentences); purpose and for 
 
 ### 4 Init
 
-Run `HC init`; tell the human in one sentence that the commit-msg hook now requires an Intent trailer on every commit. Write `canon/README.md` in the root format.
+Run `HC init`; the human must learn in one sentence that the commit-msg hook now requires an Intent trailer on every commit: through the page it is the `notice` of the next question, never part of its text; in the terminal it is said before the next question. Write `canon/README.md` in the root format.
 
 ### 5 Principles
 

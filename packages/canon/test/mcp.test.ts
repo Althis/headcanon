@@ -52,6 +52,26 @@ describe("mcp server over stdio [REQ-12.1.7]", () => {
     const c = JSON.parse((changes.content as Array<{ text: string }>)[0]!.text) as { entries: Array<{ kind: string }> };
     expect(c.entries.map((e) => e.kind)).toContain("answer");
   }, 60000);
+
+  it("pages several questions in one call and returns every answer in order", async () => {
+    const asked = await client.callTool({ name: "headcanon_ask", arguments: { questions: [{ question: "First?", header: "A", nodeId: "REQ-1", notice: "The hook is installed." }, { question: "Second?", header: "B", nodeId: "REQ-2" }], waitSeconds: 1 } });
+    const r = JSON.parse((asked.content as Array<{ text: string }>)[0]!.text) as { questionIds: string[]; pending?: boolean; pendingIds: string[]; url: string };
+    expect(r.questionIds).toHaveLength(2);
+    expect(r.pending).toBe(true);
+    // The page shows the first question, with its notice and 1 more after it, and focuses its node, not the last one's.
+    const s = (await fetch(`${r.url}api/session`).then((x) => x.json())) as { question: { id: string; notice: string }; pending: number; focus: { id: string } };
+    expect(s.question.id).toBe(r.questionIds[0]);
+    expect(s.question.notice).toBe("The hook is installed.");
+    expect(s.pending).toBe(2);
+    expect(s.focus.id).toBe("REQ-1");
+    for (const [i, id] of r.questionIds.entries()) {
+      await fetch(`${r.url}api/answer`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ questionId: id, selected: [i === 0 ? "Approve as written" : "Drop"], other: "", terms: [] }) });
+    }
+    const w1 = await client.callTool({ name: "headcanon_wait", arguments: { questionId: r.questionIds[0], waitSeconds: 2 } });
+    const w2 = await client.callTool({ name: "headcanon_wait", arguments: { questionId: r.questionIds[1], waitSeconds: 2 } });
+    const a = [w1, w2].map((w) => (JSON.parse((w.content as Array<{ text: string }>)[0]!.text) as { answer: { selected: string[] } }).answer.selected[0]);
+    expect(a).toEqual(["Approve as written", "Drop"]);
+  }, 60000);
 });
 
 describe("two projects never share a page [REQ-12.1.7]", () => {
