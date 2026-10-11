@@ -38,7 +38,10 @@ Source: conversation, <date>
 - <non-goal> (source)
 
 ## Principles
-**PRN-1 <Title>**: <statement>. Source: <path:lines or conversation, date>
+
+**PRN-1 <Title>**
+<Two to four sentences: what the direction is, what it means for the choices the project makes, where it applies.>
+Source: <path:lines or conversation, date>
 
 ## Glossary [assumed]
 **<term>** (`TERM-<slug>`): <definition>
@@ -104,18 +107,18 @@ intents: [ROOT, REQ-1, REQ-2]
 
 ## 4. Question shapes
 
-Single draft:
+Single draft. The draft reads as prose; footnote markers sit at the end of sentences and the sources are listed once at the end:
 
 ```json
-{"questions":[{"header":"<Step>","question":"<STEP>. Draft:\n\n\"<draft>\"\n\nSource: <source>. To correct or rewrite, type in Other.","multiSelect":false,
+{"questions":[{"header":"<Layer>","question":"<Layer label>: <item>.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1] It runs on the owner's own computer and keeps every file it was given. [2]\"\n\nSources: [1] README.md:3, [2] docs/design.md:40-44\n\nTo correct or rewrite, type in Other.","multiSelect":false,
   "options":[{"label":"Approve as written","description":"Enters as resolved."},{"label":"Drop","description":"Left out; recorded in DEC-001 if it came from an artifact."}]}]}
 ```
 
-List first pass:
+List first pass. The drafts are in the question body, each ending with its footnote; the options carry the ID and title only:
 
 ```json
-{"questions":[{"header":"<Step>","question":"<STEP>. Select every item that is right as written; each unselected item is asked about next, one at a time.","multiSelect":true,
-  "options":[{"label":"<ID or term> <title>","description":"<one line>. (<source>)"}]}]}
+{"questions":[{"header":"<Layer>","question":"<Layer label>. Tick every item that is right as written; unticked items come back one by one.\n\nPRN-1 Keep the original. <paragraph> [1]\n\nPRN-2 Explain every number. <paragraph> [2]\n\nSources: [1] docs/design.md:12-15, [2] conversation, <date>\n\nTo correct or rewrite one, type in Other.","multiSelect":true,
+  "options":[{"label":"PRN-1 Keep the original","description":""},{"label":"PRN-2 Explain every number","description":""}]}]}
 ```
 
 Keep four options or fewer per question; split longer lists across questions in the same call.

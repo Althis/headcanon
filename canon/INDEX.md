@@ -507,6 +507,7 @@ flowchart LR
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
     REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project works…"]:::stated
     REQ_11_6_1["REQ-11.6.1<br/>Selecting an item in a multi-select is approval…"]:::stated
+    REQ_11_6_2["REQ-11.6.2<br/>Drafts read as prose with footnoted sources, an…"]:::stated
     REQ_11 --> REQ_11_1
     REQ_11_1 --> REQ_11_1_1
     REQ_11_1 --> REQ_11_1_2
@@ -517,6 +518,7 @@ flowchart LR
     REQ_11 --> REQ_11_5
     REQ_11 --> REQ_11_6
     REQ_11_6 --> REQ_11_6_1
+    REQ_11_6 --> REQ_11_6_2
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -689,7 +691,8 @@ REQ-11            HeadCanon keeps the agent aligned from inside Claude Code     
 ├─ REQ-11.4       The E2E target is discovered by developing HeadCanon alongside a real p…  stated    · unrefined
 ├─ REQ-11.5       HeadCanon is built with itself from the first commit                      resolved  · unrefined
 └─ REQ-11.6       Adopting HeadCanon in an existing project works top-down: overview, pri…  stated    · unrefined
-   └─ REQ-11.6.1  Selecting an item in a multi-select is approval, and the human is told …  stated    · unrefined
+   ├─ REQ-11.6.1  Selecting an item in a multi-select is approval, and the human is told …  stated    · unrefined
+   └─ REQ-11.6.2  Drafts read as prose with footnoted sources, and a principle is a title…  stated    · unrefined
 REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   · unrefined  ! 1 finding
 ├─ REQ-12.1       A local viewer now; an MCP App later                                      stated    · unrefined
 │  ├─ REQ-12.1.1  Overview: requirements at a glance                                        assumed   · unrefined

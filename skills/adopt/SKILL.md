@@ -29,9 +29,11 @@ Write this list to your scratch file next to the thread list, and tick items as 
 
 These apply to every question in every step.
 
-- Ask with AskUserQuestion. The full draft goes in the question text.
+- Ask with AskUserQuestion. The full draft goes in the question text, once.
 - Options are exactly two: **Approve as written** and **Drop**. Add to the question: "To correct or rewrite, type in Other." An option carries no text, so a "correct" option would arrive empty.
-- Lists get one multi-select first. **A selected item is approved as written** and becomes resolved. Then ask one question per unselected item, restating the original draft.
+- Lists get one multi-select first. **A selected item is approved as written** and becomes resolved. Then ask one question per unselected item, restating the original draft. In a multi-select, each option's label is the ID and title only, with no description; the drafts are in the question body and are not repeated in the options.
+- **Citations are footnotes.** A sentence that rests on an artifact ends with a marker like [1], and the question ends with one line per marker: "Sources: [1] path:lines, [2] conversation". Never put a path or a date in parentheses inside a sentence; it makes the draft unreadable. The entry written to the canon carries no markers at all: sources go in the node's `source` front-matter, or on a Source line after a principle or glossary entry.
+- **Label every question by layer**, not by checklist number: "Premise (1 of 5): what the project is", "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
 - Anything the human must know goes inside a question's text, never in a free-text message between tool calls; those may never be read.
 - Classify typed text before acting on it:
   - **Wording** (the statement itself): stated, quoted verbatim; it is the node's content.
@@ -62,14 +64,15 @@ How you decide on each draft I show:
 In a list, tick every item that is right as written. Each unticked item comes back as its own question.
 Nothing is saved until you approve it.
 
-Step 1 of 11: what the project is.
+Premise (1 of 5): what the project is.
 ```
 
-Every later question starts with its step name and number ("Step 6 of 11: domains"). Every multi-select question repeats one line: "Tick every item that is right as written; unticked items come back one by one."
+Every later question starts with its layer label. Every multi-select question repeats one line: "Tick every item that is right as written; unticked items come back one by one."
 
 ## Drafting rules
 
-- Every clause cites a source, as `path:lines` inside this repository or `conversation, <date>`. No source, no clause.
+- Every sentence rests on a source, `path:lines` inside this repository or `conversation, <date>`, shown as a footnote in the question and recorded in the node's `source` field. No source, no sentence.
+- Length follows the layer. A requirement or a glossary entry is one or two sentences. A principle is a title and a short paragraph of two to four sentences, because principles are the main point of alignment with the human and a one-liner cannot be judged.
 - Intent only. Counts, versions and statuses describe today and never enter a node.
 - Domains and capabilities in plain words. Mechanisms belong in requirements, using glossary terms.
 - One idea per node. A node that needs "and" twice is two nodes.
@@ -94,7 +97,7 @@ Run `HC init`. Tell the human in one sentence that the commit-msg hook now requi
 
 ### 5 Principles
 
-Principles are direction: tone, taste, values, ways of working. A "never" the human states is a principle first. Draft three to eight as `**PRN-n Title**: statement` with sources. Multi-select, one by one, "anything missing?". Write them under `## Principles` in the root README.
+Principles are direction: tone, taste, values, ways of working. A "never" the human states is a principle first. Each principle is a **title** and a **paragraph of two to four sentences** that says what the direction is, what it means for the choices the project makes, and where it applies; a reader should be able to tell from the paragraph alone whether a given requirement follows it. Draw first on the human's premise answers, then on the artifacts that state direction (charters, style guides, decision records), preferring the newest when two disagree; a milestone from an old plan is not a current principle. Draft three to eight. Multi-select, one by one, "anything missing?". Write them under `## Principles` in the root README in the format from reference.md.
 
 ### 6 Domains
 
@@ -137,12 +140,15 @@ List the domains with their capabilities; the open capabilities and domains; the
 
 <example>
 Domain question, plain words, one line each, sources named:
-"Step 6 of 11: domains. For Ledgerline to operate, these areas must exist. Selected means approved as written; unselected items are asked about next.
-REQ-1 Statement import: bank statements in any common format become transactions. (premise)
-REQ-2 Categorization: every transaction lands in a tax category, by rule or by hand. (premise)
-REQ-3 Reporting: the categorized year becomes the forms an accountant needs. (premise)
-REQ-4 Documentation: how the project records what it is and why. (software project)
-REQ-5 Verification: how the project shows its code does what is intended. (software project)
+"Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
+REQ-1 Statement import: bank statements in any common format become transactions. [1]
+REQ-2 Categorization: every transaction lands in a tax category, by rule or by hand. [1]
+REQ-3 Reporting: the categorized year becomes the forms an accountant needs. [1]
+REQ-4 Documentation: how the project records what it is and why. [2]
+REQ-5 Verification: how the project shows its code does what is intended. [2]
+
+Sources: [1] premise, [2] software project
+
 To correct or rewrite one, type in Other."
 </example>
 
