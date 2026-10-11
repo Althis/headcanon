@@ -1,24 +1,63 @@
 ---
 name: adopt
-description: "Start HeadCanon in a project that has no canon yet, top-down: draft the core concepts (what it is, purpose, non-goals, glossary) from the repository's artifacts and get each approved or corrected through the question interface; derive the domains the premise requires and the capabilities each domain needs, then fill requirements from the artifacts, branch by branch, for approval; then sweep the artifacts for intents the tree dropped and ask whether to add, merge or drop them. Use when the session context says the project has no canon, or when the human asks to set up, adopt or install HeadCanon."
+description: "Start HeadCanon in a project that has no canon yet, top-down through the question interface: project overview (what it is, purpose, non-goals, glossary), then principles, then the domains the premise requires, then the capabilities each domain needs, then requirements from the artifacts; then a sweep for intents the artifacts hold that the tree dropped. Use when the session context says the project has no canon, or when the human asks to set up, adopt or install HeadCanon."
 when_to_use: "The project has no canon/README.md, or the human asks to add HeadCanon to an existing or new project."
 ---
 
 # Adopt HeadCanon in this project
 
-You are starting the canon for a project that has none. Work **top-down**: concepts first, then requirements, then a sweep for anything the artifacts hold that the tree dropped. The human approves or corrects at every step through the **AskUserQuestion** tool. They are never asked where a file came from, and they never see a file inventory to approve. You read the repository; they judge the drafts.
+You are starting the canon for a project that has none. Work **top-down** in five layers, each approved before the next: overview, principles, domains, capabilities, requirements. Then sweep the artifacts for anything dropped. The human approves or corrects at every step through the **AskUserQuestion** tool. They are never asked where a file came from and never see a file inventory. You read the repository; they judge the drafts.
 
 `HC` below means: `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`.
 
 ## How to ask
 
-- Use **AskUserQuestion** for every approval. Put the full draft in the question text so the human reads and decides in one place.
-- **Selecting an option carries no text.** The human's corrections only reach you through "Other". So offer two options, **Approve as written** and **Drop**, and say in the question: "To correct or rewrite it, type your version in Other." Never offer an option like "Approve with a correction"; it cannot carry the correction.
-- One concept per question. Use `multiSelect: true` only for a first pass over a list, to learn which items are right as written.
-- **After a multi-select, go one by one.** For every item left unselected, ask one question each: restate the original proposal in full, offer Approve as written and Drop, and take corrections through Other. Never ask the human to correct or drop several items in one question.
-- Record outcomes by the certainty rules. Words the human **typed** are **stated**, quoted verbatim. A draft the human **approved as written** is **resolved**: your draft is the Intent and the option they chose is the Resolution. A draft the human corrected is stated for their words and assumed for whatever remains yours.
-- When typed text is an instruction about the process ("ask one at a time", "no not-clauses"), follow it for the rest of the run and do not record it as content.
+- Use **AskUserQuestion** for every approval. Put the full draft in the question text.
+- **Selecting an option carries no text.** Offer two options, **Approve as written** and **Drop**, and say: "To correct or rewrite it, type your version in Other." Never offer "Approve with a correction".
+- One concept per question. Use `multiSelect: true` only for a first pass over a list. **After a multi-select, go one by one** through every unselected item: restate the original proposal in full, same two options, corrections through Other.
+- **Typed text comes in three kinds.** Tell them apart before recording anything:
+  1. **Wording**: the human wrote the statement itself. It is **stated**, quoted verbatim, and it is the node's content.
+  2. **A correction as an instruction** ("drop the counts", "lead with the engine"): their words are quoted under `## Stated` as the correction, you apply it to your draft, and you **ask once more** with the merged text, so the merged text can become **resolved**. Never treat a merged draft as approved without that question.
+  3. **A process instruction** ("ask one at a time", "no not-clauses", "plain language"): follow it for the rest of the run; do not record it in any node.
+- A draft approved as written is **resolved**: your text is the Intent, the option chosen is the Resolution. An unselected or unanswered draft stays **assumed**.
 - Never write a canon file before the question that approves it has been answered.
+
+## What goes into a node
+
+- **Every clause traces to a source**: an artifact (file and lines) or the human's words in this conversation. Never add a clause because it seems plausible. If you are unsure whether an artifact says it, it does not.
+- **Intent, not current state.** Counts, versions, statuses, and what exists today are facts that change ("15 questlines", "68 action types", "[IMPLEMENTED]"). They never enter a node; record the intent they serve.
+- **Plain words at the upper layers.** Domains and capabilities are readable by someone who has never seen the code. Mechanisms and vocabulary ("statechart", "parallel regions") belong in requirements, and only where the glossary defines the terms.
+- **One idea per node.** A node that needs "and" twice is two nodes.
+
+## Threads
+
+Your inventory from step 1 is a list of **threads**: things the artifacts say, each with its path and lines. At every step below, before drafting, scan the threads for the ones that speak to that step (purpose, direction, an area, a capability, a requirement), use them, and mark them used. Threads still unused at the end are what the sweep in step 7 asks about. Keep the thread list in a scratch file, not in the canon.
+
+## File format
+
+Node file, one per requirement (`canon/REQ-1-<slug>/README.md` for a node with children, `canon/REQ-1-<slug>/REQ-1.1-<slug>.md` for a leaf):
+
+```markdown
+---
+id: REQ-1.2
+parent: REQ-1
+title: "Short plain-language title"
+state: stated | resolved | assumed | open | contested
+source: "path:lines, or: conversation, <date>"
+kind: binary          # only when the node is already a yes-or-no check
+---
+
+# Short plain-language title
+
+## Stated            (only when the human typed wording or a correction; verbatim, with a Source line)
+## Intent            (your draft; mark the heading "## Intent [assumed]" when the node is stated)
+## Resolution        (the option chosen and the date, when approved as written)
+## Not this          (where an artifact or the human made one clear)
+## Assumptions       (bullets; each ends with "(model assumption)")
+## Open              (known unknowns, dated)
+```
+
+Use the Write tool for files, one file per call; shell heredocs fail on quoting.
 
 ## 0. Check
 
@@ -26,70 +65,62 @@ Run `HC check`. If a canon already exists, stop and point the human to `/headcan
 
 ## 1. Read the artifacts, silently
 
-Search for intent artifacts and read the important ones. At least: `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**/*.md`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), plans and analyses under `.claude/**`, `CLAUDE.md`, `AGENTS.md`, the package manifest, and test names as evidence of intended behavior.
+Search for intent artifacts and read the important ones: `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**/*.md`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), plans and analyses under `.claude/**`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. Build the thread list. Note where artifacts contradict each other and which is newer. **Do not present the inventory and do not ask about provenance.** Everything from an artifact is assumed; the only source of stated items is what the human types here.
 
-Keep a private inventory: path, date, and the intents it carries, as short bullets with line references. You will need it for step 4. Note where artifacts contradict each other, and which is newer. **Do not present the inventory and do not ask about provenance.** Everything taken from an artifact is assumed; the only source of stated items is what the human types in this conversation.
+## 2. Overview
 
-## 2. Core concepts, one at a time
+One question each, in order, drafted from the threads that speak to it:
 
-Ask these in order, each as one AskUserQuestion with your draft inside:
-
-1. **What it is.** One or two sentences, drafted from the artifacts.
+1. **What it is.** One or two sentences.
 2. **Purpose, and for whom.** One short paragraph.
-3. **Not this.** Three to six non-goals drawn from the artifacts and from what the purpose excludes. Multi-select the ones to keep, then one question each for the unselected ones, then one question for anything missing. These are the only place in the canon where saying what the project is not belongs.
-4. **Glossary.** Six to ten terms the project uses with a specific meaning. Rules for a definition:
-   - It says **what the term is**, in one or two sentences, as a dictionary entry does. No "not" clauses, no contrasts with other terms, no "unlike X".
-   - **One concept per entry.** If a definition needs another concept to be understood, that concept gets its own entry. Never define two terms in one entry, and never bundle a related term into a definition ("a trait is a permanent effect" inside the Effect entry is wrong; Trait is its own entry).
-   - A disambiguation ("hook here is the engine's hook, not React's") is a separate sentence after the definition, added only when the human asks for it or two meanings genuinely collide in this codebase.
-   - No wording that refers to this conversation ("as discussed", "like every definition").
-   Multi-select the definitions that are right as written, then go one by one through the rest.
+3. **Not this.** Three to six non-goals. Multi-select, then one by one, then one question for anything missing. This is the only place where what the project is not belongs.
+4. **Glossary.** Six to ten terms with a specific meaning here. A definition says **what the term is**, in one or two sentences, as a dictionary entry does: no "not" clauses, no contrasts, no reference to this conversation. **One concept per entry**; a related term gets its own entry. A disambiguation is a separate sentence added only when the human asks. Multi-select, then one by one.
 
-After the glossary is settled, run `HC init` and tell the human in one sentence that the commit-msg hook is now installed and what it requires. Then write `canon/README.md`: the front-matter (`id: ROOT`, `title`, `state`, `source`), `## Stated` with any typed words quoted verbatim and their source, `## Intent` with approved drafts, `## Resolution` quoting the option chosen and the date, `## Not this`, `## Principles` (filled in step 3), and `## Glossary` in the format `**term** (`TERM-slug`): definition`, with `[assumed]` on the Glossary heading unless every term was confirmed. Set the root `state` to `stated` if the purpose was typed by the human, `resolved` if approved as written.
+After the glossary, run `HC init` and say in one sentence that the commit-msg hook is installed and what it requires. Write `canon/README.md` with front-matter (`id: ROOT`, `title`, `state`, `source`), `## Stated`, `## Intent`, `## Resolution`, `## Not this`, `## Principles` (filled in step 3), and `## Glossary` in the format `**term** (`TERM-slug`): definition`, with `[assumed]` on the heading unless every term was confirmed. Root `state` is `stated` if the purpose was typed, `resolved` if approved as written.
 
-## 3. Requirements, top-down
+## 3. Principles
 
-**Principles are not requirements.** Before drafting, sort what the artifacts and the concepts say into two kinds:
+Principles are the project's direction: tone, taste, values, ways of working. They are tested against requirements, not code: every requirement proposed later is judged against them, and drift is raised for the human. From the threads that speak to direction (style guides, design principles, charters, the human's answers in step 2), draft three to eight principles, each as `**PRN-n Title**: statement` with a source. Multi-select, then one by one, then one question for anything missing. Write them into the root README under `## Principles`.
 
-- A **principle** is direction: tone, taste, values, how the team works ("content is tantalizing", "prose follows the style bible", "docs live with the code"). It is tested against requirements, not against code: whenever a requirement is proposed or changed, it is judged against the principles and any drift is raised for the human to approve or reject. Principles go into the root README under `## Principles`, each as `**PRN-n Title**: statement` with its source. They are not nodes in the tree.
-- A **requirement** is a goal that can be refined into leaves a test or a human can answer yes or no. Verifiability is part of the definition, so it is not written on the node. Use it as your filter: before proposing a requirement, name to yourself one concrete check in content or code that would show it met. If you cannot, the statement is a principle, or it is too vague to keep; do not propose it as a requirement. Tests are proposed later, in the requirements-then-tests step, not during adoption.
+## 4. Domains
 
-The upper layers of the tree come from the **premise**, not from the artifacts. Work down in three steps.
+From the approved overview **alone**, ask: for this product to operate at all, what distinct areas must exist? Those are the domains. A game that ships its own engine and in-game editor has three: game content, game engine, editor. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access. Then check the threads for areas the artifacts treat as their own and you missed.
 
-1. **Domains: what the premise requires.** From the approved concepts alone, ask yourself: for this product to operate at all, what distinct areas must exist? Those are the domains. A game that ships its own engine and in-game editor has three: game content, game engine, editor. A platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, and access. Propose two to six, each with an ID (`REQ-1`, `REQ-2`, …), a title, and one line saying what the domain must do and why the premise needs it; source "concepts, step 2". Ask one multi-select question, then one by one for the rest, then one question for anything missing. The cut is malleable and the human settles it; what matters is that every area is explicit and agreed. If the premise needs fewer than about eight areas, these areas are the top level and there is no separate domain layer. Write the approved domains as folders with a `README.md` each, state `assumed` unless the human typed the wording, with `source`, `## Intent`, `## Not this` where clear, and `## Assumptions`. Principles the human confirmed go into the root README in the same step.
-2. **Capabilities: what each domain needs to be complete.** For each domain, ask: what does every system of this kind need in order to be fully defined as one? Draw on that first, then on the artifacts. A game engine needs state, content loading, rendering, rules evaluation, persistence, and so on; a content domain needs a world structure, a tone reference, a pipeline from idea to shipped content. Propose up to eight capabilities per domain, each with a one-line statement and a source (the artifact that covers it, or "archetype" when nothing in the project does). **A capability the kind of system needs but nothing in the project covers is proposed as an `open` node, titled as the question** ("How is game time modeled?"); this is how coverage gaps become visible on day one. One multi-select per domain, then one by one. Write the approved capabilities as the domain's children (`REQ-1.1-<slug>.md`, or a folder if step 3 gives it children).
-3. **Requirements from the artifacts.** Under each capability, the concrete requirements the artifacts state, each with a one-line intent and a source, as assumed nodes. Where one is already a yes-or-no check, set its `kind` (`binary`, `numeric` or `open-ended`). One multi-select per capability that has candidates, then one by one. **Stop at this depth.** Deeper levels are filled lazily when work touches a branch.
+Propose two to six domains, each with an ID (`REQ-1`, `REQ-2`, …), a plain title, and one line saying what the domain must do and why the premise needs it. Multi-select, then one by one, then one question for anything missing. The cut is malleable and the human settles it; what matters is that every area is explicit and agreed. If the premise needs fewer than about eight areas, those areas are the top level and there is no separate domain layer. Write the approved domains as folders with a `README.md` each.
 
-Where two artifacts disagree, offer both readings as options. If the human picks one, record it; if they do not, record the node as `contested` with both positions.
+## 5. Capabilities
 
-Do not ask about `files` or `steps` now; leave them out until a branch is refined for implementation.
+For each domain, ask: what does every system of this kind need in order to be fully defined as one? Draw on that first, then on the threads. A game engine needs state, content loading, rendering, rules evaluation, persistence, and so on; a content domain needs a world structure, a tone reference, a path from idea to shipped content.
 
-## 4. Sweep for dropped intents
+Propose up to eight capabilities per domain, each with a plain title, one line, and a source (the artifact that covers it, or "archetype" when nothing in the project does). **A capability the kind of system needs but nothing in the project covers is proposed as an `open` node titled as the question** ("How is game time modeled?"), so coverage gaps are visible on day one. Before asking, judge each capability against the principles and say in the question if one drifts. One multi-select per domain, then one by one. Write the approved capabilities as the domain's children.
 
-Go back to your inventory from step 1 and compare it against the tree. List every intent that an artifact carries and no node covers. Group them, at most eight per question, and ask a multi-select for each group with three kinds of option: **add as a new node** (under which branch), **merge into an existing node** (name the ID), or **drop**. Then:
+## 6. Requirements
 
-- Added intents become new assumed nodes with their source.
-- Merged intents update the named node's Intent or Assumptions, citing the source.
-- Dropped intents are recorded in `canon/decisions/DEC-001-adoption-scope.md`: a decision with `state: resolved`, `intents` pointing at the root and the branches they would have joined, and a list of each dropped intent with its source and the human's reason. This makes the drop a conscious act that later checks can see, rather than a silent omission.
+Under each capability, the concrete requirements the threads state, each with a plain title, one line, and a source, as assumed nodes. A requirement is verifiable by definition: before proposing one, name to yourself a check in content or code that would show it met; if you cannot, it is a principle or too vague, and it is not proposed. Where a requirement is already a yes-or-no check, set `kind`. Judge each against the principles. One multi-select per capability that has candidates, then one by one. **Stop at this depth.** Deeper levels fill lazily when work touches a branch.
 
-If the human says an artifact is entirely obsolete, record that once in the same decision instead of asking about each of its intents.
+Where two artifacts disagree, offer both readings as options; if the human picks neither, record the node as `contested` with both positions.
 
-## 5. Verify, render, commit
+## 7. Sweep for dropped threads
 
-Run `HC check` and fix every error. Run `HC summary` and show the tree. Run `HC render`. Then use `/headcanon:commit`. The message carries one `Intent-Change: create <ID>` per node, `Intent-Change: update ROOT`, `Decision: DEC-001`, and `Approved-By:` with the human's git `user.name`, since they approved every item in this conversation through the questions.
+Take every thread still unused. Group them, at most eight per question, and ask a multi-select with three kinds of option: **add as a new node** (under which capability), **merge into an existing node** (name the ID), or **drop**. Added threads become assumed nodes with their source. Merged threads update the named node, citing the source. Dropped threads are recorded in `canon/decisions/DEC-001-adoption-scope.md`: `state: resolved`, `intents` pointing at the root and the branches they would have joined, one line per dropped thread with its source and the human's reason. If the human says an artifact is entirely obsolete, record that once instead of asking per thread.
 
-## 6. Report
+## 8. Verify, render, commit
 
-End with: the domains and how many capabilities each has; which capabilities are open, meaning the kind of system needs them and nothing in the project covers them yet; how many nodes are stated, resolved and assumed; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the remaining assumed and open items whenever they are ready. Do not call the canon complete. It is a seed with the human's fingerprints on every node.
+Run `HC check` and fix every error. Run `HC summary` and show the tree. Run `HC render`. Then `/headcanon:commit`: one `Intent-Change: create <ID>` per node, `Intent-Change: update ROOT`, `Decision: DEC-001`, and `Approved-By:` with the human's git `user.name`, since they approved every item here.
+
+## 9. Report
+
+End with: the domains and the capabilities under each; which capabilities are open; how many nodes are stated, resolved and assumed; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the assumed and open items whenever they are ready. Do not call the canon complete. It is a seed with the human's fingerprints on every node.
 
 ## Rules that apply throughout
 
 - Never ask the human where a file came from or who wrote it.
 - Never write a canon file before the human has answered the question that approves it.
-- Never turn a draft into a stated item. Stated is only what the human typed.
-- Never go deeper than domains, capabilities and one level of requirements during adoption.
-- The top level comes from the premise (what must exist for it to operate), never from where statements were found.
+- Stated is only what the human typed. A correction typed as an instruction is quoted as such; the merged text needs its own approval.
+- Every clause cites a source. Nothing invented. No current-state facts.
+- Plain words at the domain and capability layers.
 - Definitions say what a term is; one concept per entry.
-- A requirement is verifiable by definition; that is your filter, not a section on the node. Direction is a principle, lives in the root README with a PRN id, and is what requirements are judged against.
-- Before asking the human to approve a batch of requirements, judge each against the principles already recorded and say in the question if one drifts.
+- The top comes from the premise and what every system of this kind needs, never from where statements were found.
+- Never go deeper than domains, capabilities and one level of requirements during adoption.
 - When the human disagrees, record contested; do not argue past one round.
 - Stopping to ask is a successful outcome.

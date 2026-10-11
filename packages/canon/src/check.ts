@@ -78,8 +78,10 @@ export function checkCanon(canon: Canon): Finding[] {
   }
 
   // Branch-level: a branch where unconfirmed outweighs confirmed needs the human's eyes.
+  // Branches of one or two nodes are still being written; flagging them is noise.
   for (const r of canon.roots) {
     const ids = [r, ...descendants(canon, r)];
+    if (ids.length < 3) continue;
     const c = countStates(canon, ids);
     const unconfirmed = c.assumed + c.open + c.contested;
     const confirmed = c.stated + c.resolved;

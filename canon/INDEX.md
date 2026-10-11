@@ -35,6 +35,8 @@ flowchart LR
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
     REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
     REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
+    REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
+    REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
     REQ_4["REQ-4<br/>User journeys are first-class intent records"]:::stated
     REQ_4_1["REQ-4.1<br/>User journeys are intent records, not tests, ke…"]:::stated
     REQ_4_2["REQ-4.2<br/>Journeys are decision graphs whose steps link m…"]:::stated
@@ -97,7 +99,7 @@ flowchart LR
     REQ_11_3["REQ-11.3<br/>All hooks live at plugin level"]:::assumed
     REQ_11_4["REQ-11.4<br/>The E2E target is discovered by developing Head…"]:::stated
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
-    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project is to…"]:::stated
+    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project works…"]:::stated
     REQ_12["REQ-12<br/>Viewing surfaces and the paid team layer come a…"]:::assumed
     REQ_12_1["REQ-12.1<br/>A local viewer now; an MCP App later"]:::stated
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
@@ -128,6 +130,8 @@ flowchart LR
     REQ_3 --> REQ_3_6
     REQ_3 --> REQ_3_7
     REQ_3 --> REQ_3_8
+    REQ_3 --> REQ_3_9
+    REQ_3 --> REQ_3_10
     REQ_4 --> REQ_4_1
     REQ_4 --> REQ_4_2
     REQ_4 --> REQ_4_3
@@ -264,6 +268,8 @@ flowchart LR
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
     REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
     REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
+    REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
+    REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
     REQ_3 --> REQ_3_1
     REQ_3 --> REQ_3_2
     REQ_3 --> REQ_3_3
@@ -273,6 +279,8 @@ flowchart LR
     REQ_3 --> REQ_3_6
     REQ_3 --> REQ_3_7
     REQ_3 --> REQ_3_8
+    REQ_3 --> REQ_3_9
+    REQ_3 --> REQ_3_10
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -493,7 +501,7 @@ flowchart LR
     REQ_11_3["REQ-11.3<br/>All hooks live at plugin level"]:::assumed
     REQ_11_4["REQ-11.4<br/>The E2E target is discovered by developing Head…"]:::stated
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
-    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project is to…"]:::stated
+    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project works…"]:::stated
     REQ_11 --> REQ_11_1
     REQ_11_1 --> REQ_11_1_1
     REQ_11_1 --> REQ_11_1_2
@@ -596,7 +604,9 @@ REQ-3             Intent is a tree of requirements refined to binary leaves     
 │  └─ REQ-3.5.1   How a human approves a judgment leaf                                      open      · unrefined
 ├─ REQ-3.6        Binary leaves are proxies; passing leaves do not prove the parent         assumed   · unrefined
 ├─ REQ-3.7        Principles are a layer above the tree: tested against requirements by a…  stated    · unrefined
-└─ REQ-3.8        The top of the tree is derived from the premise: the domains the produc…  stated    · unrefined
+├─ REQ-3.8        The top of the tree is derived from the premise: the domains the produc…  stated    · unrefined
+├─ REQ-3.9        The canon records intent, never current state                             stated    · unrefined
+└─ REQ-3.10       The upper layers of the tree are written in plain words                   stated    · unrefined
 REQ-4             User journeys are first-class intent records                              stated    · unrefined
 ├─ REQ-4.1        User journeys are intent records, not tests, kept separate from the tree  stated    · unrefined
 ├─ REQ-4.2        Journeys are decision graphs whose steps link many-to-many to requireme…  stated    · unrefined
@@ -671,7 +681,7 @@ REQ-11            HeadCanon keeps the agent aligned from inside Claude Code     
 ├─ REQ-11.3       All hooks live at plugin level                                            assumed   · unrefined  ! 1 finding
 ├─ REQ-11.4       The E2E target is discovered by developing HeadCanon alongside a real p…  stated    · unrefined
 ├─ REQ-11.5       HeadCanon is built with itself from the first commit                      resolved  · unrefined
-└─ REQ-11.6       Adopting HeadCanon in an existing project is top-down: concepts, then r…  stated    · unrefined
+└─ REQ-11.6       Adopting HeadCanon in an existing project works top-down: overview, pri…  stated    · unrefined
 REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   · unrefined  ! 1 finding
 ├─ REQ-12.1       A local viewer now; an MCP App later                                      stated    · unrefined
 │  ├─ REQ-12.1.1  Overview: requirements at a glance                                        assumed   · unrefined

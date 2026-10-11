@@ -18,3 +18,7 @@ Source: docs/design-brief-v0.md:71
 
 The agent's paraphrase of what the human said. A paraphrase is assumed, however faithful.
 
+
+## Corrections are quoted as corrections [assumed]
+
+When the human types a correction as an instruction ("drop the counts", "lead with the engine") rather than the wording itself, the quote is stated, but it states a correction, not the node's content. The agent applies it to its draft and asks once more with the merged text; only then can the merged text become resolved. The second adopt run on The Valley recorded such corrections as if they were the requirement's statement, which is the drift this section rules out. (model assumption)
