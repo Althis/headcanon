@@ -38,6 +38,9 @@ flowchart LR
     REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
     REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
     REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
+    REQ_3_12["REQ-3.12<br/>A balanced branch is complete including the imp…"]:::stated
+    REQ_3_13["REQ-3.13<br/>Decomposition infers what a node implies, and t…"]:::stated
+    REQ_3_14["REQ-3.14<br/>How is a branch cut?"]:::open
     REQ_4["REQ-4<br/>User journeys are first-class intent records"]:::stated
     REQ_4_1["REQ-4.1<br/>User journeys are intent records, not tests, ke…"]:::stated
     REQ_4_2["REQ-4.2<br/>Journeys are decision graphs whose steps link m…"]:::stated
@@ -136,6 +139,9 @@ flowchart LR
     REQ_3 --> REQ_3_9
     REQ_3 --> REQ_3_10
     REQ_3 --> REQ_3_11
+    REQ_3 --> REQ_3_12
+    REQ_3 --> REQ_3_13
+    REQ_3 --> REQ_3_14
     REQ_4 --> REQ_4_1
     REQ_4 --> REQ_4_2
     REQ_4 --> REQ_4_3
@@ -278,6 +284,9 @@ flowchart LR
     REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
     REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
     REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
+    REQ_3_12["REQ-3.12<br/>A balanced branch is complete including the imp…"]:::stated
+    REQ_3_13["REQ-3.13<br/>Decomposition infers what a node implies, and t…"]:::stated
+    REQ_3_14["REQ-3.14<br/>How is a branch cut?"]:::open
     REQ_3 --> REQ_3_1
     REQ_3_1 --> REQ_3_1_1
     REQ_3 --> REQ_3_2
@@ -291,6 +300,9 @@ flowchart LR
     REQ_3 --> REQ_3_9
     REQ_3 --> REQ_3_10
     REQ_3 --> REQ_3_11
+    REQ_3 --> REQ_3_12
+    REQ_3 --> REQ_3_13
+    REQ_3 --> REQ_3_14
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -416,6 +428,7 @@ flowchart LR
     REQ_8_5_4["REQ-8.5.4<br/>Every canon commit passes a semantic review for…"]:::stated
     REQ_8_5_5["REQ-8.5.5<br/>A change to a child asks its parent: untouched …"]:::stated
     REQ_8_6["REQ-8.6<br/>The agent changes the canon only through create…"]:::stated
+    REQ_8_6_1["REQ-8.6.1<br/>The canon is managed through a fixed set of ope…"]:::stated
     REQ_8_7["REQ-8.7<br/>CUD covers all canon objects; updates are patch…"]:::assumed
     REQ_8 --> REQ_8_1
     REQ_8 --> REQ_8_2
@@ -428,6 +441,7 @@ flowchart LR
     REQ_8_5 --> REQ_8_5_4
     REQ_8_5 --> REQ_8_5_5
     REQ_8 --> REQ_8_6
+    REQ_8_6 --> REQ_8_6_1
     REQ_8 --> REQ_8_7
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
@@ -553,6 +567,8 @@ flowchart LR
     REQ_12_1_3["REQ-12.1.3<br/>Health: problematic branches and their children"]:::assumed
     REQ_12_1_4["REQ-12.1.4<br/>Attention: changes that need the human's word"]:::assumed
     REQ_12_1_5["REQ-12.1.5<br/>Journeys, decisions and glossary have their own…"]:::assumed
+    REQ_12_1_6["REQ-12.1.6<br/>A term new to a draft is gated in the page: a s…"]:::stated
+    REQ_12_1_7["REQ-12.1.7<br/>The session asks through the page, focuses the …"]:::resolved
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
     REQ_12_3["REQ-12.3<br/>No hosted coding environment; no Claude.ai logi…"]:::assumed
     REQ_12 --> REQ_12_1
@@ -561,6 +577,8 @@ flowchart LR
     REQ_12_1 --> REQ_12_1_3
     REQ_12_1 --> REQ_12_1_4
     REQ_12_1 --> REQ_12_1_5
+    REQ_12_1 --> REQ_12_1_6
+    REQ_12_1 --> REQ_12_1_7
     REQ_12 --> REQ_12_2
     REQ_12 --> REQ_12_3
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
@@ -632,7 +650,10 @@ REQ-3             Intent is a tree of requirements refined to binary leaves     
 ├─ REQ-3.8        The top of the tree is derived from the premise and from what every sof…  stated    · unrefined
 ├─ REQ-3.9        The canon records intent, never current state                             stated    · unrefined
 ├─ REQ-3.10       The upper layers of the tree are written in plain words                   stated    · unrefined
-└─ REQ-3.11       Every canon entry reads as a dictionary or encyclopedia entry, complete…  stated    · unrefined
+├─ REQ-3.11       Every canon entry reads as a dictionary or encyclopedia entry, complete…  stated    · unrefined
+├─ REQ-3.12       A balanced branch is complete including the implied, has one home with …  stated    · unrefined
+├─ REQ-3.13       Decomposition infers what a node implies, and the inference is its own …  stated    · unrefined  ! 1 finding
+└─ REQ-3.14       How is a branch cut?                                                      open      · unrefined
 REQ-4             User journeys are first-class intent records                              stated    · unrefined
 ├─ REQ-4.1        User journeys are intent records, not tests, kept separate from the tree  stated    · unrefined
 ├─ REQ-4.2        Journeys are decision graphs whose steps link many-to-many to requireme…  stated    · unrefined
@@ -676,6 +697,7 @@ REQ-8             Intent never changes silently                                 
 │  ├─ REQ-8.5.4   Every canon commit passes a semantic review for contradictions, reitera…  stated    · unrefined
 │  └─ REQ-8.5.5   A change to a child asks its parent: untouched parents are accounted fo…  stated    · unrefined
 ├─ REQ-8.6        The agent changes the canon only through create, update and delete requ…  stated    · unrefined
+│  └─ REQ-8.6.1   The canon is managed through a fixed set of operations drawn from estab…  stated    · unrefined
 └─ REQ-8.7        CUD covers all canon objects; updates are patches; deletes retire; trai…  assumed   · unrefined
 REQ-9             Writ verifies every change against the canon                              stated    · unrefined
 ├─ REQ-9.1        Intent-traced verification is Writ's headline output, leaning on E2E      stated    · unrefined
@@ -721,7 +743,9 @@ REQ-12            Viewing surfaces and the paid team layer come after v1        
 │  ├─ REQ-12.1.2  Tree: the full requirement tree with a reading pane                       assumed   · unrefined
 │  ├─ REQ-12.1.3  Health: problematic branches and their children                           assumed   · unrefined
 │  ├─ REQ-12.1.4  Attention: changes that need the human's word                             assumed   · unrefined
-│  └─ REQ-12.1.5  Journeys, decisions and glossary have their own pages                     assumed   · unrefined
+│  ├─ REQ-12.1.5  Journeys, decisions and glossary have their own pages                     assumed   · unrefined
+│  ├─ REQ-12.1.6  A term new to a draft is gated in the page: a span with a tooltip, a ch…  stated    · unrefined  ! 1 finding
+│  └─ REQ-12.1.7  The session asks through the page, focuses the human's screen, and read…  resolved  · unrefined  ! 2 findings
 ├─ REQ-12.2       Paid product: a hosted team layer over the open-source CLI and plugin     assumed   · unrefined
 └─ REQ-12.3       No hosted coding environment; no Claude.ai login, API keys only           assumed   · unrefined
 REQ-13            Open parts stay genuinely open; revenue comes from the hosted layer       assumed   · unrefined  ! 1 finding
@@ -751,4 +775,5 @@ Decisions
   DEC-011         The Valley test sessions run on Opus, not Fable  stated
   DEC-012         Skill examples never come from the project the skill is being tested on  assumed  origin: side-effect
   DEC-013         Capabilities are a layer of the one tree, not a separate entity  resolved
+  DEC-014         The canon is a directed acyclic graph: one home per node, typed links, lifting before linking  resolved  origin: misread
 ```
