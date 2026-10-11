@@ -14,10 +14,15 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "headcanon": "tsx packages/canon/src/cli.ts",
+    "check": "tsx packages/canon/src/cli.ts check",
+    "summary": "tsx packages/canon/src/cli.ts summary",
+    "ui": "tsx packages/canon/src/cli.ts ui --port 4317"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   }

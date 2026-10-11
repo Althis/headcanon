@@ -26,6 +26,30 @@ every commit follows the canon's intent trailer format, and the repo's own
 The design brief that started the project is in
 [docs/design-brief-v0.md](docs/design-brief-v0.md).
 
+## Try it
+
+Node 20 or newer.
+
+```bash
+npm install
+npm run ui        # local viewer at http://127.0.0.1:4317/
+npm run check     # validate the canon; exit 1 on errors
+npm run summary   # the requirement tree as plain text
+npm test
+```
+
+All three commands read `./canon`; pass `--canon <dir>` for another one.
+The viewer has no build step and no watcher: edit a canon file and press
+Refresh.
+
+## Layout
+
+```
+canon/            this project's own intent, in the canon format
+packages/canon/   @headcanon/canon: parser, checks, text tree, CLI, viewer
+docs/             the design brief
+```
+
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
