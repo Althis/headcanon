@@ -4,6 +4,7 @@ parent: REQ-2
 title: "The shared canon CLI never calls a model"
 state: resolved
 source: "Claude Code session, 2026-10-11"
+files: [packages/canon/src]
 ---
 
 # The shared canon CLI never calls a model

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HeadCanon viewer</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232563eb'/%3E%3Ctext x='8' y='11.5' font-size='9' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='700'%3EHC%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">HC</span>
+      <div>
+        <div class="title">HeadCanon viewer</div>
+        <div class="sub" id="canon-path">loading…</div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <a href="#/" data-view="overview">Overview</a>
+      <a href="#/tree" data-view="tree">Tree</a>
+      <a href="#/health" data-view="health">Health</a>
+      <a href="#/attention" data-view="attention">Attention <span class="pill" id="attention-count" hidden></span></a>
+      <a href="#/journeys" data-view="journeys">Journeys</a>
+      <a href="#/decisions" data-view="decisions">Decisions</a>
+      <a href="#/glossary" data-view="glossary">Glossary</a>
+    </nav>
+    <div class="actions">
+      <span class="sub" id="generated"></span>
+      <button id="refresh" class="btn" title="Re-read the canon from disk">Refresh</button>
+    </div>
+  </header>
+  <main id="main"><p class="muted">Loading the canon…</p></main>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" defer></script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
