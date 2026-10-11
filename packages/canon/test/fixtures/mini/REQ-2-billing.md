@@ -1,4 +1,5 @@
 ---
+requires: [REQ-1.1]
 id: REQ-2
 parent: ROOT
 title: "Billing works"

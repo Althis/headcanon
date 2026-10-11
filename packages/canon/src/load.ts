@@ -89,6 +89,7 @@ export function loadCanon(dirInput: string): Canon {
         partition: str(data["partition"]),
         relates: strList(data["relates"]),
         conflicts: strList(data["conflicts"]),
+        requires: strList(data["requires"]),
         steps: strList(data["steps"]),
         files: strList(data["files"]),
         baseline: str(data["baseline"]),

@@ -26,6 +26,7 @@ const descendants = (id, out = []) => { for (const c of node(id)?.children ?? []
 const branchOf = (id) => { let n = node(id); while (n?.parent && node(n.parent)) n = node(n.parent); return n?.id; };
 const findingsFor = (id) => snap.findings.filter((f) => f.id === id);
 const decisionsFor = (id) => snap.canon.decisions.filter((d) => d.intents.includes(id));
+const requiredBy = (id) => Object.values(snap.canon.nodes).filter((n) => (n.requires ?? []).includes(id)).map((n) => n.id);
 const stepsFor = (id) => { const out = []; for (const j of snap.canon.journeys) for (const s of j.steps) if (s.requirements.includes(id)) out.push({ j, s }); return out; };
 const countBy = (ids) => { const c = Object.fromEntries(STATES.map((s) => [s, 0])); for (const id of ids) { const n = node(id); if (n) c[n.state]++; } return c; };
 
@@ -211,6 +212,8 @@ function nodeDetail(id) {
       ${n.partition ? `<dt>Children by</dt><dd>${esc(n.partition)}</dd>` : ""}
       ${n.relates.length ? `<dt>Relates to</dt><dd>${n.relates.map(idLink).join(", ")}</dd>` : ""}
       ${n.conflicts.length ? `<dt>Conflicts with</dt><dd>${n.conflicts.map(idLink).join(", ")}</dd>` : ""}
+      ${n.requires.length ? `<dt>Requires</dt><dd>${n.requires.map(idLink).join(", ")}</dd>` : ""}
+      ${requiredBy(id).length ? `<dt>Required by</dt><dd>${requiredBy(id).map(idLink).join(", ")}</dd>` : ""}
       ${n.files.length ? `<dt>Files</dt><dd class="mono">${n.files.map(esc).join(", ")}</dd>` : ""}
       ${n.steps.length ? `<dt>Steps</dt><dd>${n.steps.map(idLink).join(", ")}</dd>` : ""}
       ${n.baseline ? `<dt>Baseline</dt><dd>${esc(n.baseline)}</dd>` : ""}

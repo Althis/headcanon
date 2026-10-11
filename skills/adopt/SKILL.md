@@ -81,11 +81,11 @@ Refine `ROOT` with layer `domain`, labelled "Domains (3 of 5)", passing two cand
 
 ### 7 Capabilities
 
-Per approved domain, in turn: refine it with layer `capability`, labelled "Capabilities (4 of 5): <domain>". The archetype prompt reads "what does every system of this kind need for this domain to be complete?". The children are written under the domain, `layer: capability`.
+Per approved domain, in the order `HC next` gives: refine it with layer `capability`, labelled "Capabilities (4 of 5): <domain>". The archetype prompt reads "what does every system of this kind need for this domain to be complete?". The children are written under the domain, `layer: capability`.
 
 ### 8 Requirements
 
-Per capability, in turn: refine it with layer `requirement`, labelled "Requirements (5 of 5): <capability>". Stop at this depth; deeper levels wait for the human's Define this branch.
+Per capability, in the order `HC next` gives, so what others build on is defined first: refine it with layer `requirement`, labelled "Requirements (5 of 5): <capability>". Stop at this depth; deeper levels wait for the human's Define this branch.
 
 ### 9 Sweep
 

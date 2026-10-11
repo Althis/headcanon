@@ -41,9 +41,10 @@ export interface ReqNode {
   source: string | undefined;
   /** The question this node's children answer (REQ-3.14), written by refine when it cuts the node. */
   partition: string | undefined;
-  /** Typed links to other nodes (DEC-014): what this bears on, and what it pulls against. */
+  /** Typed links to other nodes (DEC-014): what this bears on, what it pulls against, and whose concepts its definition uses (REQ-3.15). */
   relates: string[];
   conflicts: string[];
+  requires: string[];
   steps: string[];
   files: string[];
   baseline: string | undefined;

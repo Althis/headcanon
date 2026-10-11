@@ -1,3 +1,4 @@
+import { describeNext, refinementOrder } from "./next.js";
 import { RULES } from "./rules.js";
 import type { Snapshot } from "./snapshot.js";
 import { renderTextTree } from "./tree.js";
@@ -48,6 +49,9 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (unconfirmedDecisions) waiting.push(`${unconfirmedDecisions} decision(s) not yet confirmed`);
   if (c.assumed) waiting.push(`${c.assumed} assumed requirement(s); \`/headcanon:review\` walks them`);
   head.push("## Waiting on the human", "", waiting.length ? waiting.map((w) => `- ${w}`).join("\n") : "- nothing", "");
+  // The next node to refine, so the agent follows the dependency order without computing it (REQ-3.15).
+  const order = refinementOrder(canon);
+  if (order.next || order.deadlock || order.cycles.length) head.push(describeNext(order, canon).split("\n").slice(0, 2).join(" "), "");
 
   if (canon.principles.length) {
     const first = (s: string) => (/^(.*?[.!?])(\s|$)/.exec(s)?.[1] ?? s).slice(0, 160);

@@ -15,15 +15,18 @@ Input: one node the human approved (`ROOT` for the premise) and the layer its ch
 
 Write this list to your scratch file and tick items as you go.
 
-- [ ] 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this).
+- [ ] 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
 - [ ] 1 Gather candidates, each with its origin.
 - [ ] 2 Ladder every candidate up to the node.
 - [ ] 3 Take the top rungs; merge rungs that name one thing; defer the rest.
 - [ ] 4 Read the axis off the set; make facet children; place strays.
 - [ ] 5 Close the set: entailment, conservation.
-- [ ] 6 Name and order; judge drift; jargon through the gate.
-- [ ] 7 Ask: one multi-select, then one by one. Write only after approval.
-- [ ] 8 `HC check`; report to the caller.
+- [ ] 6 Needs: what each child requires; order the set by it.
+- [ ] 7 Name; judge drift; jargon through the gate.
+- [ ] 8 Ask: one multi-select, then one by one. Write only after approval.
+- [ ] 9 `HC check`, `HC next`; report to the caller.
+
+Step 0 stops when `HC next` lists the node as blocked or reports a deadlock: ask "<node> needs <prerequisite>, which is not refined yet" with **Refine <prerequisite> first** and **Refine this anyway**; in a deadlock, **Refine <prerequisite> first** and **Drop the edge**; a typed lift is applied. Then continue with what was chosen.
 
 ## Sources
 
@@ -59,23 +62,27 @@ Each top rung answers one question about the node: when (its stages), which part
 - one, cutting across several children: a child with `relates` to each;
 - one, cutting across the node's siblings too: not a child here; set it aside for the caller as a `lift` to the node's parent.
 
-A facet of one member is not a facet. The partition is approved with the set in step 7, never asked on its own.
+A facet of one member is not a facet. The partition is approved with the set in step 8, never asked on its own.
 
 ### 5 Close
 
 Two checks before asking. **Entailment**: if every child holds, does the node hold? What the answer still needs is a missing child. **Conservation**: every thing the node's text acts on, produces or forbids appears in some child; what is missing is a child. A gap is a candidate with its chain, pre-filled from the project's threads when they speak to it, and marked "nothing in the project covers it" when they do not. Fewer than two top rungs: the node is a leaf, say so, and write nothing. More than eight: look for a second question among them that makes a facet; none, propose them all and say so.
 
-### 6 Name
+### 6 Needs
 
-Each child is named by its rung, never by the artifact's wording: domains and capabilities in plain words, requirements in glossary terms, one or two sentences, an encyclopedia entry. A requirement is verifiable by definition: name to yourself a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it; already a yes-or-no check: `kind: binary`. Judge each child against the principles and name any drift in the question. Children that cannot be approved or tested separately are one child, or a facet is missing. Order: time for stages, otherwise the user's path through them.
+A child **requires** every node whose concepts its line or its deferred rungs use, sibling or not; the home of a concept is found by descent, like any node's. The edge is written on the child as `requires` when the child is written, and a cousin edge is written the moment it is noticed. An edge that would close a cycle names a concept both nodes need: lift that concept to their lowest common ancestor instead of writing the edge; nothing to lift, ask which direction stands with the inconsistency procedure. Order the set prerequisites first, then time for stages, otherwise the user's path; the IDs follow that order, so a number reads as build order.
 
-### 7 Ask
+### 7 Name
 
-One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain and `## Deferred`; the node's front-matter gains `partition`. Entries carry no footnote markers.
+Each child is named by its rung, never by the artifact's wording: domains and capabilities in plain words, requirements in glossary terms, one or two sentences, an encyclopedia entry. A requirement is verifiable by definition: name to yourself a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it; already a yes-or-no check: `kind: binary`. Judge each child against the principles and name any drift in the question. Children that cannot be approved or tested separately are one child, or a facet is missing.
 
-### 8 Report
+### 8 Ask
 
-`HC check`; fix every error. Return to the caller: the IDs created, the partition, the set-asides with their operation, the leftover threads, the open nodes. The caller commits.
+One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires` and `## Deferred`; the node's front-matter gains `partition`. Entries carry no footnote markers.
+
+### 9 Report
+
+`HC check`; fix every error. Return to the caller: the IDs created, the partition, the set-asides with their operation, the leftover threads, the open nodes, and what `HC next` names to refine next. The caller commits.
 
 ## Examples
 

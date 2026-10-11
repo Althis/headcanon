@@ -22,7 +22,7 @@ Every change to the graph is one of these operations, each with its rule:
 - **create**: a node with one home, placed by descending from the domain to the most specific node the statement refines; proposed only after the parent and siblings were checked for an entry that already says it.
 - **update**: only what changed and why.
 - **retire**: the node stays with a reason; nothing is erased.
-- **link**: `relates` between nodes that bear on each other, `conflicts` between nodes that pull against each other; the acknowledgement that makes overlap visible.
+- **link**: `relates` between nodes that bear on each other, `conflicts` between nodes that pull against each other, `requires` from a node to the nodes whose concepts its definition uses; the acknowledgement that makes overlap and order visible. A `requires` edge that would close a cycle is a lift of the shared concept instead.
 - **lift**: a node two siblings both need moves to their lowest common ancestor.
 - **split**: a node whose parts can be verified separately becomes children along a named dimension.
 - **merge**: a child that restates its parent, or a sibling that says what another says, is absorbed into it.
