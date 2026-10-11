@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import type { IntentDiff, ReviewRecord } from "./review.js";
 import type { Canon } from "./types.js";
 
 export const COMMIT_TYPES = ["feat", "fix", "docs", "chore", "refactor", "test", "build", "ci", "perf", "style", "revert"] as const;
@@ -14,6 +15,15 @@ export interface CommitCheck {
 export interface CommitCheckOptions {
   /** Modified watched files whose staged diff only added lines; each needs a Consolidated trailer. */
   appendOnly?: AppendOnlyFile[];
+  /** The staged canon diff and the review record found for it, when the canon is part of the commit. */
+  review?: ReviewState;
+}
+
+export interface ReviewState {
+  diff: IntentDiff;
+  record: ReviewRecord | undefined;
+  /** Why the record cannot be accepted; empty when it is valid or absent. */
+  recordErrors: string[];
 }
 
 export interface AppendOnlyFile {
@@ -169,6 +179,20 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
     errors.push(`${list}: a rules, skill or canon file only gained lines. Re-read the file and merge the addition into what is there, then add a "Consolidated:" trailer saying what you compared or merged, e.g. "Consolidated: merged the new rule into Certainty" or "Consolidated: reviewed Asking and Entries, nothing overlaps"`);
   }
   for (const value of consolidated) if (value.trim().length < 12) warnings.push(`Consolidated trailer "${value}" is too short to say what was compared or merged`);
+
+  // Semantic review: a canon change needs a resolved review record pinned to this exact staged diff.
+  const review = opts.review;
+  if (review?.diff.required) {
+    const { diff, record, recordErrors } = review;
+    const where = `${diff.files.length} canon file(s), ${diff.changedLines} changed line(s), diff ${diff.hash}`;
+    if (!record) {
+      errors.push(`${where}: no intent review is recorded for this change. Run /headcanon:commit, which has the verifier review the staged canon diff for contradictions, reiterations and drift, or record a finished review with "headcanon review-record <file>"`);
+    } else if (recordErrors.length) {
+      for (const e of recordErrors) errors.push(`intent review: ${e}`);
+    }
+    const ir = trailers["Intent-Review"]?.[0] ?? "";
+    if (!ir.startsWith(diff.hash)) errors.push(`missing "Intent-Review: ${diff.hash} …" trailer naming the reviewed diff and its outcome, e.g. "Intent-Review: ${diff.hash}, 2 findings, 1 merged, 1 kept"`);
+  }
 
   const needsApproval = changes.length > 0 || (trailers["Test-Change"]?.length ?? 0) > 0;
   const approved = trailers["Approved-By"] ?? [];

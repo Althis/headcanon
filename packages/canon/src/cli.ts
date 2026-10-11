@@ -3,6 +3,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkCommitMessage, gitAppendOnlyFiles } from "./commit-msg.js";
 import { execFileSync } from "node:child_process";
+import { relative } from "node:path";
+import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { loadCanon } from "./load.js";
@@ -19,6 +21,8 @@ Commands
   render         Write the Mermaid index (canon/INDEX.md by default).
   attention      What is waiting on the human: approvals, unmerged changes, open and contested items.
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
+  review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
+  review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
   session-start  Print the session context as a Claude Code SessionStart hook result.
   ui             Serve the local viewer.
 
@@ -127,13 +131,14 @@ export async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const canon = existsSync(canonDir) ? loadCanon(canonDir) : undefined;
-    let repoRoot = process.cwd();
-    try {
-      repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dirnameOf(file), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    } catch {
-      /* not a repository; append detection is skipped */
+    const repoRoot = repoRootOf(process.cwd()) ?? repoRootOf(dirnameOf(file));
+    let review: import("./commit-msg.js").ReviewState | undefined;
+    if (repoRoot) {
+      const diff = stagedIntentDiff(repoRoot, canonPathspec(repoRoot, canonDir));
+      const record = diff.required ? loadReviewRecord(repoRoot, diff.hash) : undefined;
+      review = { diff, record, recordErrors: record ? validateReviewRecord(record, diff.hash) : [] };
     }
-    const r = checkCommitMessage(readFileSync(file, "utf8"), canon, { appendOnly: gitAppendOnlyFiles(repoRoot) });
+    const r = checkCommitMessage(readFileSync(file, "utf8"), canon, { appendOnly: repoRoot ? gitAppendOnlyFiles(repoRoot) : [], ...(review ? { review } : {}) });
     for (const w of r.warnings) err(`warning: ${w}\n`);
     if (!r.ok) {
       err("HeadCanon rejected the commit message:\n");
@@ -142,6 +147,41 @@ export async function main(argv: string[]): Promise<number> {
       if (!canon) err(`(no canon found at ${canonDir}; ids were not checked)\n`);
       return 1;
     }
+    return 0;
+  }
+
+  if (args.command === "review-hash" || args.command === "review-record") {
+    const repoRoot = repoRootOf(process.cwd());
+    if (!repoRoot) {
+      err("not a git repository\n");
+      return 2;
+    }
+    const diff = stagedIntentDiff(repoRoot, canonPathspec(repoRoot, canonDir));
+    if (args.command === "review-hash") {
+      out(JSON.stringify(diff, null, 2) + "\n");
+      return 0;
+    }
+    const file = args.positional[0];
+    if (!file) {
+      err("usage: headcanon review-record <review.json>\n");
+      return 2;
+    }
+    let rec: ReviewRecord;
+    try {
+      rec = JSON.parse(readFileSync(file, "utf8")) as ReviewRecord;
+    } catch (e) {
+      err(`cannot read ${file}: ${e instanceof Error ? e.message : String(e)}\n`);
+      return 2;
+    }
+    if (!rec.at) rec.at = new Date().toISOString();
+    const problems = validateReviewRecord(rec, diff.hash);
+    if (problems.length) {
+      err("The review record was not stored:\n");
+      for (const p of problems) err(`  - ${p}\n`);
+      return 1;
+    }
+    const path = storeReviewRecord(repoRoot, rec);
+    out(`stored ${path}\n${rec.findings.length} finding(s), all resolved; add the trailer: Intent-Review: ${diff.hash}, ${rec.findings.length} finding(s)\n`);
     return 0;
   }
 
@@ -215,6 +255,21 @@ export async function main(argv: string[]): Promise<number> {
 function dirnameOf(file: string): string {
   const abs = resolve(file);
   return abs.slice(0, Math.max(abs.lastIndexOf("/"), abs.lastIndexOf("\\")) || 1);
+}
+
+/** The work tree root for a directory, or undefined outside a repository (git hooks run at the root). */
+function repoRootOf(dir: string): string | undefined {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/** The canon directory as a git pathspec relative to the repository root. */
+function canonPathspec(repoRoot: string, canonDir: string): string {
+  const rel = relative(repoRoot, canonDir).split("\\").join("/");
+  return rel && !rel.startsWith("..") ? rel : "canon";
 }
 
 // Run when invoked directly (node dist/cli.js, tsx src/cli.ts); bin/headcanon.js imports main instead.
