@@ -1,6 +1,9 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
+import { buildSnapshot, checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 
@@ -72,6 +75,19 @@ describe("layers and principles [REQ-6.7, REQ-3.7]", () => {
     const codes = checkCanon(canon).map((f) => `${f.level}:${f.code}:${f.id ?? ""}`);
     expect(codes).toContain("warn:uncovered-capability:REQ-1.1");
     expect(codes.filter((c) => c.startsWith("info:layer-inferred"))).toHaveLength(1);
+  });
+});
+
+describe("a project before init [REQ-11.6]", () => {
+  it("loads a missing canon folder as an empty canon and still builds a snapshot", () => {
+    const missing = join(mkdtempSync(join(tmpdir(), "headcanon-missing-")), "canon");
+    const canon = loadCanon(missing);
+    expect(canon.roots).toEqual([]);
+    expect(canon.root).toBeUndefined();
+    expect(checkCanon(canon)).toEqual([]);
+    const snap = buildSnapshot(missing);
+    expect(snap.stats.nodes).toBe(0);
+    expect(snap.textTree).toBe("(no requirements yet)");
   });
 });
 

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -20,13 +21,50 @@ export interface McpOptions {
 const WAIT_DEFAULT = 90;
 const WAIT_MAX = 600;
 
-async function alive(base: string): Promise<boolean> {
+const log = (line: string) => process.stderr.write(`headcanon: ${line}\n`);
+
+async function health(base: string): Promise<{ ok: boolean; canon?: string } | undefined> {
   try {
     const r = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1500) });
-    return r.ok;
+    return r.ok ? ((await r.json()) as { ok: boolean; canon?: string }) : undefined;
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => resolve(p).replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
+}
+
+/**
+ * Find or start the viewer for this canon. A viewer already serving the same canon is reused;
+ * a port that serves another project's canon is skipped, so two sessions never share a page;
+ * the first free port after that gets a new viewer.
+ */
+async function attachViewer(canonDir: string, firstPort: number): Promise<string> {
+  for (let port = firstPort; port < firstPort + 10; port++) {
+    const base = `http://127.0.0.1:${port}`;
+    const h = await health(base);
+    if (h?.ok) {
+      if (h.canon && samePath(h.canon, canonDir)) {
+        log(`reusing the viewer at ${base}/`);
+        return base;
+      }
+      log(`port ${port} serves another canon (${h.canon ?? "unknown"}); trying the next`);
+      continue;
+    }
+    try {
+      await serveUi({ canonDir, port });
+      log(`viewer started at ${base}/ for ${canonDir}`);
+      return base;
+    } catch (e) {
+      log(`could not listen on ${port} (${e instanceof Error ? e.message : String(e)}); trying the next`);
+    }
+  }
+  const base = `http://127.0.0.1:${firstPort}`;
+  log(`no usable port between ${firstPort} and ${firstPort + 9}; assuming a viewer at ${base}/`);
+  return base;
 }
 
 async function api<T>(base: string, path: string, init?: RequestInit): Promise<T> {
@@ -49,15 +87,7 @@ function openBrowser(url: string): void {
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
 export async function runMcp(opts: McpOptions): Promise<void> {
-  const base = `http://127.0.0.1:${opts.port}`;
-  if (!(await alive(base))) {
-    try {
-      await serveUi({ canonDir: opts.canonDir, port: opts.port });
-      process.stderr.write(`headcanon: viewer started at ${base}/ for ${opts.canonDir}\n`);
-    } catch (e) {
-      process.stderr.write(`headcanon: could not start the viewer on ${opts.port} (${e instanceof Error ? e.message : String(e)}); assuming one is running\n`);
-    }
-  }
+  const base = await attachViewer(opts.canonDir, opts.port);
   let opened = false;
   const ensureOpen = () => {
     if (opened || !opts.openBrowser) return;
@@ -152,6 +182,6 @@ export async function runMcp(opts: McpOptions): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write("headcanon: MCP server ready\n");
+  log("MCP server ready");
   await new Promise(() => {});
 }

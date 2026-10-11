@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
 
 export interface CommitInfo {
   sha: string;
@@ -41,7 +43,8 @@ export function gitAttention(canonDir: string): GitAttention {
   const empty: GitAttention = { available: false, error: undefined, repoRoot: undefined, branch: undefined, pending: [], unmerged: [], uncommitted: [] };
   let repoRoot: string;
   try {
-    repoRoot = git(canonDir, ["rev-parse", "--show-toplevel"]).trim();
+    // Before init the canon folder does not exist yet; the repository is still its parent's.
+    repoRoot = git(existsSync(canonDir) ? canonDir : dirname(canonDir), ["rev-parse", "--show-toplevel"]).trim();
   } catch (e) {
     return { ...empty, error: `not a git repository: ${e instanceof Error ? e.message : String(e)}` };
   }

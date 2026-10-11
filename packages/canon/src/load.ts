@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { parseFrontMatter, parseGlossary, parseMermaid, parsePrinciples, parseSections, parseStepTable, str, strList } from "./parse.js";
 import { isLayer, isState, type Canon, type Decision, type Journey, type Layer, type ReqNode, type State } from "./types.js";
@@ -49,6 +49,8 @@ export function loadCanon(dirInput: string): Canon {
     duplicates: {},
   };
   const seen = new Map<string, string>();
+  // Before `headcanon init` there is no folder yet; the viewer and the hook must still answer.
+  if (!existsSync(dir)) return canon;
 
   for (const abs of walk(dir).sort()) {
     const file = relative(dir, abs).split(sep).join("/");

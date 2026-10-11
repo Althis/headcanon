@@ -1,10 +1,11 @@
 import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { serveUi } from "../src/index.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 const BIN = fileURLToPath(new URL("../bin/headcanon.js", import.meta.url));
@@ -50,5 +51,31 @@ describe("mcp server over stdio [REQ-12.1.7]", () => {
     const changes = await client.callTool({ name: "headcanon_changes", arguments: { since: 0 } });
     const c = JSON.parse((changes.content as Array<{ text: string }>)[0]!.text) as { entries: Array<{ kind: string }> };
     expect(c.entries.map((e) => e.kind)).toContain("answer");
+  }, 60000);
+});
+
+describe("two projects never share a page [REQ-12.1.7]", () => {
+  it("skips a port whose viewer serves another canon and starts its own, even before init", async () => {
+    const other = mkdtempSync(join(tmpdir(), "headcanon-mcp-other-"));
+    cpSync(MINI, join(other, "canon"), { recursive: true });
+    const busy = await serveUi({ canonDir: join(other, "canon"), port: 0 });
+    // The project has no canon folder yet, as in the first minutes of an adopt run.
+    const fresh = join(mkdtempSync(join(tmpdir(), "headcanon-mcp-fresh-")), "canon");
+    const client = new Client({ name: "test", version: "0" });
+    const transport = new StdioClientTransport({ command: process.execPath, args: [BIN, "mcp", "--canon", fresh, "--port", String(busy.port), "--no-open"], stderr: "pipe" });
+    try {
+      await client.connect(transport);
+      const opened = await client.callTool({ name: "headcanon_open", arguments: {} });
+      const { url } = JSON.parse((opened.content as Array<{ text: string }>)[0]!.text) as { url: string };
+      expect(url).not.toBe(busy.url);
+      const h = (await fetch(`${url}api/health`).then((r) => r.json())) as { canon: string };
+      expect(resolve(h.canon).toLowerCase()).toBe(resolve(fresh).toLowerCase());
+      const snap = (await fetch(`${url}api/snapshot`).then((r) => r.json())) as { stats: { nodes: number } };
+      expect(snap.stats.nodes).toBe(0);
+    } finally {
+      await client.close().catch(() => {});
+      busy.close();
+      rmSync(other, { recursive: true, force: true });
+    }
   }, 60000);
 });
