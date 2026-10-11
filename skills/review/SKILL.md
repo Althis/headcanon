@@ -11,7 +11,7 @@ argument-hint: "[REQ-id or branch to review, or 'all']"
 
 ## 1. Build the list
 
-Run `HC attention --json` and `HC summary`. Collect, in this order: contested items, open questions, decisions with state assumed, then assumed requirements. If the human named a branch or ID, restrict to it. Tell the human how many items there are and ask how many they want to go through now; default to five.
+Run `HC attention --json` and `HC summary`. Collect, in this order: contested items, open questions (open nodes and the `## Open` lines of the root README, where adoption parks a layer the human wanted to revisit), decisions with state assumed, then assumed requirements. If the human named a branch or ID, restrict to it. Tell the human how many items there are and ask how many they want to go through now; default to five.
 
 ## 2. One item at a time
 
