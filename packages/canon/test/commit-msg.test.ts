@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { checkCommitMessage, cleanMessage, loadCanon, parseTrailers, renderMermaidIndex } from "../src/index.js";
+import { checkCommitMessage, cleanMessage, findAppendOnlyFiles, loadCanon, parseTrailers, renderMermaidIndex } from "../src/index.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 const canon = loadCanon(MINI);
@@ -53,6 +53,23 @@ describe("commit-msg [REQ-8.5, REQ-8.5.1]", () => {
     expect(checkCommitMessage("chore: bootstrap\n\nIntent: none\n").ok).toBe(false);
     expect(checkCommitMessage("chore: bootstrap\n\nIntent: none (tooling only)\n").ok).toBe(true);
     expect(checkCommitMessage("Merge branch 'x' into main\n").ok).toBe(true);
+  });
+
+  it("detects modified rules, skill and canon files that only gained lines [REQ-8.5.3]", () => {
+    const numstat = "12\t0\tskills/adopt/SKILL.md\n30\t0\tcanon/REQ-1-x/README.md\n5\t0\tcanon/README.md\n9\t3\tpackages/canon/src/rules.ts\n40\t0\tsrc/app.ts\n";
+    const nameStatus = "M\tskills/adopt/SKILL.md\nA\tcanon/REQ-1-x/README.md\nM\tcanon/README.md\nM\tpackages/canon/src/rules.ts\nM\tsrc/app.ts\n";
+    const found = findAppendOnlyFiles(numstat, nameStatus);
+    expect(found).toEqual([{ path: "skills/adopt/SKILL.md", added: 12 }]);
+  });
+
+  it("requires a Consolidated trailer when an append-only file is staged", () => {
+    const appendOnly = [{ path: "skills/adopt/SKILL.md", added: 12 }];
+    const r = checkCommitMessage("fix: tweak\n\nIntent: none (tooling)\n", undefined, { appendOnly });
+    expect(r.errors.join("\n")).toMatch(/Consolidated/);
+    const ok = checkCommitMessage("fix: tweak\n\nIntent: none (tooling)\nConsolidated: reviewed Asking and Entries, nothing overlaps\n", undefined, { appendOnly });
+    expect(ok.ok).toBe(true);
+    const short = checkCommitMessage("fix: tweak\n\nIntent: none (tooling)\nConsolidated: yes\n", undefined, { appendOnly });
+    expect(short.warnings.join("\n")).toMatch(/too short/);
   });
 
   it("ignores git comment lines and reads only the last paragraph as trailers", () => {

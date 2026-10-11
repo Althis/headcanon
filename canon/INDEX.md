@@ -406,6 +406,7 @@ flowchart LR
     REQ_8_5["REQ-8.5<br/>Commit format: Conventional Commits header plus…"]:::assumed
     REQ_8_5_1["REQ-8.5.1<br/>Trailers: Intent, Intent-Change, Decision, Test…"]:::resolved
     REQ_8_5_2["REQ-8.5.2<br/>The commit-msg hook is installed from the start…"]:::stated
+    REQ_8_5_3["REQ-8.5.3<br/>An edit that only adds lines to a rules, skill …"]:::stated
     REQ_8_6["REQ-8.6<br/>The agent changes the canon only through create…"]:::stated
     REQ_8_7["REQ-8.7<br/>CUD covers all canon objects; updates are patch…"]:::assumed
     REQ_8 --> REQ_8_1
@@ -415,6 +416,7 @@ flowchart LR
     REQ_8 --> REQ_8_5
     REQ_8_5 --> REQ_8_5_1
     REQ_8_5 --> REQ_8_5_2
+    REQ_8_5 --> REQ_8_5_3
     REQ_8 --> REQ_8_6
     REQ_8 --> REQ_8_7
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
@@ -657,7 +659,8 @@ REQ-8             Intent never changes silently                                 
 ├─ REQ-8.4        Canon files hold the current intent; commit trailers record how and why…  stated    · unrefined
 ├─ REQ-8.5        Commit format: Conventional Commits header plus required intent trailers  assumed   · unrefined
 │  ├─ REQ-8.5.1   Trailers: Intent, Intent-Change, Decision, Test-Change, Approved-By       resolved  · unrefined
-│  └─ REQ-8.5.2   The commit-msg hook is installed from the start by headcanon init         stated    · unrefined
+│  ├─ REQ-8.5.2   The commit-msg hook is installed from the start by headcanon init         stated    · unrefined
+│  └─ REQ-8.5.3   An edit that only adds lines to a rules, skill or canon file needs a Co…  stated    · unrefined
 ├─ REQ-8.6        The agent changes the canon only through create, update and delete requ…  stated    · unrefined
 └─ REQ-8.7        CUD covers all canon objects; updates are patches; deletes retire; trai…  assumed   · unrefined
 REQ-9             Writ verifies every change against the canon                              stated    · unrefined

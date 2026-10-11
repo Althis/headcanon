@@ -5,7 +5,7 @@ export { checkCanon, countStates, branchHealth, type BranchHealth, type StateCou
 export { gitAttention, type GitAttention, type CommitInfo } from "./attention.js";
 export { renderTextTree } from "./tree.js";
 export { renderMermaidIndex, MERMAID_FULL_LIMIT } from "./render.js";
-export { checkCommitMessage, cleanMessage, parseTrailers, COMMIT_TYPES, type CommitCheck } from "./commit-msg.js";
+export { checkCommitMessage, cleanMessage, parseTrailers, findAppendOnlyFiles, gitAppendOnlyFiles, COMMIT_TYPES, APPEND_WATCH, type CommitCheck, type CommitCheckOptions, type AppendOnlyFile } from "./commit-msg.js";
 export { initCanon, rootReadme, type InitOptions, type InitResult } from "./init.js";
 export { sessionContext } from "./context.js";
 export { RULES } from "./rules.js";

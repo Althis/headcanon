@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkCommitMessage } from "./commit-msg.js";
+import { checkCommitMessage, gitAppendOnlyFiles } from "./commit-msg.js";
+import { execFileSync } from "node:child_process";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { loadCanon } from "./load.js";
@@ -126,7 +127,13 @@ export async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const canon = existsSync(canonDir) ? loadCanon(canonDir) : undefined;
-    const r = checkCommitMessage(readFileSync(file, "utf8"), canon);
+    let repoRoot = process.cwd();
+    try {
+      repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dirnameOf(file), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch {
+      /* not a repository; append detection is skipped */
+    }
+    const r = checkCommitMessage(readFileSync(file, "utf8"), canon, { appendOnly: gitAppendOnlyFiles(repoRoot) });
     for (const w of r.warnings) err(`warning: ${w}\n`);
     if (!r.ok) {
       err("HeadCanon rejected the commit message:\n");
@@ -203,6 +210,11 @@ export async function main(argv: string[]): Promise<number> {
       err(`Unknown command: ${args.command}\n\n${HELP}`);
       return 2;
   }
+}
+
+function dirnameOf(file: string): string {
+  const abs = resolve(file);
+  return abs.slice(0, Math.max(abs.lastIndexOf("/"), abs.lastIndexOf("\\")) || 1);
 }
 
 // Run when invoked directly (node dist/cli.js, tsx src/cli.ts); bin/headcanon.js imports main instead.

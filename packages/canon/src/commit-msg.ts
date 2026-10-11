@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import type { Canon } from "./types.js";
 
 export const COMMIT_TYPES = ["feat", "fix", "docs", "chore", "refactor", "test", "build", "ci", "perf", "style", "revert"] as const;
@@ -8,6 +9,48 @@ export interface CommitCheck {
   warnings: string[];
   header: string | undefined;
   trailers: Record<string, string[]>;
+}
+
+export interface CommitCheckOptions {
+  /** Modified watched files whose staged diff only added lines; each needs a Consolidated trailer. */
+  appendOnly?: AppendOnlyFile[];
+}
+
+export interface AppendOnlyFile {
+  path: string;
+  added: number;
+}
+
+/** Files whose growth by appending is the failure mode: rules, skills, and the canon. */
+export const APPEND_WATCH: RegExp[] = [/^canon\//, /^skills\//, /(^|\/)rules\.ts$/];
+
+/** Pure: from `git diff --cached --numstat` and `--name-status`, the modified watched files that only gained lines. */
+export function findAppendOnlyFiles(numstat: string, nameStatus: string, watch: RegExp[] = APPEND_WATCH, minAdded = 8): AppendOnlyFile[] {
+  const modified = new Set<string>();
+  for (const line of nameStatus.split(/\r?\n/)) {
+    const [status, ...rest] = line.split("\t");
+    if (status === "M" && rest[0]) modified.add(rest[0]);
+  }
+  const out: AppendOnlyFile[] = [];
+  for (const line of numstat.split(/\r?\n/)) {
+    const [a, d, path] = line.split("\t");
+    if (!path || !modified.has(path)) continue;
+    if (!watch.some((re) => re.test(path))) continue;
+    const added = Number(a);
+    const deleted = Number(d);
+    if (Number.isFinite(added) && deleted === 0 && added >= minAdded) out.push({ path, added });
+  }
+  return out;
+}
+
+/** Runs git in the repository and applies the pure check; an empty list when git is unavailable. */
+export function gitAppendOnlyFiles(repoDir: string, watch: RegExp[] = APPEND_WATCH, minAdded = 8): AppendOnlyFile[] {
+  try {
+    const run = (args: string[]) => execFileSync("git", args, { cwd: repoDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return findAppendOnlyFiles(run(["diff", "--cached", "--numstat"]), run(["diff", "--cached", "--name-status"]), watch, minAdded);
+  } catch {
+    return [];
+  }
 }
 
 const HEADER = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<bang>!)?: (?<subject>\S.*)$/;
@@ -44,7 +87,7 @@ export function parseTrailers(message: string): Record<string, string[]> {
  * Validate a commit message against the commit format (REQ-8.5, REQ-8.5.1).
  * With a canon, every referenced ID must exist. Merge, fixup and squash messages pass untouched.
  */
-export function checkCommitMessage(raw: string, canon?: Canon): CommitCheck {
+export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheckOptions = {}): CommitCheck {
   const message = cleanMessage(raw);
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -118,6 +161,14 @@ export function checkCommitMessage(raw: string, canon?: Canon): CommitCheck {
   for (const value of trailers["Test-Change"] ?? []) {
     if (!value.trim()) errors.push("Test-Change trailer is empty; cite the test and the intent change it relies on");
   }
+
+  const appendOnly = opts.appendOnly ?? [];
+  const consolidated = (trailers["Consolidated"] ?? []).filter((v) => v.trim());
+  if (appendOnly.length > 0 && consolidated.length === 0) {
+    const list = appendOnly.map((f) => `${f.path} (+${f.added}, -0)`).join(", ");
+    errors.push(`${list}: a rules, skill or canon file only gained lines. Re-read the file and merge the addition into what is there, then add a "Consolidated:" trailer saying what you compared or merged, e.g. "Consolidated: merged the new rule into Certainty" or "Consolidated: reviewed Asking and Entries, nothing overlaps"`);
+  }
+  for (const value of consolidated) if (value.trim().length < 12) warnings.push(`Consolidated trailer "${value}" is too short to say what was compared or merged`);
 
   const needsApproval = changes.length > 0 || (trailers["Test-Change"]?.length ?? 0) > 0;
   const approved = trailers["Approved-By"] ?? [];
