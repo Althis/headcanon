@@ -649,7 +649,8 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // ---------------------------------------------------------------- adopt: the canvas for reviewing a drafted canon
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
-const adoptState = { expanded: null, selected: null };
+// Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, view: null };
 function colorOf(id) {
   if (id === "ROOT") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -680,7 +681,10 @@ function adopt(selectedId) {
   return `<div class="adopt">
     <div class="toolbar adopt-bar">
       <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
-      <span class="muted">click a box to open it; the handle under a box shows or hides its children; drag to pan, wheel to zoom</span>
+      <span class="muted">click a circle for its name; double-click or ↗ opens it; the handle below shows its children; drag to pan, wheel to zoom</span>
+      <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" title="Show or hide every name">Names</button>
+      <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
+      <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
       <button class="btn small" data-fit="1">Fit</button>
       <button class="btn small" data-expand-all="1">Show all</button>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
@@ -694,57 +698,116 @@ function buildAdoptCanvas() {
   if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
   const show = adoptScope();
   const shown = new Set(show);
-  const elements = [];
   const info = (id) => (id === "ROOT" ? { title: snap.canon.root?.title ?? "Premise", children: snap.canon.roots, parent: undefined, requires: [], conflicts: [] } : node(id));
+  const labelled = (id) => adoptState.labels || adoptState.labelled.has(id);
+  const elements = [];
   for (const id of show) {
     const n = info(id);
-    elements.push({ data: { id, label: `${id === "ROOT" ? "" : id + "\n"}${n.title}` }, classes: `${colorOf(id)} ${id === adoptState.selected ? "selected" : ""}` });
+    elements.push({ data: { id, label: `${id === "ROOT" ? "" : id + "\n"}${n.title}` }, classes: `${colorOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}` });
     const parent = id === "ROOT" ? undefined : n.parent ?? "ROOT";
-    if (parent && shown.has(parent)) elements.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: "contains" });
-    for (const t of n.requires) if (shown.has(t)) elements.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: "requires" });
-    for (const t of n.conflicts) if (shown.has(t)) elements.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: "conflicts" });
+    if (parent && shown.has(parent)) elements.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: `contains ${adoptState.edges ? "" : "hidden"}` });
+    for (const t of n.requires) if (shown.has(t)) elements.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: `requires dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
+    for (const t of n.conflicts) if (shown.has(t)) elements.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: `conflicts dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
   }
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const layout = () => (window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 18, rankSep: 70, padding: 40, fit: false } : { name: "breadthfirst", directed: true, padding: 40, fit: false });
   const cy = window.cytoscape({
-    container: el, elements, minZoom: 0.1, maxZoom: 3,
+    container: el, elements, minZoom: 0.05, maxZoom: 4,
     style: [
-      { selector: "node", style: { shape: "round-rectangle", width: 190, height: 58, label: "data(label)", "text-wrap": "wrap", "text-max-width": 172, "font-size": 11, "text-valign": "center", "text-halign": "center", "border-width": 1.5, color: "#1f2937" } },
+      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "", "border-width": 2, "background-color": "#fef3c7", "border-color": "#d97706" } },
       { selector: "node.green", style: { "background-color": "#dcfce7", "border-color": "#16a34a" } },
       { selector: "node.yellow", style: { "background-color": "#fef3c7", "border-color": "#d97706" } },
       { selector: "node.red", style: { "background-color": "#fee2e2", "border-color": "#dc2626" } },
+      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "data(label)", "text-wrap": "wrap", "text-max-width": 172, "font-size": 11, "text-valign": "center", "text-halign": "center", color: "#1f2937", "border-width": 1.5 } },
       { selector: "node.selected", style: { "border-width": 4 } },
-      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.9, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
+      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+      { selector: ".hidden", style: { display: "none" } },
     ],
-    layout: window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 22, rankSep: 70, padding: 30 } : { name: "breadthfirst", directed: true, padding: 30 },
+    layout: layout(),
   });
-  cy.on("tap", "node", (e) => { adoptState.selected = e.target.id(); cy.$("node.selected").removeClass("selected"); e.target.addClass("selected"); openPopup(e.target.id()); });
-  // Handles: one small button under every box that has children, following it on pan, zoom and drag.
-  const handles = document.createElement("div");
-  handles.className = "handles";
-  el.appendChild(handles);
-  for (const id of show) {
-    const kids = info(id).children.length;
-    if (!kids) continue;
-    const open = adoptState.expanded.has(id);
-    const b = document.createElement("button");
-    b.className = "handle"; b.dataset.id = id; b.textContent = open ? "−" : `+${kids}`; b.title = open ? "Hide the children" : `Show ${kids} children`;
-    b.addEventListener("click", (ev) => { ev.stopPropagation(); toggleExpand(id); });
-    handles.appendChild(b);
-  }
+  window.__cy = cy;
+  // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
+  const grid = () => {
+    const z = cy.zoom(), p = cy.pan();
+    let step = 48 * z;
+    while (step < 24) step *= 2;
+    while (step > 96) step /= 2;
+    el.style.backgroundSize = `${step}px ${step}px`;
+    el.style.backgroundPosition = `${p.x}px ${p.y}px`;
+  };
+  // Buttons that float over the boxes: the children handle under every box that has children, and, on a
+  // named box, the eye that hides the name and the ↗ that opens the card.
+  const overlay = document.createElement("div");
+  overlay.className = "overlays";
+  el.appendChild(overlay);
+  const makeOverlays = () => {
+    overlay.innerHTML = "";
+    for (const id of show) {
+      const kids = info(id).children.length;
+      if (kids) {
+        const open = adoptState.expanded.has(id);
+        const b = document.createElement("button");
+        b.className = "ov handle"; b.dataset.id = id; b.dataset.kind = "handle"; b.textContent = open ? "−" : `+${kids}`; b.title = open ? "Hide the children" : `Show ${kids} children`;
+        b.addEventListener("click", (ev) => { ev.stopPropagation(); toggleExpand(id); });
+        overlay.appendChild(b);
+      }
+      if (cy.getElementById(id).hasClass("labelled")) {
+        const eye = document.createElement("button");
+        eye.className = "ov eye"; eye.dataset.id = id; eye.dataset.kind = "eye"; eye.textContent = "👁"; eye.title = "Hide the name";
+        eye.addEventListener("click", (ev) => { ev.stopPropagation(); hideLabel(id); });
+        overlay.appendChild(eye);
+        const go = document.createElement("button");
+        go.className = "ov go"; go.dataset.id = id; go.dataset.kind = "go"; go.textContent = "↗"; go.title = "Open this box";
+        go.addEventListener("click", (ev) => { ev.stopPropagation(); select(id); openPopup(id); });
+        overlay.appendChild(go);
+      }
+    }
+    place();
+  };
   const place = () => {
-    for (const h of handles.children) {
+    const r = el.getBoundingClientRect();
+    for (const h of overlay.children) {
       const n = cy.getElementById(h.dataset.id);
       if (!n.length) continue;
-      const p = n.renderedPosition();
-      h.style.left = `${p.x}px`; h.style.top = `${p.y + n.renderedHeight() / 2}px`;
+      const p = n.renderedPosition(), w = n.renderedWidth(), hh = n.renderedHeight();
+      const inside = p.x > -40 && p.y > -40 && p.x < r.width + 40 && p.y < r.height + 40;
+      h.style.display = inside ? "" : "none";
+      if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; }
+      else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 12}px`; h.style.top = `${p.y - hh / 2}px`; }
+      else { h.style.left = `${p.x + w / 2 - 36}px`; h.style.top = `${p.y - hh / 2}px`; }
     }
   };
-  cy.on("viewport position layoutstop", place);
-  cy.ready(() => { cy.fit(undefined, 30); place(); if (adoptState.selected && cy.getElementById(adoptState.selected).length) cy.center(cy.getElementById(adoptState.selected)); place(); });
-  window.__cy = cy;
-  $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 30); place(); });
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
+  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); };
+  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); };
+  let lastTap = { id: null, at: 0 };
+  cy.on("tap", "node", (e) => {
+    const id = e.target.id(), now = Date.now();
+    if (lastTap.id === id && now - lastTap.at < 400) { lastTap = { id: null, at: 0 }; select(id); openPopup(id); return; }
+    lastTap = { id, at: now };
+    select(id);
+    showLabel(id);
+  });
+  cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
+  cy.on("position layoutstop", place);
+  cy.ready(() => {
+    if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
+    grid(); makeOverlays();
+  });
+  if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
+  $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 40); });
+  $main.querySelector("[data-labels]")?.addEventListener("click", (ev) => {
+    adoptState.labels = !adoptState.labels;
+    ev.currentTarget.classList.toggle("on", adoptState.labels);
+    if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
+    else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
+    cy.layout(layout()).run();
+    makeOverlays();
+  });
+  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
+  $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
   $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); render(); });
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
@@ -778,9 +841,13 @@ function openPopup(id) {
       ${isRoot ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
     </div>
     <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
-    <div id="pp-editor" class="editor"></div>`;
+    <div id="pp-editor" class="editor"></div>
+    <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
+  const wasHidden = $popup.hidden;
   $popup.hidden = false;
   $popup.dataset.id = id;
+  if (wasHidden) centerPopup();
+  wirePopupMoves();
   $popup.querySelector("#pp-close").addEventListener("click", closePopup);
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
@@ -807,6 +874,44 @@ function openPopup(id) {
   });
 }
 function closePopup() { $popup.hidden = true; $why.hidden = true; delete $popup.dataset.id; }
+// The card opens in the middle of the canvas, moves by its header and resizes from any corner.
+function centerPopup() {
+  const area = $main.querySelector(".adopt #cy")?.getBoundingClientRect() ?? $main.getBoundingClientRect();
+  const w = Math.min(560, Math.max(320, area.width - 40));
+  $popup.style.width = `${w}px`;
+  $popup.style.height = "";
+  const h = Math.min($popup.offsetHeight, area.height - 40);
+  $popup.style.height = `${h}px`;
+  $popup.style.left = `${Math.max(8, area.left + (area.width - w) / 2)}px`;
+  $popup.style.top = `${Math.max(60, area.top + (area.height - h) / 2)}px`;
+}
+function wirePopupMoves() {
+  const head = $popup.querySelector(".popup-head");
+  head.addEventListener("mousedown", (e) => {
+    if (e.target.closest("button")) return;
+    e.preventDefault();
+    const start = { x: e.clientX, y: e.clientY, left: $popup.offsetLeft, top: $popup.offsetTop };
+    const move = (ev) => { $popup.style.left = `${start.left + ev.clientX - start.x}px`; $popup.style.top = `${start.top + ev.clientY - start.y}px`; };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  });
+  for (const grip of $popup.querySelectorAll(".pp-resize")) grip.addEventListener("mousedown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const dirs = grip.className.replace("pp-resize", "").trim();
+    const start = { x: e.clientX, y: e.clientY, left: $popup.offsetLeft, top: $popup.offsetTop, w: $popup.offsetWidth, h: $popup.offsetHeight };
+    const move = (ev) => {
+      const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+      let { left, top, w, h } = start;
+      if (dirs.includes("e")) w = Math.max(320, start.w + dx);
+      if (dirs.includes("s")) h = Math.max(220, start.h + dy);
+      if (dirs.includes("w")) { w = Math.max(320, start.w - dx); left = start.left + (start.w - w); }
+      if (dirs.includes("n")) { h = Math.max(220, start.h - dy); top = start.top + (start.h - h); }
+      Object.assign($popup.style, { left: `${left}px`, top: `${top}px`, width: `${w}px`, height: `${h}px` });
+    };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  });
+}
 // The ? tool: select words in the card, press ?, and the session explains them in the chat.
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
