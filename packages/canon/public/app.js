@@ -79,7 +79,9 @@ function render() {
   const { view, arg } = route();
   const tab = view === "node" ? "tree" : view === "journey" ? "journeys" : view === "decision" ? "decisions" : view;
   for (const a of document.querySelectorAll("#tabs a")) a.classList.toggle("active", a.dataset.view === tab);
-  const views = { overview, tree: () => tree(arg), node: () => tree(arg), health, attention, journeys: () => journeys(arg), journey: () => journeys(arg), decisions: () => decisions(arg), decision: () => decisions(arg), glossary };
+  document.body.classList.toggle("adopt-mode", view === "adopt");
+  if (view !== "adopt") closePopup();
+  const views = { overview, adopt: () => adopt(arg), tree: () => tree(arg), node: () => tree(arg), health, attention, journeys: () => journeys(arg), journey: () => journeys(arg), decisions: () => decisions(arg), decision: () => decisions(arg), glossary };
   $main.innerHTML = (views[view] ?? overview)();
   afterRender(view);
 }
@@ -432,6 +434,7 @@ function afterRender(view) {
   }
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
   if ((view === "tree" || view === "node") && ui.graph) buildGraph(route().arg);
+  if (view === "adopt") { buildAdoptCanvas(); openSession(); }
   const diagrams = $main.querySelectorAll(".mermaid");
   if (diagrams.length && window.mermaid) {
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
@@ -518,21 +521,32 @@ async function pollSession() {
     const pill = document.getElementById("session-pending");
     pill.textContent = s.pending; pill.hidden = s.pending === 0;
     document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
-    if (s.focus && s.focus.seq !== lastFocusSeq) { lastFocusSeq = s.focus.seq; if (s.focus.id) location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`; }
+    if (s.focus && s.focus.seq !== lastFocusSeq) {
+      lastFocusSeq = s.focus.seq;
+      if (s.focus.id) {
+        if (route().view === "adopt") { adoptState.selected = s.focus.id; if (s.focus.id !== "ROOT") expandTo(s.focus.id); location.hash = `#/adopt/${s.focus.id}`; render(); if (s.focus.open) openPopup(s.focus.id); }
+        else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
+      }
+    }
     if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
-    if (s.cursor !== lastCursor) { lastCursor = s.cursor; if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); } }
+    if (s.cursor !== lastCursor) {
+      lastCursor = s.cursor;
+      const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { working = null; if (!s.question) { $question.innerHTML = `<p class="muted">Waiting for you. Open a box on the canvas, or write below.</p>`; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
+      if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); }
+    }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
 }
 // Between questions: the session is reading, writing or thinking; show that it is, and for how long.
 let working = null;
 const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
-function showWorking() {
+function showWorking(what) {
   if (!working) working = { since: Date.now(), answer: "" };
   $question.innerHTML = `
-    <div class="working"><span class="spinner"></span><div><b>The session is working.</b> Its next question appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
+    <div class="working"><span class="spinner"></span><div><b>The session is working${what ? ` since ${esc(what)}` : ""}.</b> What it says or asks next appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
     ${working.answer ? `<p class="muted">You answered: <b>${esc(working.answer.slice(0, 200))}</b></p>` : ""}`;
 }
 function renderQuestion(q, pending = 1) {
@@ -631,5 +645,200 @@ async function submitAnswer(q) {
   } catch (e) { showToast(e); }
 }
 document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && !e.target.classList?.contains("jargon")) { $tooltip.hidden = true; tooltipPinned = false; } });
+
+// ---------------------------------------------------------------- adopt: the canvas for reviewing a drafted canon
+// Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
+// human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
+const adoptState = { expanded: null, selected: null };
+function colorOf(id) {
+  if (id === "ROOT") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  const n = node(id);
+  if (!n) return "yellow";
+  if (n.state === "open" || n.state === "contested") return "red";
+  if (findingsFor(id).some((f) => f.level !== "info")) return "red";
+  return n.state === "stated" || n.state === "resolved" ? "green" : "yellow";
+}
+function ensureExpanded() {
+  if (adoptState.expanded) return;
+  adoptState.expanded = new Set(["ROOT", ...snap.canon.roots]);
+}
+function adoptScope() {
+  ensureExpanded();
+  const show = ["ROOT", ...snap.canon.roots];
+  const visit = (id) => { if (!adoptState.expanded.has(id)) return; for (const c of node(id).children) { show.push(c); visit(c); } };
+  for (const r of snap.canon.roots) visit(r);
+  return show;
+}
+function adoptCounts() {
+  const c = { green: 0, yellow: 0, red: 0 };
+  for (const id of Object.keys(snap.canon.nodes)) c[colorOf(id)]++;
+  return c;
+}
+function adopt(selectedId) {
+  if (selectedId) adoptState.selected = selectedId;
+  const c = adoptCounts();
+  return `<div class="adopt">
+    <div class="toolbar adopt-bar">
+      <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
+      <span class="muted">click a box to open it; the handle under a box shows or hides its children; drag to pan, wheel to zoom</span>
+      <button class="btn small" data-fit="1">Fit</button>
+      <button class="btn small" data-expand-all="1">Show all</button>
+      <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
+    </div>
+    <div id="cy" class="cy-full"></div>
+  </div>`;
+}
+function buildAdoptCanvas() {
+  const el = $main.querySelector(".adopt #cy");
+  if (!el || !window.cytoscape) return;
+  if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
+  const show = adoptScope();
+  const shown = new Set(show);
+  const elements = [];
+  const info = (id) => (id === "ROOT" ? { title: snap.canon.root?.title ?? "Premise", children: snap.canon.roots, parent: undefined, requires: [], conflicts: [] } : node(id));
+  for (const id of show) {
+    const n = info(id);
+    elements.push({ data: { id, label: `${id === "ROOT" ? "" : id + "\n"}${n.title}` }, classes: `${colorOf(id)} ${id === adoptState.selected ? "selected" : ""}` });
+    const parent = id === "ROOT" ? undefined : n.parent ?? "ROOT";
+    if (parent && shown.has(parent)) elements.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: "contains" });
+    for (const t of n.requires) if (shown.has(t)) elements.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: "requires" });
+    for (const t of n.conflicts) if (shown.has(t)) elements.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: "conflicts" });
+  }
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const cy = window.cytoscape({
+    container: el, elements, minZoom: 0.1, maxZoom: 3,
+    style: [
+      { selector: "node", style: { shape: "round-rectangle", width: 190, height: 58, label: "data(label)", "text-wrap": "wrap", "text-max-width": 172, "font-size": 11, "text-valign": "center", "text-halign": "center", "border-width": 1.5, color: "#1f2937" } },
+      { selector: "node.green", style: { "background-color": "#dcfce7", "border-color": "#16a34a" } },
+      { selector: "node.yellow", style: { "background-color": "#fef3c7", "border-color": "#d97706" } },
+      { selector: "node.red", style: { "background-color": "#fee2e2", "border-color": "#dc2626" } },
+      { selector: "node.selected", style: { "border-width": 4 } },
+      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.9, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
+      { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
+      { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+    ],
+    layout: window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 22, rankSep: 70, padding: 30 } : { name: "breadthfirst", directed: true, padding: 30 },
+  });
+  cy.on("tap", "node", (e) => { adoptState.selected = e.target.id(); cy.$("node.selected").removeClass("selected"); e.target.addClass("selected"); openPopup(e.target.id()); });
+  // Handles: one small button under every box that has children, following it on pan, zoom and drag.
+  const handles = document.createElement("div");
+  handles.className = "handles";
+  el.appendChild(handles);
+  for (const id of show) {
+    const kids = info(id).children.length;
+    if (!kids) continue;
+    const open = adoptState.expanded.has(id);
+    const b = document.createElement("button");
+    b.className = "handle"; b.dataset.id = id; b.textContent = open ? "−" : `+${kids}`; b.title = open ? "Hide the children" : `Show ${kids} children`;
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); toggleExpand(id); });
+    handles.appendChild(b);
+  }
+  const place = () => {
+    for (const h of handles.children) {
+      const n = cy.getElementById(h.dataset.id);
+      if (!n.length) continue;
+      const p = n.renderedPosition();
+      h.style.left = `${p.x}px`; h.style.top = `${p.y + n.renderedHeight() / 2}px`;
+    }
+  };
+  cy.on("viewport position layoutstop", place);
+  cy.ready(() => { cy.fit(undefined, 30); place(); if (adoptState.selected && cy.getElementById(adoptState.selected).length) cy.center(cy.getElementById(adoptState.selected)); place(); });
+  window.__cy = cy;
+  $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 30); place(); });
+  $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); render(); });
+  $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
+}
+function toggleExpand(id) { ensureExpanded(); adoptState.expanded.has(id) ? adoptState.expanded.delete(id) : adoptState.expanded.add(id); render(); }
+function expandTo(id) { ensureExpanded(); let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
+
+// The node card: what the node says, why it has its colour, and the actions on it.
+const $popup = document.getElementById("popup");
+const $why = document.getElementById("ask-why");
+function openPopup(id) {
+  const isRoot = id === "ROOT";
+  const n = isRoot ? null : node(id);
+  if (!isRoot && !n) return;
+  const color = colorOf(id);
+  const state = isRoot ? snap.canon.root?.state : n.state;
+  const because = color === "red"
+    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? "Two statements pull against each other; keep one or rewrite." : "A check flagged it; see below.")
+    : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
+  const fs = isRoot ? [] : findingsFor(id).filter((f) => f.level !== "info");
+  const kids = isRoot ? snap.canon.roots.length : n.children.length;
+  $popup.innerHTML = `
+    <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
+    <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
+    <div class="popup-body body" id="pp-body">${markSections(snap.html[id] ?? "<p class='muted'>No text yet.</p>")}</div>
+    ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
+    <div class="row pp-actions">
+      ${color !== "green" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
+      <button class="btn" id="pp-edit" title="Say it in your own words">Rewrite</button>
+      ${isRoot ? "" : `<button class="btn" id="pp-delete" title="Remove this node and everything under it">Delete</button>`}
+      ${kids && !isRoot ? `<button class="btn" id="pp-toggle">${adoptState.expanded?.has(id) ? "Hide children" : `Show ${kids} children`}</button>` : ""}
+      ${isRoot ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
+    </div>
+    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <div id="pp-editor" class="editor"></div>`;
+  $popup.hidden = false;
+  $popup.dataset.id = id;
+  $popup.querySelector("#pp-close").addEventListener("click", closePopup);
+  $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
+    try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
+  });
+  $popup.querySelector("#pp-delete")?.addEventListener("click", async () => {
+    if (!confirm(`Delete ${id}${kids ? ` and its ${kids} children` : ""}? The session will re-check what depended on it.`)) return;
+    try { await fetch(`/api/node/${encodeURIComponent(id)}`, { method: "DELETE" }); closePopup(); adoptState.selected = null; await load(); render(); startWorking(`you deleted ${id}`); } catch (e) { showToast(e); }
+  });
+  $popup.querySelector("#pp-toggle")?.addEventListener("click", () => { toggleExpand(id); openPopup(id); });
+  $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
+  $popup.querySelector("#pp-edit").addEventListener("click", async () => {
+    const editor = $popup.querySelector("#pp-editor");
+    const raw = await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
+    const intent = (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
+    editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
+      ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
+      <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
+      <div class="row"><button class="btn primary" id="pp-save">Save</button><button class="btn" id="pp-cancel">Cancel</button></div>`;
+    editor.querySelector("#pp-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.querySelector("#pp-save").addEventListener("click", async () => {
+      const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
+      try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
+    });
+  });
+}
+function closePopup() { $popup.hidden = true; $why.hidden = true; delete $popup.dataset.id; }
+// The ? tool: select words in the card, press ?, and the session explains them in the chat.
+document.addEventListener("mouseup", () => {
+  setTimeout(() => {
+    const sel = window.getSelection();
+    const text = sel?.toString().trim();
+    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode)) { if (!$why.matches(":hover")) $why.hidden = true; return; }
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    $why.style.left = `${Math.min(window.innerWidth - 34, r.right + 6)}px`; $why.style.top = `${Math.max(8, r.top - 30)}px`;
+    $why.dataset.text = text.slice(0, 300);
+    $why.hidden = false;
+  }, 0);
+});
+$why.addEventListener("click", async () => {
+  const text = $why.dataset.text, id = $popup.dataset.id;
+  $why.hidden = true;
+  try { await post("/api/message", { text: `What do you mean by "${text}"?`, nodeId: id }); appendChat([{ kind: "message", text: `What do you mean by "${text}"?`, id }]); startWorking("you asked about a passage"); } catch (e) { showToast(e); }
+});
+
+// The chat: what the session says and what the human sends, with the actions between them as quiet lines.
+let chatCursor = 0;
+function appendChat(entries) {
+  const list = document.getElementById("activity");
+  for (const e of entries) {
+    const li = document.createElement("li");
+    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${esc(e.text ?? "")}${e.id ? ` ${idLink(e.id)}` : ""}`; }
+    else if (e.kind === "message") { li.className = "message"; li.textContent = e.text ?? ""; }
+    else { li.className = "sys"; li.textContent = e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind; }
+    list.appendChild(li);
+  }
+  while (list.children.length > 60) list.firstChild.remove();
+  list.lastElementChild?.scrollIntoView({ block: "nearest" });
+}
+function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
 
 load().then(render).catch(showError).finally(pollSession);

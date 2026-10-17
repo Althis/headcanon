@@ -134,6 +134,32 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .chip.on.contested { background: var(--contested-bg); color: var(--contested); border-color: transparent; }
 .chip.on.flag { background: var(--contested-bg); color: var(--contested); border-color: transparent; }
 .tree { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 4px; max-height: calc(100vh - 190px); overflow: auto; }
+/* Adopt: the canvas for reviewing a drafted canon, with the session docked at the right */
+body.adopt-mode .session { top: 58px; bottom: 0; right: 0; width: min(420px, 45vw); max-height: none; border-radius: 0; border-width: 0 0 0 1px; box-shadow: none; }
+body.adopt-mode .session.collapsed { bottom: auto; width: auto; border-width: 0 0 1px 1px; border-radius: 0 0 0 10px; }
+.adopt { margin-right: min(436px, 46vw); }
+.adopt-bar { align-items: center; }
+.adopt-bar .legend { gap: 12px; }
+.cy-full { position: relative; height: calc(100vh - 150px); min-height: 420px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
+.handles { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.handle { position: absolute; pointer-events: auto; transform: translate(-50%, -50%); font: 600 11px/1 var(--font, inherit); padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.handle:hover { border-color: var(--accent); color: var(--accent); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.sw.green { background: #16a34a; } .sw.yellow { background: #d97706; } .sw.red { background: #dc2626; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.popup { position: fixed; left: 24px; top: 84px; width: min(560px, 46vw); max-height: calc(100vh - 120px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.28); padding: 14px 16px; z-index: 25; }
+.popup-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.popup-head .btn { margin-left: auto; }
+.popup h2 { margin: 8px 0 4px; font-size: 17px; }
+.popup .body h2 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
+.pp-actions { gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.pp-findings { margin: 8px 0; padding-left: 18px; }
+.whybtn { position: fixed; z-index: 40; border-radius: 50%; width: 26px; height: 26px; padding: 0; font-weight: 700; }
+.chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.chat li { padding: 6px 10px; border-radius: 10px; max-width: 92%; font-size: 13px; }
+.chat li.say { background: var(--bg); align-self: flex-start; border: 1px solid var(--line); }
+.chat li.message { background: var(--accent); color: #fff; align-self: flex-end; }
+.chat li.sys { color: var(--muted); font-size: 12px; align-self: stretch; }
 .graph { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: calc(100vh - 150px); overflow: auto; }
 #cy { height: calc(100vh - 210px); min-height: 360px; border-radius: 8px; background: var(--bg); }
 .graph svg { max-width: 100%; height: auto; }

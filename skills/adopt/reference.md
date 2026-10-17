@@ -19,23 +19,23 @@ The first question's text is this block, verbatim, with one option, **Let's begi
 ```
 Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
 
-We build it in five layers, each approved before the next:
+What happens next: I draft the whole thing from your documents, then you review it on a canvas, box by box.
+
+The canon has five layers, top to bottom:
 - Premise: what the project is, its purpose, what it is not, and its vocabulary.
 - Principles: the direction it follows. Every requirement is later judged against them.
 - Domains: the areas the project must cover to operate at all.
 - Capabilities: what each domain must be able to do to be complete.
 - Requirements: the concrete, checkable goals under each capability.
-Then: anything from your documents that did not fit.
 
-How you decide on each draft I show:
-- Approve as written: my draft stands, recorded as approved by you.
-- Drop: it is left out.
-- Other: type your own wording to replace mine, or a correction, and I show the corrected draft again. Only what you type is recorded as your words.
+On the canvas, every box has a colour:
+- Green: approved by you.
+- Yellow: my guess from your documents. Open it and approve it, rewrite it in your own words, or delete it.
+- Red: I could not guess it, or two statements disagree. Those need you before we can finish.
 
-In a list, tick every item that is right as written. Each unticked item comes back as its own question.
-Nothing is saved until you approve it.
+Work top-down: the premise first, then the domains. When you change a box, I rework what hangs from it and tell you in the chat on the right. Select any words in a box and press ? to ask me what they mean.
 
-Sources appear as numbered markers; hover one to see where a sentence comes from.
+Nothing is final until you press Finish with no red left.
 ```
 
 ## 1. Root README (`canon/README.md`)
@@ -200,7 +200,8 @@ When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_
 3. Call `headcanon_ask` with `header`, `question`, `options` (omit for Approve as written / Drop; one option per item with `multiSelect: true` for a list), `nodeId` when the question is about an existing node, and `terms`. Several questions in one turn, as AskUserQuestion allows: pass them as `questions`; the page shows them one after another and the result holds every answer in order. On the first call the page opens in the browser.
 4. The result is the answer, or `{pending: true, questionId}`. When pending, call `headcanon_wait` with the `questionId` and keep calling it until the answer arrives. Never give up on a pending question and never re-ask it.
 5. Read the answer like a terminal answer: `selected` holds the chosen labels; `other` holds typed text, which is wording, a correction or a process instruction as the skill defines.
-6. Before each layer, call `headcanon_changes` with the last cursor. `node-edited` and `node-created` entries are the human's own wording, stated; `term-enshrined` and `term-dropped` update the glossary you work from; `message` is free text to answer or follow; `refine-request` names the branch the human wants decomposed next, which takes precedence over your own order.
+6. `headcanon_changes` with the last cursor, and `waitSeconds` to wait for the next action, returns what the human did: `node-approved`, `node-edited`, `node-created` and `node-deleted` (their wording is stated), `term-enshrined` and `term-dropped`, `message` (free text, or a question about a quoted passage with its `id`), `refine-request` naming a branch to define next, and `finish-request`. The attend skill says what each one asks of you.
+7. `headcanon_say` posts a line of yours in the chat; the page shows a working indicator from the human's last action until your next say or question, so end every spell of work with one. `headcanon_focus` with `open` opens a box's card on their screen; `headcanon_open` with view `adopt` opens the canvas.
 
 Example call:
 

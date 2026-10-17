@@ -9,7 +9,7 @@ argument-hint: "<ID> <domain|capability|requirement>"
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The worked example, the set question and the child file format are in [reference.md](reference.md); read it before step 1.
 
-Input: one node the human approved (`ROOT` for the premise) and the layer its children get. Output: the approved children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Nothing is written before the human approves it. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
+Input: one node (`ROOT` for the premise), the layer its children get, and optionally `draft`. Output: the children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Without `draft`, nothing is written before the human approves it; with `draft`, nothing is asked: the set is written at once as guesses and questions by the adopt skill's Guessing rules, step 0 refines a blocked prerequisite first instead of asking, and the partition is written as read. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
 
 ## Checklist
 
@@ -79,6 +79,8 @@ Each child is named by its rung, never by the artifact's wording: domains and ca
 ### 8 Ask
 
 One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires` and `## Deferred`; the node's front-matter gains `partition`. Entries carry no footnote markers.
+
+**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files and the partition, and report.
 
 ### 9 Report
 
