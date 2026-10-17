@@ -12,13 +12,39 @@ export interface Section {
   marker: State | undefined;
 }
 
+/** The three layers of the tree (REQ-6.7). One node type; the layer is a field, not an entity. */
+export type Layer = "domain" | "capability" | "requirement";
+
+export const LAYERS: readonly Layer[] = ["domain", "capability", "requirement"];
+
+export function isLayer(v: unknown): v is Layer {
+  return typeof v === "string" && (LAYERS as readonly string[]).includes(v);
+}
+
+/** A principle from the root README: `**PRN-n Title**` followed by its paragraph. */
+export interface Principle {
+  id: string;
+  title: string;
+  statement: string;
+  source: string | undefined;
+}
+
 export interface ReqNode {
   id: string;
   parent: string | undefined;
   title: string;
   state: State;
   kind: string | undefined;
+  /** From the `layer` field when present; otherwise inferred from depth and marked as such. */
+  layer: Layer;
+  layerExplicit: boolean;
   source: string | undefined;
+  /** The question this node's children answer (REQ-3.14), written by refine when it cuts the node. */
+  partition: string | undefined;
+  /** Typed links to other nodes (DEC-014): what this bears on, what it pulls against, and whose concepts its definition uses (REQ-3.15). */
+  relates: string[];
+  conflicts: string[];
+  requires: string[];
   steps: string[];
   files: string[];
   baseline: string | undefined;
@@ -68,6 +94,8 @@ export interface Term {
 export interface CanonRoot {
   title: string;
   state: State;
+  /** The question the top-level nodes answer, when refine has cut the premise. */
+  partition: string | undefined;
   file: string;
   body: string;
 }
@@ -82,6 +110,7 @@ export interface Canon {
   journeys: Journey[];
   decisions: Decision[];
   terms: Term[];
+  principles: Principle[];
   /** Markdown files that carried no usable id. */
   unparsed: string[];
   /** IDs seen more than once, with the files that claimed them. */

@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
-import { parseFrontMatter, parseGlossary, parseMermaid, parseSections, parseStepTable, str, strList } from "./parse.js";
-import { isState, type Canon, type Decision, type Journey, type ReqNode, type State } from "./types.js";
+import { parseFrontMatter, parseGlossary, parseMermaid, parsePrinciples, parseSections, parseStepTable, str, strList } from "./parse.js";
+import { isLayer, isState, type Canon, type Decision, type Journey, type Layer, type ReqNode, type State } from "./types.js";
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -44,10 +44,13 @@ export function loadCanon(dirInput: string): Canon {
     journeys: [],
     decisions: [],
     terms: [],
+    principles: [],
     unparsed: [],
     duplicates: {},
   };
   const seen = new Map<string, string>();
+  // Before `headcanon init` there is no folder yet; the viewer and the hook must still answer.
+  if (!existsSync(dir)) return canon;
 
   for (const abs of walk(dir).sort()) {
     const file = relative(dir, abs).split(sep).join("/");
@@ -68,16 +71,25 @@ export function loadCanon(dirInput: string): Canon {
 
     const title = str(data["title"]) ?? firstHeading(body) ?? id;
     if (id === "ROOT") {
-      canon.root = { title, state: stateOf(data["state"], "stated"), file, body };
+      canon.root = { title, state: stateOf(data["state"], "stated"), partition: str(data["partition"]), file, body };
       canon.terms = parseGlossary(body);
+      canon.principles = parsePrinciples(body);
     } else if (id.startsWith("REQ-")) {
+      // A top-level node may say `parent: ROOT`; the root README is not a node, so that means no parent.
+      const parentField = str(data["parent"])?.trim();
       const node: ReqNode = {
         id,
-        parent: str(data["parent"])?.trim(),
+        parent: parentField && parentField !== "ROOT" ? parentField : undefined,
         title,
         state: stateOf(data["state"]),
         kind: str(data["kind"]),
+        layer: isLayer(data["layer"]) ? data["layer"] : "requirement",
+        layerExplicit: isLayer(data["layer"]),
         source: str(data["source"]),
+        partition: str(data["partition"]),
+        relates: strList(data["relates"]),
+        conflicts: strList(data["conflicts"]),
+        requires: strList(data["requires"]),
         steps: strList(data["steps"]),
         files: strList(data["files"]),
         baseline: str(data["baseline"]),
@@ -126,10 +138,13 @@ export function loadCanon(dirInput: string): Canon {
   }
   for (const node of Object.values(canon.nodes)) node.children.sort(compareIds);
   canon.roots.sort(compareIds);
+  const byDepth: Layer[] = ["domain", "capability", "requirement"];
   const setDepth = (id: string, depth: number) => {
     const n = canon.nodes[id];
     if (!n) return;
     n.depth = depth;
+    // Without a layer field the layer is inferred from depth, for display only; checks use explicit layers.
+    if (!n.layerExplicit) n.layer = byDepth[Math.min(depth, 2)]!;
     for (const c of n.children) setDepth(c, depth + 1);
   };
   for (const r of canon.roots) setDepth(r, 0);

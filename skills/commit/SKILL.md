@@ -1,49 +1,50 @@
 ---
 name: commit
-description: "Compose and run a git commit in the canon's fixed format: a Conventional Commits header plus the intent trailers (Intent, Intent-Change, Decision, Test-Change, Approved-By). Reads the staged changes, derives the intent IDs and canon operations, validates the message with the commit-msg checker, and commits. Use whenever work is ready to commit in a project that uses HeadCanon."
-when_to_use: The human asks to commit, or a capture, review or adopt step has reached its commit stage.
+description: "Composes and runs a git commit in the canon's fixed format: a Conventional Commits header plus the intent trailers. When canon files are staged, first has the verifier review the change for contradictions, reiterations and drift, resolves each finding with the human, and records the review so the hook accepts the commit. Use whenever work is ready to commit in a project that uses HeadCanon."
+when_to_use: "The human asks to commit, or a capture, review or adopt step has reached its commit stage."
 argument-hint: "[subject]"
 ---
 
 # Commit with intent trailers
 
-`HC` below means: `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`.
 
-## 1. Look at what is staged
+## 1. What is staged
 
-Run `git status --short` and `git diff --cached --stat`. If nothing is staged, ask what to stage; never `git add -A` on the human's behalf without saying so.
+Run `git status --short` and `git diff --cached --stat`. Nothing staged: ask what to stage; never `git add -A` unasked.
 
-## 2. Derive the trailers
+## 2. Review the intent change
 
-- **Intent**: the requirement or journey IDs this change serves. For code, read the `files:` links in the canon (`grep -r "files:" canon`) and the conversation. If the change serves no intent, write `Intent: none (reason)`; a reason is required.
-- **Intent-Change**: one trailer per canon operation, derived from the staged canon files: a new file is `create <ID>`, a modified file is `update <ID>`, a retirement is `delete <ID>`. Read the `id` from each file's front-matter; never guess an ID from a filename. A change to the root README's purpose or non-goals is `update ROOT`; a glossary term is `create TERM-<slug>` or `update TERM-<slug>`.
+Run `HC review-hash`. When it reports `required: true`, run the verifier agent (subagent `headcanon:verifier`) on this repository and read its JSON. It also lists `affectedParents`: parents of changed nodes that this change leaves untouched; the verifier reads each one. For each finding, ask the human with AskUserQuestion, one finding per question, quoting both texts:
+
+- reiteration: **Merge into <existing ID>**, **Keep both**; a typed answer says what to do instead.
+- contradiction: **<A> stands**, **<B> stands**; a typed answer records it as contested with both positions.
+- drift: **Amend the entry**, **Amend the principle**; a typed answer rejects the change.
+- uptake: **Update the parent**, **Merge the child into the parent**; a typed answer keeps both and says why.
+
+Apply the answers and re-stage. Run `HC review-hash` again; when the hash changed, run the verifier on the new diff and resolve any new finding the same way. Then write `review.json` as `{"hash": "<hash>", "reviewer": "headcanon:verifier", "findings": [ ...each with its "resolution"... ], "parents": [ {"id": "<each affected parent>", "reason": "<why it still describes its children>"} ]}` and run `HC review-record review.json`. A clean review is recorded the same way with an empty findings list. No canon files staged, or under the threshold: skip this step.
+
+## 3. Derive the trailers
+
+- **Intent**: the requirement or journey IDs this change serves, from the canon's `files:` links and the conversation; otherwise `none (reason)`.
+- **Intent-Change**: one per canon operation from the staged files: a new file is `create <ID>`, a modified file `update <ID>`, a retirement `delete <ID>`, the root README `update ROOT`, a term `create TERM-<slug>`, a principle `create PRN-n`. Read the `id` from the front-matter, never from the filename.
 - **Decision**: one per new `canon/decisions/DEC-*.md`.
-- **Test-Change**: present when a test was weakened, removed or its data changed. Cite the test file and the intent change that permits it. If there is no such intent change, stop: weakening a test needs an intent change and human approval first.
-- **Approved-By**: required when there is any Intent-Change or Test-Change. Use the approving human's git `user.name` (`git config user.name`) only if they explicitly approved the change in this conversation. Otherwise write `Approved-By: pending (<how approval will happen, e.g. merge of PR>)`.
+- **Test-Change**: when a test was weakened, removed or its data changed; cite the test file and the intent change that permits it. No such intent change: stop, because weakening a test needs one and the human's approval first.
+- **Consolidated**: when the hook reports a modified rules, skill or canon file that only gained lines. Re-read the file, merge the addition into what is there, and say what you compared or merged.
+- **Intent-Review**: the hash from step 2 and the outcome, e.g. `Intent-Review: 3f9a1c2b4d5e, 2 findings, 1 merged, 1 kept`.
+- **Approved-By**: required with any Intent-Change or Test-Change. The approving human's git `user.name` only if they approved in this conversation; otherwise `pending (how approval will happen)`.
 
-## 3. Compose the message
+## 4. Compose and commit
 
 ```
-<type>(<scope>): <subject in the imperative, under 72 characters>
+<type>(<scope>): <subject, imperative, under 72 characters>
 
-<one short paragraph: what changed and why, in prose>
+<one short paragraph: what changed and why>
 
-Intent: REQ-x, REQ-y
+Intent: REQ-x
 Intent-Change: update REQ-x
-Decision: DEC-nnn
+Intent-Review: <hash>, <outcome>
 Approved-By: <name or pending (...)>
 ```
 
-Types: feat, fix, docs, chore, refactor, test, build, ci, perf, style, revert. Scope is optional. The trailers are the last paragraph, nothing after them except other trailers such as Co-Authored-By.
-
-## 4. Validate, then commit
-
-Write the message to a temporary file and run `HC commit-msg <file>`. Fix every error it reports. Then `git commit -F <file>`. The installed commit-msg hook runs the same check; if it rejects the commit, the message, not the hook, is wrong.
-
-Show the human the final message and the commit hash.
-
-## Rules
-
-- Never bypass the hook (`--no-verify`).
-- Never write a real name in Approved-By that the human did not earn by approving in this conversation.
-- A commit that changes intent and a commit that changes code may be the same commit; the trailers make the intent change visible either way.
+Types: feat, fix, docs, chore, refactor, test, build, ci, perf, style, revert. Write the message to a file, run `HC commit-msg <file>`, fix every error, then `git commit -F <file>`. Show the human the message and the hash. Never `--no-verify`; never a real name in Approved-By the human did not earn here.

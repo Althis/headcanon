@@ -4,7 +4,8 @@ const UNCONFIRMED = new Set(["assumed", "open", "contested"]);
 
 const $main = document.getElementById("main");
 let snap = null;
-const ui = { collapsed: new Set(), filters: new Set(), flaggedOnly: false, query: "", levels: new Set(["error", "warn"]) };
+const ui = { collapsed: new Set(), filters: new Set(), flaggedOnly: false, query: "", levels: new Set(["error", "warn"]), graph: true };
+try { ui.graph = localStorage.getItem("hc-tree-mode") !== "list"; } catch {}
 
 // ---------------------------------------------------------------- helpers
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -26,6 +27,7 @@ const descendants = (id, out = []) => { for (const c of node(id)?.children ?? []
 const branchOf = (id) => { let n = node(id); while (n?.parent && node(n.parent)) n = node(n.parent); return n?.id; };
 const findingsFor = (id) => snap.findings.filter((f) => f.id === id);
 const decisionsFor = (id) => snap.canon.decisions.filter((d) => d.intents.includes(id));
+const requiredBy = (id) => Object.values(snap.canon.nodes).filter((n) => (n.requires ?? []).includes(id)).map((n) => n.id);
 const stepsFor = (id) => { const out = []; for (const j of snap.canon.journeys) for (const s of j.steps) if (s.requirements.includes(id)) out.push({ j, s }); return out; };
 const countBy = (ids) => { const c = Object.fromEntries(STATES.map((s) => [s, 0])); for (const id of ids) { const n = node(id); if (n) c[n.state]++; } return c; };
 
@@ -34,6 +36,8 @@ async function load() {
   const res = await fetch("/api/snapshot", { cache: "no-store" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   snap = await res.json();
+  // A viewer started before the link fields existed serves nodes without them; the page must still draw.
+  for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; }
   document.getElementById("canon-path").textContent = `${snap.canon.dir}${snap.git.branch ? `  ·  ${snap.git.branch}` : ""}`;
   document.getElementById("generated").textContent = `read ${new Date(snap.generatedAt).toLocaleTimeString()}`;
   const n = attentionItems().total;
@@ -83,6 +87,10 @@ function render() {
 // ---------------------------------------------------------------- overview
 function overview() {
   const { stats, health } = snap;
+  if (stats.nodes === 0 && !snap.canon.root) return `
+    <div class="alert none"><span class="alert-icon">·</span><b>No canon yet.</b><span class="muted">The session creates it as you approve the premise; the first files appear here after init.</span></div>
+    <h1>Canon</h1>
+    <p class="lede">Nothing to show until the first node exists. Questions from the session arrive in the panel at the bottom right.</p>`;
   const att = attentionItems();
   const tile = (n, label, cls = "", href = "") => `<div class="tile ${cls}"><div class="n">${href ? `<a href="${href}">${n}</a>` : n}</div><div class="l">${label}</div></div>`;
   const groups = [
@@ -166,6 +174,7 @@ function tree(selectedId) {
         <span class="id">${esc(id)}</span>
         <span class="t" title="${esc(n.title)}">${esc(n.title)}</span>
         ${flags ? `<span class="flag" title="${flags} findings">!</span>` : ""}
+        ${n.layerExplicit && n.layer !== "requirement" ? `<span class="badge kind">${esc(n.layer)}</span>` : ""}
         ${n.kind ? `<span class="badge kind">${esc(n.kind)}</span>` : ""}
         ${badge(n.state)}
       </div>
@@ -173,18 +182,91 @@ function tree(selectedId) {
     </li>`;
   };
   const chips = STATES.map((s) => `<button class="chip ${s} ${ui.filters.has(s) ? "on" : ""}" data-filter="${s}">${s} ${snap.stats.counts[s]}</button>`).join("");
+  const graph = ui.graph;
   return `
     <div class="toolbar">
-      <input id="q" placeholder="Search id or title…" value="${esc(ui.query)}" />
+      <button class="btn ${graph ? "on" : ""}" data-mode="graph" title="The canon as a graph: containment plus the typed links">Graph</button>
+      <button class="btn ${graph ? "" : "on"}" data-mode="list" title="The canon as a nested list">List</button>
+      ${graph ? "" : `<input id="q" placeholder="Search id or title…" value="${esc(ui.query)}" />
       ${chips}
       <button class="chip flag ${ui.flaggedOnly ? "on" : ""}" data-flagged="1">! flagged</button>
       <button class="btn" data-expand="1">Expand all</button>
-      <button class="btn" data-collapse="1">Collapse</button>
+      <button class="btn" data-collapse="1">Collapse</button>`}
     </div>
     <div class="split">
-      <div class="tree"><ul>${snap.canon.roots.map(li).join("")}</ul></div>
+      ${graph ? graphBlock(selectedId) : `<div class="tree"><ul>${snap.canon.roots.map(li).join("")}</ul></div>`}
       <div class="detail">${selectedId ? nodeDetail(selectedId) : `<p class="muted">Select a requirement to read it.</p><h3>Text tree</h3><pre class="tree-text">${esc(snap.textTree)}</pre>`}</div>
     </div>`;
+}
+// ---------------------------------------------------------------- graph: the canon is a DAG, one home per node plus typed links
+/** The nodes worth drawing: with nothing selected, the top level and its children; with a selection, its
+ *  ancestors, siblings, children and every node linked to it, plus their parents for context. */
+function graphScope(selectedId) {
+  const nodes = snap.canon.nodes;
+  const show = new Set();
+  const addWithParents = (id) => { let p = id; while (p && nodes[p] && !show.has(p)) { show.add(p); p = nodes[p].parent; } };
+  if (selectedId && nodes[selectedId]) {
+    const n = nodes[selectedId];
+    addWithParents(selectedId);
+    for (const s of (n.parent ? nodes[n.parent].children : snap.canon.roots)) show.add(s);
+    for (const c of n.children) show.add(c);
+    for (const t of [...n.requires, ...n.relates, ...n.conflicts]) addWithParents(t);
+    for (const o of Object.values(nodes)) if ([...o.requires, ...o.relates, ...o.conflicts].includes(selectedId)) addWithParents(o.id);
+  } else {
+    for (const r of snap.canon.roots) show.add(r);
+    const wide = snap.canon.roots.reduce((a, r) => a + nodes[r].children.length, 0) > 40;
+    if (!wide) for (const r of snap.canon.roots) for (const c of nodes[r].children) show.add(c);
+  }
+  return show;
+}
+function graphBlock(selectedId) {
+  const show = graphScope(selectedId);
+  return `<div class="graph">
+    <div class="legend graph-legend"><span>solid: contains</span><span>dashed: requires</span><span>dotted: relates</span><span>red: conflicts</span><span class="muted">${selectedId ? "the branch and links of " + esc(selectedId) : "the top levels"}; drag to pan, wheel to zoom, click a node to open it</span><button class="btn small" data-fit="1">Fit</button></div>
+    <div id="cy" data-ids="${esc(JSON.stringify([...show]))}"></div>
+  </div>`;
+}
+/** Draw the scoped canon on the canvas: a layered layout, nodes coloured by state, edges by kind. */
+function buildGraph(selectedId) {
+  const el = $main.querySelector("#cy");
+  if (!el || !window.cytoscape) return;
+  if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
+  const nodes = snap.canon.nodes;
+  const show = new Set(JSON.parse(el.dataset.ids || "[]"));
+  const elements = [];
+  for (const id of show) {
+    const n = nodes[id];
+    const hidden = n.children.filter((c) => !show.has(c)).length;
+    elements.push({ data: { id, label: `${id}
+${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: id === selectedId ? "selected" : "" });
+  }
+  const edge = (s, t, kind) => elements.push({ data: { id: `${kind}:${s}>${t}`, source: s, target: t, kind, label: kind === "contains" ? "" : kind }, classes: kind });
+  for (const id of show) {
+    const n = nodes[id];
+    if (n.parent && show.has(n.parent)) edge(n.parent, id, "contains");
+    for (const t of n.requires) if (show.has(t)) edge(id, t, "requires");
+    for (const t of n.relates) if (show.has(t) && (!nodes[t].relates.includes(id) || id < t)) edge(id, t, "relates");
+    for (const t of n.conflicts) if (show.has(t) && (!nodes[t].conflicts.includes(id) || id < t)) edge(id, t, "conflicts");
+  }
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const fill = { stated: "#dcfce7", resolved: "#dbeafe", assumed: "#fef3c7", open: "#ede9fe", contested: "#fee2e2" };
+  const line = { stated: "#16a34a", resolved: "#2563eb", assumed: "#d97706", open: "#7c3aed", contested: "#dc2626" };
+  const cy = window.cytoscape({
+    container: el, elements, minZoom: 0.1, maxZoom: 3,
+    style: [
+      { selector: "node", style: { shape: "round-rectangle", width: 180, height: 56, label: "data(label)", "text-wrap": "wrap", "text-max-width": 164, "font-size": 11, "text-valign": "center", "text-halign": "center", "background-color": (e) => fill[e.data("state")] ?? "#eee", "border-color": (e) => line[e.data("state")] ?? "#999", "border-width": 1.5, color: "#1f2937" } },
+      { selector: "node.selected", style: { "border-width": 4 } },
+      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.9, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
+      { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
+      { selector: "edge.relates", style: { "line-style": "dotted", "target-arrow-shape": "none", "line-color": "#7c3aed" } },
+      { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+    ],
+    layout: window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 24, rankSep: 60, edgeSep: 10, padding: 20 } : { name: "breadthfirst", directed: true, padding: 20 },
+  });
+  cy.on("tap", "node", (e) => { location.hash = `#/node/${e.target.id()}`; });
+  $main.querySelector("[data-fit]")?.addEventListener("click", () => cy.fit(undefined, 20));
+  cy.ready(() => { cy.fit(undefined, 20); if (selectedId && cy.getElementById(selectedId).length) cy.center(cy.getElementById(selectedId)); });
+  window.__cy = cy;
 }
 function nodeDetail(id) {
   const n = node(id);
@@ -199,15 +281,26 @@ function nodeDetail(id) {
   return `
     <div class="crumbs">${crumbs.length ? crumbs.join(" › ") + " ›" : "top level"}</div>
     <h1>${esc(n.title)}</h1>
-    <div class="row"><span class="id">${esc(n.id)}</span> ${badge(n.state)} ${n.kind ? `<span class="badge kind">${esc(n.kind)}</span>` : `<span class="badge kind">not yet measurable</span>`} <a class="sub" href="#/tree/${esc(id)}">focus in tree</a></div>
+    <div class="row"><span class="id">${esc(n.id)}</span> ${badge(n.state)} <span class="badge kind" title="${n.layerExplicit ? "from the layer field" : "inferred from depth"}">${esc(n.layer)}${n.layerExplicit ? "" : " (inferred)"}</span> ${n.kind ? `<span class="badge kind">${esc(n.kind)}</span>` : `<span class="badge kind">not yet measurable</span>`} <a class="sub" href="#/tree/${esc(id)}">focus in tree</a></div>
     <dl class="meta">
       <dt>File</dt><dd class="mono">canon/${esc(n.file)}</dd>
       ${n.source ? `<dt>Source</dt><dd class="mono">${esc(n.source)}</dd>` : ""}
+      ${n.partition ? `<dt>Children by</dt><dd>${esc(n.partition)}</dd>` : ""}
+      ${n.relates.length ? `<dt>Relates to</dt><dd>${n.relates.map(idLink).join(", ")}</dd>` : ""}
+      ${n.conflicts.length ? `<dt>Conflicts with</dt><dd>${n.conflicts.map(idLink).join(", ")}</dd>` : ""}
+      ${n.requires.length ? `<dt>Requires</dt><dd>${n.requires.map(idLink).join(", ")}</dd>` : ""}
+      ${requiredBy(id).length ? `<dt>Required by</dt><dd>${requiredBy(id).map(idLink).join(", ")}</dd>` : ""}
       ${n.files.length ? `<dt>Files</dt><dd class="mono">${n.files.map(esc).join(", ")}</dd>` : ""}
       ${n.steps.length ? `<dt>Steps</dt><dd>${n.steps.map(idLink).join(", ")}</dd>` : ""}
       ${n.baseline ? `<dt>Baseline</dt><dd>${esc(n.baseline)}</dd>` : ""}
       ${sub.length ? `<dt>Subtree</dt><dd>${sub.length} nodes ${bar(countBy(sub), sub.length)}</dd>` : ""}
     </dl>
+    <div class="row node-actions">
+      <button class="btn small" data-refine="${esc(id)}" title="Ask the session to define this branch next">Define this branch</button>
+      <button class="btn small" data-edit="${esc(id)}" title="Edit this node's file">Edit</button>
+      <button class="btn small" data-newchild="${esc(id)}" title="Add a child node under this one">New child</button>
+    </div>
+    <div id="node-editor" class="editor"></div>
     <div class="body">${markSections(html)}</div>
     <div class="related">
       ${kids ? `<h3>Children</h3><ul>${kids}</ul>` : ""}
@@ -334,16 +427,209 @@ function afterRender(view) {
     for (const n of $main.querySelectorAll(".node")) n.addEventListener("click", () => { const id = n.dataset.id; let p = id; while (p) { ui.collapsed.delete(p); p = node(p)?.parent; } location.hash = `#/node/${id}`; });
     const sel = $main.querySelector(".node.selected");
     sel?.scrollIntoView({ block: "nearest" });
+    for (const b of $main.querySelectorAll("[data-mode]")) b.addEventListener("click", () => { ui.graph = b.dataset.mode === "graph"; try { localStorage.setItem("hc-tree-mode", ui.graph ? "graph" : "list"); } catch {} render(); });
+    wireNodeActions();
   }
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
-  if ((view === "journeys" || view === "journey") && window.mermaid) {
+  if ((view === "tree" || view === "node") && ui.graph) buildGraph(route().arg);
+  const diagrams = $main.querySelectorAll(".mermaid");
+  if (diagrams.length && window.mermaid) {
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
     window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral", securityLevel: "strict" });
-    window.mermaid.run({ nodes: $main.querySelectorAll(".mermaid") }).catch((e) => console.warn("mermaid", e));
+    window.mermaid.run({ nodes: diagrams }).catch((e) => console.warn("mermaid", e));
   }
 }
 
 document.getElementById("refresh").addEventListener("click", async () => { await load().catch(showError); render(); });
 window.addEventListener("hashchange", render);
 function showError(e) { $main.innerHTML = `<div class="card"><b>Could not load the canon.</b><pre>${esc(e.stack ?? e.message ?? e)}</pre></div>`; }
-load().then(render).catch(showError);
+
+// ---------------------------------------------------------------- node actions: define, edit, create
+async function post(url, body, method = "POST") {
+  const r = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `${r.status}`);
+  return j;
+}
+function wireNodeActions() {
+  const editor = $main.querySelector("#node-editor");
+  for (const b of $main.querySelectorAll("[data-refine]")) b.addEventListener("click", async () => {
+    await post("/api/refine", { id: b.dataset.refine }).catch(showToast);
+    showToast(`Asked the session to define ${b.dataset.refine} next.`);
+  });
+  for (const b of $main.querySelectorAll("[data-edit]")) b.addEventListener("click", async () => {
+    const id = b.dataset.edit;
+    const raw = await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json());
+    editor.innerHTML = `<p class="sub">Editing <span class="mono">canon/${esc(raw.path)}</span>. Keep the front-matter id.</p>
+      <textarea id="edit-text" rows="18">${esc(raw.text)}</textarea>
+      <div class="row"><button class="btn" id="edit-save">Save</button><button class="btn" id="edit-cancel">Cancel</button></div>`;
+    editor.querySelector("#edit-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.querySelector("#edit-save").addEventListener("click", async () => {
+      try { await post(`/api/node/${encodeURIComponent(id)}`, { text: editor.querySelector("#edit-text").value }, "PUT"); editor.innerHTML = ""; await load(); render(); showToast(`Saved ${id}; the session will read it.`); }
+      catch (e) { showToast(e); }
+    });
+  });
+  for (const b of $main.querySelectorAll("[data-newchild]")) b.addEventListener("click", () => {
+    const parent = b.dataset.newchild;
+    editor.innerHTML = `<p class="sub">New child under <span class="id">${esc(parent)}</span>. Your words are recorded as stated.</p>
+      <input id="new-title" placeholder="Title, in plain words" />
+      <textarea id="new-intent" rows="4" placeholder="What must hold, in your words (one or two sentences)"></textarea>
+      <div class="row"><button class="btn" id="new-create">Create</button><button class="btn" id="new-cancel">Cancel</button></div>`;
+    editor.querySelector("#new-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.querySelector("#new-create").addEventListener("click", async () => {
+      try {
+        const r = await post("/api/node", { parent, title: editor.querySelector("#new-title").value, intent: editor.querySelector("#new-intent").value });
+        await load(); location.hash = `#/node/${r.id}`; showToast(`Created ${r.id}; the session will read it.`);
+      } catch (e) { showToast(e); }
+    });
+  });
+}
+function showToast(msg) {
+  const li = document.createElement("li");
+  li.textContent = typeof msg === "string" ? msg : (msg.message || String(msg));
+  const list = document.getElementById("activity");
+  list.prepend(li);
+  while (list.children.length > 6) list.lastChild.remove();
+  openSession();
+}
+
+// ---------------------------------------------------------------- session panel: questions from the agent, jargon gate, focus, messages
+const $session = document.getElementById("session");
+const $question = document.getElementById("question");
+const $tooltip = document.getElementById("tooltip");
+let shownQuestionId = null, lastFocusSeq = 0, lastCursor = 0, termState = {};
+function setToggle(collapsed) {
+  const b = document.getElementById("session-toggle");
+  b.textContent = collapsed ? "Open" : "✕";
+  b.title = collapsed ? "Open the session panel" : "Close the panel; it opens again when a question arrives";
+}
+function openSession() { $session.classList.remove("collapsed"); setToggle(false); }
+document.getElementById("session-toggle").addEventListener("click", () => setToggle($session.classList.toggle("collapsed")));
+document.getElementById("msg-send").addEventListener("click", async () => {
+  const ta = document.getElementById("msg");
+  if (!ta.value.trim()) return;
+  await post("/api/message", { text: ta.value }).catch(showToast);
+  showToast(`Sent: ${ta.value.trim().slice(0, 80)}`);
+  ta.value = "";
+});
+async function pollSession() {
+  try {
+    const s = await fetch("/api/session", { cache: "no-store" }).then((r) => r.json());
+    const pill = document.getElementById("session-pending");
+    pill.textContent = s.pending; pill.hidden = s.pending === 0;
+    document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
+    if (s.focus && s.focus.seq !== lastFocusSeq) { lastFocusSeq = s.focus.seq; if (s.focus.id) location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`; }
+    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
+    if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
+    if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
+    if (s.cursor !== lastCursor) { lastCursor = s.cursor; if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); } }
+  } catch (e) { /* server away; try again */ }
+  setTimeout(pollSession, 2000);
+}
+// Between questions: the session is reading, writing or thinking; show that it is, and for how long.
+let working = null;
+const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
+function showWorking() {
+  if (!working) working = { since: Date.now(), answer: "" };
+  $question.innerHTML = `
+    <div class="working"><span class="spinner"></span><div><b>The session is working.</b> Its next question appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
+    ${working.answer ? `<p class="muted">You answered: <b>${esc(working.answer.slice(0, 200))}</b></p>` : ""}`;
+}
+function renderQuestion(q, pending = 1) {
+  working = null;
+  // An option reads as ID, title, then description. The ID links to the node's page when the node
+  // exists, and the link sits outside the label so following it does not toggle the box.
+  const opts = q.options.map((o, i) => {
+    const m = /^((?:REQ|JRN|DEC|PRN|TERM)-\S+)\s+(.+)$/.exec(o.label);
+    const head = m ? `${idLink(m[1])} <label for="opt-${i}"><b>${esc(m[2])}</b></label>` : `<label for="opt-${i}"><b>${esc(o.label)}</b></label>`;
+    const desc = o.html ? `<label for="opt-${i}" class="opt-desc">${o.html}</label>` : o.description ? `<label for="opt-${i}" class="opt-desc">${esc(o.description)}</label>` : "";
+    return `<div class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" id="opt-${i}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${head}</span>${desc}</span></div>`;
+  }).join("");
+  $question.innerHTML = `
+    ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
+    <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
+    <div class="q-body body">${q.html}</div>
+    ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
+    <div class="opts" id="q-opts">${opts}</div>
+    <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
+    <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
+  // One answer shape at a time: the options, or typed text that replaces them. Never both.
+  $question.querySelector("#q-mode").addEventListener("click", () => {
+    const free = $question.querySelector("#q-free"), optsEl = $question.querySelector("#q-opts"), mode = $question.querySelector("#q-mode");
+    const toFree = free.hidden;
+    free.hidden = !toFree; optsEl.hidden = toFree;
+    if (toFree) { for (const i of optsEl.querySelectorAll("input")) i.checked = false; free.querySelector("textarea").focus(); } else free.querySelector("textarea").value = "";
+    mode.textContent = toFree ? "Back to the options" : "Other: correct or rewrite instead";
+  });
+  for (const span of $question.querySelectorAll(".jargon")) {
+    span.addEventListener("mouseenter", () => showTooltip(span, q));
+    span.addEventListener("click", (e) => { e.preventDefault(); showTooltip(span, q, true); });
+  }
+  $question.querySelector("#q-submit").addEventListener("click", () => submitAnswer(q));
+  updateSubmit(q);
+}
+function updateSubmit(q) {
+  const unresolved = q.terms.filter((t) => !termState[t.term.toLowerCase()]);
+  const btn = $question.querySelector("#q-submit"), hint = $question.querySelector("#q-hint");
+  if (!btn) return;
+  btn.disabled = unresolved.length > 0;
+  hint.textContent = unresolved.length ? `${unresolved.length} term${unresolved.length > 1 ? "s" : ""} to keep or drop first: ${unresolved.map((t) => t.term).join(", ")}` : "";
+  for (const span of $question.querySelectorAll(".jargon")) {
+    const st = termState[span.dataset.term.toLowerCase()];
+    span.classList.toggle("kept", st?.decision === "keep");
+    span.classList.toggle("dropped", st?.decision === "drop");
+    if (st?.decision === "drop" && st.replacement) span.title = `replaced by: ${st.replacement}`;
+  }
+}
+let tooltipPinned = false;
+function showTooltip(span, q, pinned = false) {
+  tooltipPinned = pinned || tooltipPinned && $tooltip.dataset.term === span.dataset.term;
+  $tooltip.dataset.term = span.dataset.term;
+  const term = span.dataset.term;
+  const guess = q.terms.find((t) => t.term.toLowerCase() === term.toLowerCase());
+  if (!guess) return;
+  const st = termState[term.toLowerCase()];
+  $tooltip.innerHTML = `<div class="tt-term">${esc(term)}</div><div class="tt-def">${esc(guess.definition)}</div>
+    ${st ? `<div class="sub">${st.decision === "keep" ? "In the glossary." : `Dropped${st.replacement ? `, use "${esc(st.replacement)}"` : ""}.`}</div>` : `
+    <div class="row"><button class="btn small ok" data-keep>✓ Keep, enshrine in the glossary</button><button class="btn small no" data-drop>✗ Drop</button></div>
+    <div class="tt-replace" hidden><input placeholder="Word to use instead" /><button class="btn small" data-replace>Use this</button></div>`}`;
+  $tooltip.hidden = false;
+  const r = span.getBoundingClientRect();
+  $tooltip.style.left = `${Math.min(r.left, window.innerWidth - 340)}px`;
+  $tooltip.style.top = `${r.bottom + 6 + window.scrollY}px`;
+  const hide = () => { if (!tooltipPinned && !$tooltip.matches(":hover")) $tooltip.hidden = true; };
+  span.addEventListener("mouseleave", () => setTimeout(hide, 250), { once: true });
+  $tooltip.onmouseleave = () => { if (!tooltipPinned) $tooltip.hidden = true; };
+  $tooltip.querySelector("[data-keep]")?.addEventListener("click", async () => {
+    await post("/api/term", { term, definition: guess.definition, decision: "keep" }).catch(showToast);
+    termState[term.toLowerCase()] = { term, decision: "keep", definition: guess.definition };
+    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" enshrined in the glossary.`);
+  });
+  $tooltip.querySelector("[data-drop]")?.addEventListener("click", () => {
+    $tooltip.querySelector(".tt-replace").hidden = false;
+    $tooltip.querySelector(".tt-replace input").focus();
+  });
+  $tooltip.querySelector("[data-replace]")?.addEventListener("click", async () => {
+    const replacement = $tooltip.querySelector(".tt-replace input").value.trim();
+    await post("/api/term", { term, decision: "drop", replacement }).catch(showToast);
+    termState[term.toLowerCase()] = { term, decision: "drop", replacement };
+    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" dropped${replacement ? `; use "${replacement}"` : ""}.`);
+  });
+}
+async function submitAnswer(q) {
+  const selected = [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => i.value);
+  const freeMode = !$question.querySelector("#q-free").hidden;
+  const other = freeMode ? $question.querySelector("#q-other").value.trim() : "";
+  if (freeMode && !other) { showToast("Type your wording or correction, or go back to the options."); return; }
+  if (!freeMode && !selected.length && !q.multiSelect) { showToast("Pick an option, or switch to a correction."); return; }
+  const terms = Object.values(termState);
+  try {
+    await post("/api/answer", { questionId: q.id, selected: freeMode ? [] : selected, other, terms });
+    working = { since: Date.now(), answer: other ? `Other: ${other}` : selected.join(", ") };
+    shownQuestionId = null;
+    showWorking();
+  } catch (e) { showToast(e); }
+}
+document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && !e.target.classList?.contains("jargon")) { $tooltip.hidden = true; tooltipPinned = false; } });
+
+load().then(render).catch(showError).finally(pollSession);

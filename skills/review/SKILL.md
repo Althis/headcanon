@@ -11,7 +11,7 @@ argument-hint: "[REQ-id or branch to review, or 'all']"
 
 ## 1. Build the list
 
-Run `HC attention --json` and `HC summary`. Collect, in this order: contested items, open questions, decisions with state assumed, then assumed requirements. If the human named a branch or ID, restrict to it. Tell the human how many items there are and ask how many they want to go through now; default to five.
+Run `HC attention --json` and `HC summary`. Collect, in this order: contested items, open questions (open nodes and the `## Open` lines of the root README, where adoption parks a layer the human wanted to revisit), decisions with state assumed, then assumed requirements. If the human named a branch or ID, restrict to it. Tell the human how many items there are and ask how many they want to go through now; default to five.
 
 ## 2. One item at a time
 
@@ -24,7 +24,7 @@ For each item:
 ## 3. Record the outcome
 
 - **Explicit agreement** ("yes", "correct", "approved", "that's it"): set `state: resolved`, add `## Resolution` with the human's words quoted verbatim and the date. If they agreed with a correction, quote the correction under `## Stated` and keep your original reading under `## Intent [assumed]` only if it still adds something.
-- **Correction without full agreement**: update the node's text to match, quote their words as stated, and keep `state: assumed` for whatever remains yours.
+- **Correction without full agreement**: apply exactly what the correction names and show the result. The entry must still read as an encyclopedia entry for someone who never saw this conversation, so neither the correction nor its reasons enter the text. If they typed the wording itself, quote it as stated; otherwise keep `state: assumed` for whatever remains yours.
 - **Disagreement**: set `state: contested`, add `## Contested` with both positions in two short paragraphs. Do not argue past one round; record and move on.
 - **"Not now" or "I don't know"**: keep or set `state: open`, add a line under `## Open` with the date and what would settle it.
 - **Tacit approval never counts.** If the human skips an item, says "fine" without engaging, or changes the subject, leave the state as it was.

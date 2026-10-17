@@ -27,11 +27,15 @@ A single human sentence often yields one stated item and several assumed ones. K
 
 List the operations, one per line:
 
-- `create <ID>`: a full node. Choose the ID from the parent's next free number. Front-matter: `id`, `parent`, `title`, `state`, `source`, and when known `kind` (`binary`, `numeric`, `open-ended`), `steps` (journey steps this serves), `files` (code that will implement it). Body sections: `## Stated` with the verbatim quote and `Source:` line, `## Intent` (your reading; mark it `[assumed]` when the node is stated), `## Not this`, `## Assumptions` as a list where each item ends with `(model assumption)`, `## Open` for known unknowns.
+- `create <ID>`: a full node, and only after the parent and its children were checked: an entry that already says it is updated instead (consolidation over addition, PRN-1). Choose the ID from the parent's next free number. Front-matter: `id`, `parent`, `title`, `state`, `layer` (`domain`, `capability` or `requirement`), `source`, and when known `kind` (`binary`, `numeric`, `open-ended`), `steps` (journey steps this serves), `files` (code that will implement it). Body sections: `## Stated` with the verbatim quote and `Source:` line, `## Intent` (your reading; mark it `[assumed]` when the node is stated), `## Not this`, `## Assumptions` as a list where each item ends with `(model assumption)`, `## Open` for known unknowns.
 - `update <ID>`: only the fields and sections that change, plus one line of reason. Appending a new stated quote to a node is an update.
 - `delete <ID>`: a retirement, with a reason. The file stays; its `state` and a `## Retired` section record why.
 - Glossary terms are `create TERM-<slug>` / `update TERM-<slug>` in the root README.
 - Decisions made in the conversation are `create DEC-NNN`, with `intents` linking the nodes they serve and, if the decision came from a caught divergence, `origin: misread | obstacle | side-effect`.
+
+Before showing the request, judge every created or updated requirement against the principles in the root README (`## Principles`, `PRN-n` entries). For each one that drifts from a principle, add a line to the request naming the principle and why, and offer the human the choice: amend the requirement, amend the principle (an intent change in its own right), or reject the item. Drift is never applied silently.
+
+Every entry you write reads as a dictionary or encyclopedia entry: concise, about what the thing is, complete for a reader who never saw this conversation. The human's remarks, reasons and corrections from the conversation are not content; only wording they typed is quoted, under Stated.
 
 Show the whole request to the human. Ask them to approve, amend or drop items. A node whose state you set to `stated` must contain their quote; if you cannot quote, it is `assumed`.
 

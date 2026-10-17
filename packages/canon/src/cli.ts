@@ -1,7 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkCommitMessage } from "./commit-msg.js";
+import { checkCommitMessage, gitAppendOnlyFiles } from "./commit-msg.js";
+import { execFileSync } from "node:child_process";
+import { relative } from "node:path";
+import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
+import { runMcp } from "./mcp.js";
+import { detectTerms, nameWords } from "./terms.js";
+import { describeNext, refinementOrder } from "./next.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { loadCanon } from "./load.js";
@@ -17,13 +23,20 @@ Commands
   summary        Print the requirement tree as plain text.
   render         Write the Mermaid index (canon/INDEX.md by default).
   attention      What is waiting on the human: approvals, unmerged changes, open and contested items.
+  next           Which node to refine next: prerequisites met, shallowest first, then most required; reports deadlocks.
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
+  review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
+  review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
   session-start  Print the session context as a Claude Code SessionStart hook result.
   ui             Serve the local viewer.
+  mcp            Serve the MCP tools for Claude Code over stdio (starts the viewer when none runs).
+  terms          List candidate jargon in a draft (--text or stdin) that the glossary does not define.
 
 Options
-  --canon <dir>   Canon directory (default: ./canon)
-  --port <n>      Port for ui (default: 4317)
+  --canon <dir>   Canon directory (default: ./canon, or $CLAUDE_PROJECT_DIR/canon for mcp)
+  --port <n>      Port for ui and mcp (default: 4317)
+  --no-open       For mcp: do not open the browser on the first question
+  --text <draft>  For terms: the draft to scan
   --out <file>    Output file for render
   --json          Machine-readable output for check and attention
   --force         For init: replace a commit-msg hook HeadCanon did not install
@@ -42,10 +55,12 @@ interface Args {
   json: boolean;
   force: boolean;
   depth: number | undefined;
+  open: boolean;
+  text: string | undefined;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined };
+  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined, open: true, text: undefined };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]!;
     const next = () => argv[++i];
@@ -59,6 +74,9 @@ function parseArgs(argv: string[]): Args {
     else if (x.startsWith("--depth=")) a.depth = Number(x.slice(8));
     else if (x === "--json") a.json = true;
     else if (x === "--force") a.force = true;
+    else if (x === "--no-open") a.open = false;
+    else if (x === "--text") a.text = next();
+    else if (x.startsWith("--text=")) a.text = x.slice(7);
     else if (x.startsWith("-")) process.stderr.write(`ignoring unknown option ${x}\n`);
     else if (!a.command) a.command = x;
     else a.positional.push(x);
@@ -108,6 +126,25 @@ export async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
+  // mcp runs for the whole session; the canon is the project's, which Claude Code names in the environment.
+  if (args.command === "mcp") {
+    const projectDir = process.env["CLAUDE_PROJECT_DIR"] || process.cwd();
+    const canonDir = resolve(args.canon ?? resolve(projectDir, "canon"));
+    await runMcp({ canonDir, port: args.port, openBrowser: args.open });
+    return 0;
+  }
+
+  if (args.command === "terms") {
+    const draft = args.text ?? (await readStdin());
+    const glossaryDir = resolve(args.canon ?? "canon");
+    const canon = existsSync(glossaryDir) ? loadCanon(glossaryDir) : undefined;
+    // The project's own name is never jargon: the canon's title, or the repository folder before init.
+    const ignore = nameWords(canon?.root?.title ?? basename(dirname(glossaryDir)));
+    const found = detectTerms(draft, canon?.terms ?? [], { ignore });
+    out(args.json ? JSON.stringify(found) + "\n" : found.length ? found.join("\n") + "\n" : "");
+    return 0;
+  }
+
   if (args.command === "init") {
     const r = initCanon({ repoDir: process.cwd(), cliPath: BIN, force: args.force, ...(args.canon ? { canonDir: args.canon } : {}) });
     for (const c of r.created) out(`created ${c}\n`);
@@ -126,7 +163,14 @@ export async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const canon = existsSync(canonDir) ? loadCanon(canonDir) : undefined;
-    const r = checkCommitMessage(readFileSync(file, "utf8"), canon);
+    const repoRoot = repoRootOf(process.cwd()) ?? repoRootOf(dirnameOf(file));
+    let review: import("./commit-msg.js").ReviewState | undefined;
+    if (repoRoot) {
+      const diff = stagedIntentDiff(repoRoot, canonPathspec(repoRoot, canonDir));
+      const record = diff.required ? loadReviewRecord(repoRoot, diff.hash) : undefined;
+      review = { diff, record, recordErrors: record ? validateReviewRecord(record, diff) : [] };
+    }
+    const r = checkCommitMessage(readFileSync(file, "utf8"), canon, { appendOnly: repoRoot ? gitAppendOnlyFiles(repoRoot) : [], ...(review ? { review } : {}) });
     for (const w of r.warnings) err(`warning: ${w}\n`);
     if (!r.ok) {
       err("HeadCanon rejected the commit message:\n");
@@ -138,7 +182,43 @@ export async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  if (!existsSync(canonDir)) {
+  if (args.command === "review-hash" || args.command === "review-record") {
+    const repoRoot = repoRootOf(process.cwd());
+    if (!repoRoot) {
+      err("not a git repository\n");
+      return 2;
+    }
+    const diff = stagedIntentDiff(repoRoot, canonPathspec(repoRoot, canonDir));
+    if (args.command === "review-hash") {
+      out(JSON.stringify(diff, null, 2) + "\n");
+      return 0;
+    }
+    const file = args.positional[0];
+    if (!file) {
+      err("usage: headcanon review-record <review.json>\n");
+      return 2;
+    }
+    let rec: ReviewRecord;
+    try {
+      rec = JSON.parse(readFileSync(file, "utf8")) as ReviewRecord;
+    } catch (e) {
+      err(`cannot read ${file}: ${e instanceof Error ? e.message : String(e)}\n`);
+      return 2;
+    }
+    if (!rec.at) rec.at = new Date().toISOString();
+    const problems = validateReviewRecord(rec, diff);
+    if (problems.length) {
+      err("The review record was not stored:\n");
+      for (const p of problems) err(`  - ${p}\n`);
+      return 1;
+    }
+    const path = storeReviewRecord(repoRoot, rec);
+    out(`stored ${path}\n${rec.findings.length} finding(s), all resolved; ${diff.affectedParents.length} untouched parent(s) accounted for; add the trailer: Intent-Review: ${diff.hash}, ${rec.findings.length} finding(s)\n`);
+    return 0;
+  }
+
+  // The viewer serves an empty canon before init, as the MCP server does; every other command needs one.
+  if (!existsSync(canonDir) && args.command !== "ui") {
     err(`No canon at ${canonDir}. Run \`headcanon init\`, or pass --canon <dir>.\n`);
     return 2;
   }
@@ -166,6 +246,12 @@ export async function main(argv: string[]): Promise<number> {
       writeFileSync(target, renderMermaidIndex(snap.canon, snap.findings));
       out(`wrote ${target}\n`);
       return 0;
+    }
+    case "next": {
+      const canon = loadCanon(canonDir);
+      const order = refinementOrder(canon);
+      out(args.json ? JSON.stringify(order, null, 2) + "\n" : describeNext(order, canon) + "\n");
+      return order.cycles.length ? 1 : 0;
     }
     case "attention": {
       const snap = buildSnapshot(canonDir);
@@ -196,13 +282,33 @@ export async function main(argv: string[]): Promise<number> {
     }
     case "ui": {
       const { url } = await serveUi({ canonDir, port: args.port });
-      out(`HeadCanon viewer at ${url}\nCanon: ${canonDir}\nPress Ctrl+C to stop.\n`);
+      out(`HeadCanon viewer at ${url}\nCanon: ${canonDir}${existsSync(canonDir) ? "" : " (not created yet; the page shows it once it exists)"}\nPress Ctrl+C to stop.\n`);
       return await new Promise(() => {});
     }
     default:
       err(`Unknown command: ${args.command}\n\n${HELP}`);
       return 2;
   }
+}
+
+function dirnameOf(file: string): string {
+  const abs = resolve(file);
+  return abs.slice(0, Math.max(abs.lastIndexOf("/"), abs.lastIndexOf("\\")) || 1);
+}
+
+/** The work tree root for a directory, or undefined outside a repository (git hooks run at the root). */
+function repoRootOf(dir: string): string | undefined {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/** The canon directory as a git pathspec relative to the repository root. */
+function canonPathspec(repoRoot: string, canonDir: string): string {
+  const rel = relative(repoRoot, canonDir).split("\\").join("/");
+  return rel && !rel.startsWith("..") ? rel : "canon";
 }
 
 // Run when invoked directly (node dist/cli.js, tsx src/cli.ts); bin/headcanon.js imports main instead.

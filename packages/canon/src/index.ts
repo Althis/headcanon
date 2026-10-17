@@ -5,9 +5,16 @@ export { checkCanon, countStates, branchHealth, type BranchHealth, type StateCou
 export { gitAttention, type GitAttention, type CommitInfo } from "./attention.js";
 export { renderTextTree } from "./tree.js";
 export { renderMermaidIndex, MERMAID_FULL_LIMIT } from "./render.js";
-export { checkCommitMessage, cleanMessage, parseTrailers, COMMIT_TYPES, type CommitCheck } from "./commit-msg.js";
+export { checkCommitMessage, cleanMessage, parseTrailers, findAppendOnlyFiles, gitAppendOnlyFiles, COMMIT_TYPES, APPEND_WATCH, type CommitCheck, type CommitCheckOptions, type AppendOnlyFile, type ReviewState } from "./commit-msg.js";
+export { hashDiff, intentDiffFrom, stagedIntentDiff, affectedParentsFrom, validateReviewRecord, storeReviewRecord, loadReviewRecord, REVIEW_KINDS, type ReviewKind, type ReviewFinding, type ReviewRecord, type IntentDiff, type StagedEntry, type ParentUptake } from "./review.js";
+export { titleOverlap } from "./check.js";
+export { SessionState, DEFAULT_OPTIONS, type AskRequest, type AskAnswer, type AskOption, type PendingQuestion, type TermGuess, type TermDecision, type FeedEntry, type FeedKind } from "./session.js";
+export { detectTerms, nameWords, type DetectOptions } from "./terms.js";
+export { addGlossaryTerm, termId } from "./glossary.js";
+export { runMcp, type McpOptions } from "./mcp.js";
 export { initCanon, rootReadme, type InitOptions, type InitResult } from "./init.js";
 export { sessionContext } from "./context.js";
 export { RULES } from "./rules.js";
 export { buildSnapshot, type Snapshot } from "./snapshot.js";
+export { refinementOrder, requiresCycles, describeNext, isRefined, isUnrefined, type RefinementOrder, type NextPick, type Blocked } from "./next.js";
 export { serveUi } from "./ui/server.js";

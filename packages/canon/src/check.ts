@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { branchOf, descendants } from "./load.js";
+import { refinementOrder } from "./next.js";
 import { STATES, type Canon, type Finding, type Level, type State } from "./types.js";
 
 function finding(level: Level, code: string, message: string, extra: Partial<Finding> = {}): Finding {
@@ -41,6 +42,10 @@ export function checkCanon(canon: Canon): Finding[] {
       if (!existsSync(join(repoRoot, f)))
         out.push(finding("warn", "file-missing", `${n.id} lists ${f}, which is not in the repository`, at));
     }
+    // Typed links (DEC-014) point at nodes; a dangling one is as broken as a missing parent.
+    for (const [field, targets] of [["relates", n.relates], ["conflicts", n.conflicts], ["requires", n.requires]] as const)
+      for (const t of targets)
+        if (!canon.nodes[t]) out.push(finding("error", "link-unknown", `${n.id} ${field} ${t}, which does not exist`, at));
     if (n.state === "contested") out.push(finding("warn", "contested", `${n.id} is contested: ${n.title}`, at));
     if (n.state === "open") out.push(finding("info", "open", `${n.id} is an open question: ${n.title}`, at));
 
@@ -51,7 +56,36 @@ export function checkCanon(canon: Canon): Finding[] {
     for (const s of n.sections)
       if (/^(Not this|Intent)$/i.test(s.heading) && s.marker === "contested")
         out.push(finding("warn", "contested", `${n.id} has a contested section: ${s.heading}`, at));
+
+    // Layers (REQ-6.7): explicit layers are checked; inferred ones are display only.
+    const parent = n.parent ? canon.nodes[n.parent] : undefined;
+    const rank: Record<string, number> = { domain: 0, capability: 1, requirement: 2 };
+    if (n.layerExplicit && parent?.layerExplicit && rank[n.layer]! < rank[parent.layer]!)
+      out.push(finding("error", "layer-order", `${n.id} is a ${n.layer} under ${parent.id}, a ${parent.layer}`, at));
+    if (n.layerExplicit && n.layer === "capability" && n.children.length === 0 && n.state !== "open")
+      out.push(finding("warn", "uncovered-capability", `${n.id} is a capability with no requirements under it`, at));
+
+    // Consolidation signals (PRN-1): a child that restates its parent, a parent that has grown wide.
+    if (parent && titleOverlap(n.title, parent.title) >= 0.6)
+      out.push(finding("warn", "restates-parent", `${n.id} restates its parent ${parent.id}: the titles share most of their words`, at));
+    if (n.children.length > 8)
+      out.push(finding("info", "many-children", `${n.id} has ${n.children.length} children; consider splitting it`, at));
+    // A set of one usually restates its parent or hides its siblings (REQ-3.14).
+    if (n.children.length === 1)
+      out.push(finding("info", "single-child", `${n.id} has one child, ${n.children[0]}; a set of one usually restates its parent or hides siblings`, at));
   }
+  const inferred = Object.values(canon.nodes).filter((n) => !n.layerExplicit).length;
+  if (inferred > 0)
+    out.push(finding("info", "layer-inferred", `${inferred} node(s) have no layer field; their layer is inferred from depth (domain, capability, requirement)`));
+  // Refinement order (REQ-3.15): a cycle in requires can never be refined; a deadlock needs a human.
+  const refine = refinementOrder(canon);
+  for (const c of refine.cycles)
+    out.push(finding("error", "requires-cycle", `${c.join(" requires ")}: a concept both need belongs at their common ancestor; lift it or ask which direction stands`, { id: c[0], file: canon.nodes[c[0]!]?.file, branch: branchOf(canon, c[0]!) }));
+  if (refine.deadlock)
+    out.push(finding("warn", "refine-deadlock", `nothing can be refined: ${refine.blocked.map((b) => `${b.id} waits on ${b.waitingOn.join(", ")}`).join("; ")}`));
+  const unpartitioned = Object.values(canon.nodes).filter((n) => n.children.length >= 2 && !n.partition).length;
+  if (unpartitioned > 0)
+    out.push(finding("info", "no-partition", `${unpartitioned} parent(s) record no partition, the question their children answer; refine writes one when it cuts a node`));
 
   for (const j of canon.journeys) {
     const at = { id: j.id, file: j.file };
@@ -78,8 +112,10 @@ export function checkCanon(canon: Canon): Finding[] {
   }
 
   // Branch-level: a branch where unconfirmed outweighs confirmed needs the human's eyes.
+  // Branches of one or two nodes are still being written; flagging them is noise.
   for (const r of canon.roots) {
     const ids = [r, ...descendants(canon, r)];
+    if (ids.length < 3) continue;
     const c = countStates(canon, ids);
     const unconfirmed = c.assumed + c.open + c.contested;
     const confirmed = c.stated + c.resolved;
@@ -89,6 +125,19 @@ export function checkCanon(canon: Canon): Finding[] {
 
   const order: Record<Level, number> = { error: 0, warn: 1, info: 2 };
   return out.sort((a, b) => order[a.level] - order[b.level] || (a.id ?? "").localeCompare(b.id ?? ""));
+}
+
+const STOP = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "are", "its", "not", "all", "any", "one", "each", "every", "has", "have", "can", "than", "then", "when", "what", "how", "under", "over"]);
+
+/** Jaccard overlap of the meaningful words of two titles, 0 to 1. */
+export function titleOverlap(a: string, b: string): number {
+  const words = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)));
+  const wa = words(a);
+  const wb = words(b);
+  if (wa.size === 0 || wb.size === 0) return 0;
+  let both = 0;
+  for (const w of wa) if (wb.has(w)) both++;
+  return both / (wa.size + wb.size - both);
 }
 
 export type StateCounts = Record<State, number>;

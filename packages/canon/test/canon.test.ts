@@ -1,6 +1,9 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
+import { buildSnapshot, checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 
@@ -43,9 +46,67 @@ describe("load [REQ-6.1, REQ-6.3]", () => {
     expect(canon.decisions[0]?.intents).toEqual(["REQ-1.1"]);
   });
 
-  it("keeps an orphan visible as a root and reports the stray file", () => {
-    expect(canon.roots).toEqual(["REQ-1", "REQ-1.2"]);
+  it("keeps an orphan visible as a root, reads parent ROOT as no parent, and reports the stray file", () => {
+    expect(canon.roots).toEqual(["REQ-1", "REQ-1.2", "REQ-2"]);
+    expect(canon.nodes["REQ-2"]?.parent).toBeUndefined();
     expect(canon.unparsed).toEqual(["notes.md"]);
+  });
+});
+
+describe("layers and principles [REQ-6.7, REQ-3.7]", () => {
+  const canon = loadCanon(MINI);
+
+  it("reads explicit layers and infers the rest from depth", () => {
+    expect(canon.nodes["REQ-1"]?.layer).toBe("domain");
+    expect(canon.nodes["REQ-1"]?.layerExplicit).toBe(true);
+    expect(canon.nodes["REQ-1.1"]?.layer).toBe("capability");
+    expect(canon.nodes["REQ-1.2"]?.layer).toBe("domain");
+    expect(canon.nodes["REQ-1.2"]?.layerExplicit).toBe(false);
+  });
+
+  it("parses principles in both the paragraph and the one-line form", () => {
+    expect(canon.principles.map((p) => p.id)).toEqual(["PRN-1", "PRN-2"]);
+    expect(canon.principles[0]).toEqual({ id: "PRN-1", title: "Keep the original", statement: "Every imported file is kept beside what was made from it. A reader can always go back to the source.", source: "docs/design.md:12-15" });
+    expect(canon.principles[1]?.statement).toBe("a figure in a report links to the transactions behind it.");
+    expect(canon.principles[1]?.source).toBe("conversation, 2026-01-01");
+  });
+
+  it("flags an explicit capability with nothing under it, and counts inferred layers once", () => {
+    const codes = checkCanon(canon).map((f) => `${f.level}:${f.code}:${f.id ?? ""}`);
+    expect(codes).toContain("warn:uncovered-capability:REQ-1.1");
+    expect(codes.filter((c) => c.startsWith("info:layer-inferred"))).toHaveLength(1);
+  });
+});
+
+describe("a project before init [REQ-11.6]", () => {
+  it("loads a missing canon folder as an empty canon and still builds a snapshot", () => {
+    const missing = join(mkdtempSync(join(tmpdir(), "headcanon-missing-")), "canon");
+    const canon = loadCanon(missing);
+    expect(canon.roots).toEqual([]);
+    expect(canon.root).toBeUndefined();
+    expect(checkCanon(canon)).toEqual([]);
+    const snap = buildSnapshot(missing);
+    expect(snap.stats.nodes).toBe(0);
+    expect(snap.textTree).toBe("(no requirements yet)");
+  });
+});
+
+describe("partition and typed links [REQ-3.14, DEC-014]", () => {
+  const canon = loadCanon(MINI);
+  const codes = checkCanon(canon).map((f) => `${f.level}:${f.code}:${f.id ?? ""}`);
+
+  it("reads the partition a refined node records and the relates and conflicts lists", () => {
+    expect(canon.nodes["REQ-1"]?.partition).toBe("step of onboarding");
+    expect(canon.nodes["REQ-1.1"]?.relates).toEqual(["REQ-2"]);
+    expect(canon.nodes["REQ-1.1"]?.conflicts).toEqual(["REQ-9"]);
+    expect(canon.nodes["REQ-2"]?.partition).toBeUndefined();
+    expect(canon.nodes["REQ-2"]?.relates).toEqual([]);
+  });
+
+  it("reports a link to a node that does not exist, and a set of one child", () => {
+    expect(codes).toContain("error:link-unknown:REQ-1.1");
+    expect(codes).toContain("info:single-child:REQ-1");
+    expect(codes.filter((c) => c.startsWith("info:no-partition"))).toHaveLength(0);
   });
 });
 
@@ -76,7 +137,7 @@ describe("summary [REQ-6.2]", () => {
     const canon = loadCanon(MINI);
     const text = renderTextTree(canon, checkCanon(canon));
     expect(text).toMatch(/^REQ-1\s+New users get productive without help\s+stated/m);
-    expect(text).toMatch(/└─ REQ-1\.1\s+Sign-up takes under 60 seconds\s+assumed\s+numeric\s+! \d finding/m);
+    expect(text).toMatch(/└─ REQ-1\.1\s+Sign-up takes under 60 seconds\s+assumed\s+capability\s+numeric\s+! \d finding/m);
     expect(text).toContain("JRN-1");
     expect(text).toContain("origin: obstacle");
   });

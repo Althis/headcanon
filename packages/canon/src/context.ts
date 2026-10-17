@@ -1,3 +1,4 @@
+import { describeNext, refinementOrder } from "./next.js";
 import { RULES } from "./rules.js";
 import type { Snapshot } from "./snapshot.js";
 import { renderTextTree } from "./tree.js";
@@ -21,7 +22,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
       "",
       `This project has no canon yet (expected at ${canonDir}).`,
       "",
-      "Before doing any implementation work, run `/headcanon:adopt`. It searches the repository for existing intent artifacts (README, requirements documents, roadmaps, decision records), presents an inventory, and elicits the project's purpose, non-goals and glossary in the human's own words. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
+      "Before doing any implementation work, run `/headcanon:adopt`. It reads the repository silently, then walks the human top-down through premise, principles, domains, capabilities and requirements, each approved before the next, with the refine skill cutting every node into its children. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
       "",
       RULES,
     ].join("\n");
@@ -33,7 +34,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
     "# HeadCanon",
     "",
     `Canon: ${canonDir}`,
-    `${stats.nodes} requirements in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
+    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
     "",
   ];
 
@@ -48,7 +49,14 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (unconfirmedDecisions) waiting.push(`${unconfirmedDecisions} decision(s) not yet confirmed`);
   if (c.assumed) waiting.push(`${c.assumed} assumed requirement(s); \`/headcanon:review\` walks them`);
   head.push("## Waiting on the human", "", waiting.length ? waiting.map((w) => `- ${w}`).join("\n") : "- nothing", "");
+  // The next node to refine, so the agent follows the dependency order without computing it (REQ-3.15).
+  const order = refinementOrder(canon);
+  if (order.next || order.deadlock || order.cycles.length) head.push(describeNext(order, canon).split("\n").slice(0, 2).join(" "), "");
 
+  if (canon.principles.length) {
+    const first = (s: string) => (/^(.*?[.!?])(\s|$)/.exec(s)?.[1] ?? s).slice(0, 160);
+    head.push("## Principles", "", ...canon.principles.map((p) => `- **${p.id} ${p.title}**: ${first(p.statement)}`), "");
+  }
   if (canon.terms.length) {
     const def = (d: string) => (d.length > 110 ? d.slice(0, 109) + "…" : d);
     head.push("## Glossary", "", ...canon.terms.map((t) => `- **${t.term}**: ${def(t.definition)}`), "");

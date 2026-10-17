@@ -18,6 +18,10 @@ session of 2026-10-11.
 
 Source: docs/design-brief-v0.md:7
 
+> In fact, this sounds really good: Consolidation instead of Addition. Please add it as one of OUR principles for HeadCanon.
+
+Source: Claude Code session, 2026-10-11
+
 ## How this canon is organized [assumed]
 
 - `REQ-<n>-<slug>/README.md` is a requirement with children; `REQ-<n>.<m>-<slug>.md` is a leaf.
@@ -37,31 +41,37 @@ Source: docs/design-brief-v0.md:7
 
 Source: docs/design-brief-v0.md:37-41. The last two are marked proposed in the brief and are assumed here.
 
+## Principles
+
+**PRN-1 Consolidation instead of addition**
+When intent changes, the first move is to revise what exists: an entry that already says it is updated, a child that restates its parent is merged up, a rule that overlaps another is folded in. A new entry, rule or line is the last resort, taken when nothing in the canon can absorb the change. Growth by appending is the drift HeadCanon exists to catch, in its own records before anyone else's.
+Source: conversation, 2026-10-11
+
 ## Glossary [assumed]
 
-Terms as the agent understands them from the brief and the session. Each is assumed until the human confirms it (REQ-5.3.4).
+Terms as the agent understands them from the brief and the session. Each is assumed until the human confirms it (REQ-5.3.4). A definition says what the term is and covers one concept (REQ-5.1.1).
 
-**canon** (`TERM-canon`): The whole body of recorded intent for a project: the requirement tree, journeys, glossary and decisions, stored as files under `canon/`. Not the code, and not the tests.
+**canon** (`TERM-canon`): The whole body of recorded intent for a project: the requirement tree, journeys, glossary and decisions, stored as files under `canon/`.
 
 **HeadCanon** (`TERM-headcanon`): The Claude Code plugin that keeps the agent aligned with the canon during implementation. Also the name of the repository that holds the shared canon package.
 
 **Writ** (`TERM-writ`): The verification tool that runs in CI on every commit, PR or release and checks the change against the canon. Passing it is the permission to proceed.
 
-**intent** (`TERM-intent`): What the human is trying to achieve, at any level of abstraction. Recorded as requirements and journeys. Not a task list.
+**intent** (`TERM-intent`): What the human is trying to achieve, at any level of abstraction. Recorded as requirements and journeys.
 
 **requirement** (`TERM-requirement`): One node of the intent tree. Broad near the root, binary at the leaves.
 
-**leaf** (`TERM-leaf`): A requirement refined far enough to be measured as a yes or a no. A node that is not binary yet is not a leaf yet.
+**leaf** (`TERM-leaf`): A requirement refined far enough to be measured as a yes or a no.
 
-**journey** (`TERM-journey`): A decision graph showing how the user envisions the product working, with steps linked to requirements. An intent record, not a test.
+**journey** (`TERM-journey`): A decision graph showing how the user envisions the product working, with steps linked to requirements. An intent record.
 
 **step** (`TERM-step`): One node of a journey graph, written `JRN-1/S3`.
 
 **certainty state** (`TERM-certainty-state`): One of stated, assumed, open, contested or resolved, carried by every requirement node and journey step.
 
-**stated** (`TERM-stated`): The human's own words, always verbatim. Never a paraphrase.
+**stated** (`TERM-stated`): The human's own words, quoted verbatim.
 
-**assumed** (`TERM-assumed`): The agent's interpretation, not yet confirmed by the human.
+**assumed** (`TERM-assumed`): The agent's interpretation, awaiting the human's confirmation.
 
 **open** (`TERM-open`): A known unknown that either side has recorded.
 
@@ -79,7 +89,7 @@ Terms as the agent understands them from the brief and the session. Each is assu
 
 **divergence** (`TERM-divergence`): A moment the agent notices it is about to drift from intent: an obstacle, a decisive assumption, a contradiction, or an untestable leaf. Each caught divergence is tagged with its origin.
 
-**negotiation mode** (`TERM-negotiation-mode`): The mode the agent enters when a divergence cannot be resolved without changing intent. Triggered, not scheduled.
+**negotiation mode** (`TERM-negotiation-mode`): The mode the agent enters when a divergence cannot be resolved without changing intent. Entered on a trigger.
 
 **workaround** (`TERM-workaround`): A way past an obstacle that preserves intent: every affected journey still plays out as written. Recorded as a decision.
 
@@ -89,4 +99,4 @@ Terms as the agent understands them from the brief and the session. Each is assu
 
 **preservation** (`TERM-preservation`): Writ's third stage: rerunning every test from earlier approved packages to catch erosion.
 
-**Test Bay** (`TERM-test-bay`): The user's local folder for projects in development. Not a product name.
+**Test Bay** (`TERM-test-bay`): The user's local folder for projects in development.

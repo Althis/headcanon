@@ -33,6 +33,14 @@ flowchart LR
     REQ_3_4["REQ-3.4<br/>The tree is filled lazily: gaps surface when re…"]:::stated
     REQ_3_5["REQ-3.5<br/>Human-judgment leaves are allowed (e.g. aesthet…"]:::stated
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
+    REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
+    REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
+    REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
+    REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
+    REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
+    REQ_3_12["REQ-3.12<br/>A balanced branch is complete including the imp…"]:::stated
+    REQ_3_13["REQ-3.13<br/>Decomposition infers what a node implies, and t…"]:::stated
+    REQ_3_14["REQ-3.14<br/>How is a branch cut?"]:::open
     REQ_4["REQ-4<br/>User journeys are first-class intent records"]:::stated
     REQ_4_1["REQ-4.1<br/>User journeys are intent records, not tests, ke…"]:::stated
     REQ_4_2["REQ-4.2<br/>Journeys are decision graphs whose steps link m…"]:::stated
@@ -42,6 +50,7 @@ flowchart LR
     REQ_5_2["REQ-5.2<br/>Undefined or badly defined elements are modeled…"]:::stated
     REQ_5_3["REQ-5.3<br/>Five certainty states: stated, assumed, open, c…"]:::stated
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
+    REQ_5_5["REQ-5.5<br/>The human's latest approval outranks every arti…"]:::stated
     REQ_6["REQ-6<br/>The canon is plain files that existing tools al…"]:::stated
     REQ_6_1["REQ-6.1<br/>Canon stored as Markdown with front-matter, in …"]:::stated
     REQ_6_2["REQ-6.2<br/>Generated views: a text tree inside the agent, …"]:::stated
@@ -49,6 +58,7 @@ flowchart LR
     REQ_6_4["REQ-6.4<br/>Node file front-matter fields"]:::assumed
     REQ_6_5["REQ-6.5<br/>Mermaid index limits and generated-view freshne…"]:::assumed
     REQ_6_6["REQ-6.6<br/>ID scheme for requirements, journeys, steps, de…"]:::resolved
+    REQ_6_7["REQ-6.7<br/>Every node carries a layer: domain, capability …"]:::resolved
     REQ_7["REQ-7<br/>Success criteria exist before code, and obstacl…"]:::stated
     REQ_7_1["REQ-7.1<br/>Workflow runs requirements → tests → implementa…"]:::stated
     REQ_7_2["REQ-7.2<br/>Negotiation is a triggered mode, not an upfront…"]:::stated
@@ -81,6 +91,7 @@ flowchart LR
     REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the human app…"]:::stated
     REQ_9_16["REQ-9.16<br/>Model checks are non-deterministic; Writ's revi…"]:::stated
     REQ_9_17["REQ-9.17<br/>Which CI run's numbers count for baselines"]:::open
+    REQ_9_18["REQ-9.18<br/>Writ judges requirements against the principles…"]:::stated
     REQ_10["REQ-10<br/>Writ sits a layer above the team's tools and ru…"]:::stated
     REQ_10_1["REQ-10.1<br/>Writ runs in CI, outside the agent's session"]:::stated
     REQ_10_2["REQ-10.2<br/>A Writ GitHub Action installs the CLI, runs the…"]:::stated
@@ -94,7 +105,7 @@ flowchart LR
     REQ_11_3["REQ-11.3<br/>All hooks live at plugin level"]:::assumed
     REQ_11_4["REQ-11.4<br/>The E2E target is discovered by developing Head…"]:::stated
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
-    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project start…"]:::stated
+    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project works…"]:::stated
     REQ_12["REQ-12<br/>Viewing surfaces and the paid team layer come a…"]:::assumed
     REQ_12_1["REQ-12.1<br/>A local viewer now; an MCP App later"]:::stated
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
@@ -123,6 +134,14 @@ flowchart LR
     REQ_3 --> REQ_3_4
     REQ_3 --> REQ_3_5
     REQ_3 --> REQ_3_6
+    REQ_3 --> REQ_3_7
+    REQ_3 --> REQ_3_8
+    REQ_3 --> REQ_3_9
+    REQ_3 --> REQ_3_10
+    REQ_3 --> REQ_3_11
+    REQ_3 --> REQ_3_12
+    REQ_3 --> REQ_3_13
+    REQ_3 --> REQ_3_14
     REQ_4 --> REQ_4_1
     REQ_4 --> REQ_4_2
     REQ_4 --> REQ_4_3
@@ -130,12 +149,14 @@ flowchart LR
     REQ_5 --> REQ_5_2
     REQ_5 --> REQ_5_3
     REQ_5 --> REQ_5_4
+    REQ_5 --> REQ_5_5
     REQ_6 --> REQ_6_1
     REQ_6 --> REQ_6_2
     REQ_6 --> REQ_6_3
     REQ_6 --> REQ_6_4
     REQ_6 --> REQ_6_5
     REQ_6 --> REQ_6_6
+    REQ_6 --> REQ_6_7
     REQ_7 --> REQ_7_1
     REQ_7 --> REQ_7_2
     REQ_7 --> REQ_7_3
@@ -165,6 +186,7 @@ flowchart LR
     REQ_9 --> REQ_9_15
     REQ_9 --> REQ_9_16
     REQ_9 --> REQ_9_17
+    REQ_9 --> REQ_9_18
     REQ_10 --> REQ_10_1
     REQ_10 --> REQ_10_2
     REQ_10 --> REQ_10_3
@@ -250,19 +272,37 @@ flowchart LR
 flowchart LR
     REQ_3["REQ-3<br/>Intent is a tree of requirements refined to bin…"]:::stated
     REQ_3_1["REQ-3.1<br/>HeadCanon's own model is the description framew…"]:::stated
+    REQ_3_1_1["REQ-3.1.1<br/>Aim: the canon holds explanation, requirements …"]:::stated
     REQ_3_2["REQ-3.2<br/>KAOS obstacle analysis is kept in mind, not ado…"]:::stated
     REQ_3_3["REQ-3.3<br/>Requirements form a tree, refined down to binar…"]:::stated
     REQ_3_4["REQ-3.4<br/>The tree is filled lazily: gaps surface when re…"]:::stated
     REQ_3_5["REQ-3.5<br/>Human-judgment leaves are allowed (e.g. aesthet…"]:::stated
     REQ_3_5_1["REQ-3.5.1<br/>How a human approves a judgment leaf"]:::open
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
+    REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
+    REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
+    REQ_3_9["REQ-3.9<br/>The canon records intent, never current state"]:::stated
+    REQ_3_10["REQ-3.10<br/>The upper layers of the tree are written in pla…"]:::stated
+    REQ_3_11["REQ-3.11<br/>Every canon entry reads as a dictionary or ency…"]:::stated
+    REQ_3_12["REQ-3.12<br/>A balanced branch is complete including the imp…"]:::stated
+    REQ_3_13["REQ-3.13<br/>Decomposition infers what a node implies, and t…"]:::stated
+    REQ_3_14["REQ-3.14<br/>How is a branch cut?"]:::open
     REQ_3 --> REQ_3_1
+    REQ_3_1 --> REQ_3_1_1
     REQ_3 --> REQ_3_2
     REQ_3 --> REQ_3_3
     REQ_3 --> REQ_3_4
     REQ_3 --> REQ_3_5
     REQ_3_5 --> REQ_3_5_1
     REQ_3 --> REQ_3_6
+    REQ_3 --> REQ_3_7
+    REQ_3 --> REQ_3_8
+    REQ_3 --> REQ_3_9
+    REQ_3 --> REQ_3_10
+    REQ_3 --> REQ_3_11
+    REQ_3 --> REQ_3_12
+    REQ_3 --> REQ_3_13
+    REQ_3 --> REQ_3_14
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -294,6 +334,7 @@ flowchart LR
 flowchart LR
     REQ_5["REQ-5<br/>Terms and certainty are modeled, never hidden"]:::stated
     REQ_5_1["REQ-5.1<br/>The root canon file's Glossary section defines …"]:::stated
+    REQ_5_1_1["REQ-5.1.1<br/>A definition says what the term is, and covers …"]:::stated
     REQ_5_2["REQ-5.2<br/>Undefined or badly defined elements are modeled…"]:::stated
     REQ_5_3["REQ-5.3<br/>Five certainty states: stated, assumed, open, c…"]:::stated
     REQ_5_3_1["REQ-5.3.1<br/>Stated items are always verbatim quotes collect…"]:::stated
@@ -301,7 +342,9 @@ flowchart LR
     REQ_5_3_3["REQ-5.3.3<br/>One state per node; sections may carry their ow…"]:::resolved
     REQ_5_3_4["REQ-5.3.4<br/>A glossary term the agent infers enters as assu…"]:::assumed
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
+    REQ_5_5["REQ-5.5<br/>The human's latest approval outranks every arti…"]:::stated
     REQ_5 --> REQ_5_1
+    REQ_5_1 --> REQ_5_1_1
     REQ_5 --> REQ_5_2
     REQ_5 --> REQ_5_3
     REQ_5_3 --> REQ_5_3_1
@@ -309,6 +352,7 @@ flowchart LR
     REQ_5_3 --> REQ_5_3_3
     REQ_5_3 --> REQ_5_3_4
     REQ_5 --> REQ_5_4
+    REQ_5 --> REQ_5_5
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -327,12 +371,14 @@ flowchart LR
     REQ_6_4["REQ-6.4<br/>Node file front-matter fields"]:::assumed
     REQ_6_5["REQ-6.5<br/>Mermaid index limits and generated-view freshne…"]:::assumed
     REQ_6_6["REQ-6.6<br/>ID scheme for requirements, journeys, steps, de…"]:::resolved
+    REQ_6_7["REQ-6.7<br/>Every node carries a layer: domain, capability …"]:::resolved
     REQ_6 --> REQ_6_1
     REQ_6 --> REQ_6_2
     REQ_6 --> REQ_6_3
     REQ_6 --> REQ_6_4
     REQ_6 --> REQ_6_5
     REQ_6 --> REQ_6_6
+    REQ_6 --> REQ_6_7
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -378,7 +424,11 @@ flowchart LR
     REQ_8_5["REQ-8.5<br/>Commit format: Conventional Commits header plus…"]:::assumed
     REQ_8_5_1["REQ-8.5.1<br/>Trailers: Intent, Intent-Change, Decision, Test…"]:::resolved
     REQ_8_5_2["REQ-8.5.2<br/>The commit-msg hook is installed from the start…"]:::stated
+    REQ_8_5_3["REQ-8.5.3<br/>An edit that only adds lines to a rules, skill …"]:::stated
+    REQ_8_5_4["REQ-8.5.4<br/>Every canon commit passes a semantic review for…"]:::stated
+    REQ_8_5_5["REQ-8.5.5<br/>A change to a child asks its parent: untouched …"]:::stated
     REQ_8_6["REQ-8.6<br/>The agent changes the canon only through create…"]:::stated
+    REQ_8_6_1["REQ-8.6.1<br/>The canon is managed through a fixed set of ope…"]:::stated
     REQ_8_7["REQ-8.7<br/>CUD covers all canon objects; updates are patch…"]:::assumed
     REQ_8 --> REQ_8_1
     REQ_8 --> REQ_8_2
@@ -387,7 +437,11 @@ flowchart LR
     REQ_8 --> REQ_8_5
     REQ_8_5 --> REQ_8_5_1
     REQ_8_5 --> REQ_8_5_2
+    REQ_8_5 --> REQ_8_5_3
+    REQ_8_5 --> REQ_8_5_4
+    REQ_8_5 --> REQ_8_5_5
     REQ_8 --> REQ_8_6
+    REQ_8_6 --> REQ_8_6_1
     REQ_8 --> REQ_8_7
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
@@ -418,6 +472,7 @@ flowchart LR
     REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the human app…"]:::stated
     REQ_9_16["REQ-9.16<br/>Model checks are non-deterministic; Writ's revi…"]:::stated
     REQ_9_17["REQ-9.17<br/>Which CI run's numbers count for baselines"]:::open
+    REQ_9_18["REQ-9.18<br/>Writ judges requirements against the principles…"]:::stated
     REQ_9 --> REQ_9_1
     REQ_9 --> REQ_9_2
     REQ_9 --> REQ_9_3
@@ -435,6 +490,7 @@ flowchart LR
     REQ_9 --> REQ_9_15
     REQ_9 --> REQ_9_16
     REQ_9 --> REQ_9_17
+    REQ_9 --> REQ_9_18
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -479,7 +535,9 @@ flowchart LR
     REQ_11_3["REQ-11.3<br/>All hooks live at plugin level"]:::assumed
     REQ_11_4["REQ-11.4<br/>The E2E target is discovered by developing Head…"]:::stated
     REQ_11_5["REQ-11.5<br/>HeadCanon is built with itself from the first c…"]:::resolved
-    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project start…"]:::stated
+    REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project works…"]:::stated
+    REQ_11_6_1["REQ-11.6.1<br/>Selecting an item in a multi-select is approval…"]:::stated
+    REQ_11_6_2["REQ-11.6.2<br/>Drafts read as prose with footnoted sources, an…"]:::stated
     REQ_11 --> REQ_11_1
     REQ_11_1 --> REQ_11_1_1
     REQ_11_1 --> REQ_11_1_2
@@ -489,6 +547,8 @@ flowchart LR
     REQ_11 --> REQ_11_4
     REQ_11 --> REQ_11_5
     REQ_11 --> REQ_11_6
+    REQ_11_6 --> REQ_11_6_1
+    REQ_11_6 --> REQ_11_6_2
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
     classDef resolved fill:#e8efff,stroke:#2563eb,color:#1a1d23
     classDef assumed fill:#fff3d6,stroke:#b7791f,color:#1a1d23
@@ -507,6 +567,8 @@ flowchart LR
     REQ_12_1_3["REQ-12.1.3<br/>Health: problematic branches and their children"]:::assumed
     REQ_12_1_4["REQ-12.1.4<br/>Attention: changes that need the human's word"]:::assumed
     REQ_12_1_5["REQ-12.1.5<br/>Journeys, decisions and glossary have their own…"]:::assumed
+    REQ_12_1_6["REQ-12.1.6<br/>A term new to a draft is gated in the page: a s…"]:::stated
+    REQ_12_1_7["REQ-12.1.7<br/>The session asks through the page, focuses the …"]:::resolved
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
     REQ_12_3["REQ-12.3<br/>No hosted coding environment; no Claude.ai logi…"]:::assumed
     REQ_12 --> REQ_12_1
@@ -515,6 +577,8 @@ flowchart LR
     REQ_12_1 --> REQ_12_1_3
     REQ_12_1 --> REQ_12_1_4
     REQ_12_1 --> REQ_12_1_5
+    REQ_12_1 --> REQ_12_1_6
+    REQ_12_1 --> REQ_12_1_7
     REQ_12 --> REQ_12_2
     REQ_12 --> REQ_12_3
     classDef stated fill:#e3f5ea,stroke:#1f8a4c,color:#1a1d23
@@ -575,32 +639,44 @@ REQ-2             Two products share one intent format                          
 └─ REQ-2.9        Writ's v1 test environment is Node                                        stated    · unrefined
 REQ-3             Intent is a tree of requirements refined to binary leaves                 stated    · unrefined
 ├─ REQ-3.1        HeadCanon's own model is the description framework; Diataxis maybe for …  stated    · unrefined
+│  └─ REQ-3.1.1   Aim: the canon holds explanation, requirements are the reference, how-t…  stated    · unrefined
 ├─ REQ-3.2        KAOS obstacle analysis is kept in mind, not adopted now                   stated    · unrefined
 ├─ REQ-3.3        Requirements form a tree, refined down to binary-measurable leaves        stated    · unrefined
 ├─ REQ-3.4        The tree is filled lazily: gaps surface when relevant; deeper details m…  stated    · unrefined
 ├─ REQ-3.5        Human-judgment leaves are allowed (e.g. aesthetics); human approval is …  stated    · unrefined
 │  └─ REQ-3.5.1   How a human approves a judgment leaf                                      open      · unrefined
-└─ REQ-3.6        Binary leaves are proxies; passing leaves do not prove the parent         assumed   · unrefined
+├─ REQ-3.6        Binary leaves are proxies; passing leaves do not prove the parent         assumed   · unrefined
+├─ REQ-3.7        Principles are a layer above the tree: tested against requirements by a…  stated    · unrefined
+├─ REQ-3.8        The top of the tree is derived from the premise and from what every sof…  stated    · unrefined
+├─ REQ-3.9        The canon records intent, never current state                             stated    · unrefined
+├─ REQ-3.10       The upper layers of the tree are written in plain words                   stated    · unrefined
+├─ REQ-3.11       Every canon entry reads as a dictionary or encyclopedia entry, complete…  stated    · unrefined
+├─ REQ-3.12       A balanced branch is complete including the implied, has one home with …  stated    · unrefined
+├─ REQ-3.13       Decomposition infers what a node implies, and the inference is its own …  stated    · unrefined  ! 1 finding
+└─ REQ-3.14       How is a branch cut?                                                      open      · unrefined
 REQ-4             User journeys are first-class intent records                              stated    · unrefined
 ├─ REQ-4.1        User journeys are intent records, not tests, kept separate from the tree  stated    · unrefined
 ├─ REQ-4.2        Journeys are decision graphs whose steps link many-to-many to requireme…  stated    · unrefined
 └─ REQ-4.3        Journey files: a Mermaid flowchart plus a step-to-requirement table       assumed   · unrefined
 REQ-5             Terms and certainty are modeled, never hidden                             stated    · unrefined
 ├─ REQ-5.1        The root canon file's Glossary section defines the user's terms           stated    · unrefined
+│  └─ REQ-5.1.1   A definition says what the term is, and covers one concept                stated    · unrefined
 ├─ REQ-5.2        Undefined or badly defined elements are modeled; the AI maps them with …  stated    · unrefined
 ├─ REQ-5.3        Five certainty states: stated, assumed, open, contested, resolved         stated    · unrefined
 │  ├─ REQ-5.3.1   Stated items are always verbatim quotes collected from the conversation   stated    · unrefined
 │  ├─ REQ-5.3.2   Resolved only on the human's explicit agreement; tacit approval never c…  stated    · unrefined
 │  ├─ REQ-5.3.3   One state per node; sections may carry their own marker and may be expa…  resolved  · unrefined
 │  └─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
-└─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
+├─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
+└─ REQ-5.5        The human's latest approval outranks every artifact; artifacts pre-fill…  stated    · unrefined
 REQ-6             The canon is plain files that existing tools already render               stated    · unrefined
 ├─ REQ-6.1        Canon stored as Markdown with front-matter, in a folder tree mirroring …  stated    · unrefined
 ├─ REQ-6.2        Generated views: a text tree inside the agent, a Mermaid index on GitHub  stated    · unrefined
 ├─ REQ-6.3        Folder layout: root README, one folder per branch, journeys/, decisions/  assumed   · unrefined
 ├─ REQ-6.4        Node file front-matter fields                                             assumed   · unrefined
 ├─ REQ-6.5        Mermaid index limits and generated-view freshness                         assumed   · unrefined
-└─ REQ-6.6        ID scheme for requirements, journeys, steps, decisions, terms and datas…  resolved  · unrefined
+├─ REQ-6.6        ID scheme for requirements, journeys, steps, decisions, terms and datas…  resolved  · unrefined
+└─ REQ-6.7        Every node carries a layer: domain, capability or requirement             resolved  · unrefined
 REQ-7             Success criteria exist before code, and obstacles are negotiated, not a…  stated    · unrefined
 ├─ REQ-7.1        Workflow runs requirements → tests → implementation                       stated    · unrefined
 ├─ REQ-7.2        Negotiation is a triggered mode, not an upfront phase                     stated    · unrefined
@@ -616,8 +692,12 @@ REQ-8             Intent never changes silently                                 
 ├─ REQ-8.4        Canon files hold the current intent; commit trailers record how and why…  stated    · unrefined
 ├─ REQ-8.5        Commit format: Conventional Commits header plus required intent trailers  assumed   · unrefined
 │  ├─ REQ-8.5.1   Trailers: Intent, Intent-Change, Decision, Test-Change, Approved-By       resolved  · unrefined
-│  └─ REQ-8.5.2   The commit-msg hook is installed from the start by headcanon init         stated    · unrefined
+│  ├─ REQ-8.5.2   The commit-msg hook is installed from the start by headcanon init         stated    · unrefined
+│  ├─ REQ-8.5.3   An edit that only adds lines to a rules, skill or canon file needs a Co…  stated    · unrefined
+│  ├─ REQ-8.5.4   Every canon commit passes a semantic review for contradictions, reitera…  stated    · unrefined
+│  └─ REQ-8.5.5   A change to a child asks its parent: untouched parents are accounted fo…  stated    · unrefined
 ├─ REQ-8.6        The agent changes the canon only through create, update and delete requ…  stated    · unrefined
+│  └─ REQ-8.6.1   The canon is managed through a fixed set of operations drawn from estab…  stated    · unrefined
 └─ REQ-8.7        CUD covers all canon objects; updates are patches; deletes retire; trai…  assumed   · unrefined
 REQ-9             Writ verifies every change against the canon                              stated    · unrefined
 ├─ REQ-9.1        Intent-traced verification is Writ's headline output, leaning on E2E      stated    · unrefined
@@ -636,7 +716,8 @@ REQ-9             Writ verifies every change against the canon                  
 ├─ REQ-9.14       Binary baselines, tolerance in the canon, drift tracking, approval as i…  stated    · unrefined
 ├─ REQ-9.15       The model proposes tolerances and the human approves them; repeated run…  stated    · unrefined
 ├─ REQ-9.16       Model checks are non-deterministic; Writ's review report justifies ever…  stated    · unrefined
-└─ REQ-9.17       Which CI run's numbers count for baselines                                open      · unrefined
+├─ REQ-9.17       Which CI run's numbers count for baselines                                open      · unrefined
+└─ REQ-9.18       Writ judges requirements against the principles with a model and surfac…  stated    · unrefined
 REQ-10            Writ sits a layer above the team's tools and runs where they run          stated    · unrefined
 ├─ REQ-10.1       Writ runs in CI, outside the agent's session                              stated    · unrefined
 ├─ REQ-10.2       A Writ GitHub Action installs the CLI, runs the stages and reports on P…  stated    · unrefined
@@ -645,7 +726,7 @@ REQ-10            Writ sits a layer above the team's tools and runs where they r
 ├─ REQ-10.5       Requirements link to files or functions; Writ scopes checks to a commit…  stated    · unrefined
 └─ REQ-10.6       Links are many-to-many; unlinked changes are flagged; E2E and per-relea…  assumed   · unrefined
 REQ-11            HeadCanon keeps the agent aligned from inside Claude Code                 stated    · unrefined
-├─ REQ-11.1       SessionStart summary instead of editing CLAUDE.md; Stop hook as the "do…  assumed   · unrefined
+├─ REQ-11.1       SessionStart summary instead of editing CLAUDE.md; Stop hook as the "do…  assumed   · unrefined  ! 1 finding
 │  ├─ REQ-11.1.1  The Stop gate ships in warn mode and blocks only once its checks prove …  resolved  · unrefined
 │  └─ REQ-11.1.2  A blocking Stop hook must check stop_hook_active                          assumed   · unrefined
 ├─ REQ-11.2       What lives where inside the plugin                                        assumed   · unrefined  ! 1 finding
@@ -653,14 +734,18 @@ REQ-11            HeadCanon keeps the agent aligned from inside Claude Code     
 ├─ REQ-11.3       All hooks live at plugin level                                            assumed   · unrefined  ! 1 finding
 ├─ REQ-11.4       The E2E target is discovered by developing HeadCanon alongside a real p…  stated    · unrefined
 ├─ REQ-11.5       HeadCanon is built with itself from the first commit                      resolved  · unrefined
-└─ REQ-11.6       Adopting HeadCanon in an existing project starts from the repository's …  stated    · unrefined
+└─ REQ-11.6       Adopting HeadCanon in an existing project works top-down: overview, pri…  stated    · unrefined
+   ├─ REQ-11.6.1  Selecting an item in a multi-select is approval, and the human is told …  stated    · unrefined
+   └─ REQ-11.6.2  Drafts read as prose with footnoted sources, and a principle is a title…  stated    · unrefined
 REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   · unrefined  ! 1 finding
 ├─ REQ-12.1       A local viewer now; an MCP App later                                      stated    · unrefined
 │  ├─ REQ-12.1.1  Overview: requirements at a glance                                        assumed   · unrefined
 │  ├─ REQ-12.1.2  Tree: the full requirement tree with a reading pane                       assumed   · unrefined
 │  ├─ REQ-12.1.3  Health: problematic branches and their children                           assumed   · unrefined
 │  ├─ REQ-12.1.4  Attention: changes that need the human's word                             assumed   · unrefined
-│  └─ REQ-12.1.5  Journeys, decisions and glossary have their own pages                     assumed   · unrefined
+│  ├─ REQ-12.1.5  Journeys, decisions and glossary have their own pages                     assumed   · unrefined
+│  ├─ REQ-12.1.6  A term new to a draft is gated in the page: a span with a tooltip, a ch…  stated    · unrefined  ! 1 finding
+│  └─ REQ-12.1.7  The session asks through the page, focuses the human's screen, and read…  resolved  · unrefined  ! 2 findings
 ├─ REQ-12.2       Paid product: a hosted team layer over the open-source CLI and plugin     assumed   · unrefined
 └─ REQ-12.3       No hosted coding environment; no Claude.ai login, API keys only           assumed   · unrefined
 REQ-13            Open parts stay genuinely open; revenue comes from the hosted layer       assumed   · unrefined  ! 1 finding
@@ -685,4 +770,10 @@ Decisions
   DEC-006         Commits awaiting review carry `Approved-By: pending (...)`  assumed  origin: obstacle
   DEC-007         The plugin root is the repository root, loaded with --plugin-dir during development  assumed
   DEC-008         The session context fits Claude Code's 10,000-character hook limit by shallowing the tree, never by dropping the rules  assumed  origin: obstacle
+  DEC-009         The adopt skill was rewritten top-down after its first run asked the human for file provenance  assumed  origin: misread
+  DEC-010         Skills and the injected rules follow the published skill-authoring guidance, and the rules stay short  assumed
+  DEC-011         The Valley test sessions run on Opus, not Fable  stated
+  DEC-012         Skill examples never come from the project the skill is being tested on  assumed  origin: side-effect
+  DEC-013         Capabilities are a layer of the one tree, not a separate entity  resolved
+  DEC-014         The canon is a directed acyclic graph: one home per node, typed links, lifting before linking  resolved  origin: misread
 ```

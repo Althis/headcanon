@@ -1,74 +1,120 @@
 ---
 name: adopt
-description: "Start HeadCanon in a project that has no canon yet. Inventories the repository's existing intent artifacts (README, requirements, roadmaps, decision records), then elicits the purpose, non-goals and glossary in the human's own words and proposes a first requirement tree as assumed items for the human to review. Use when the session context says the project has no canon, or when the human asks to set up, adopt or install HeadCanon."
-when_to_use: "The project has no canon/README.md, or the human asks to add HeadCanon to an existing or new project."
+description: "Creates a project's first canon from its repository and the human's answers, top-down: premise, principles, domains, capabilities, requirements, then a sweep of leftover artifact threads. Use when the session context says the project has no canon, or when the human asks to set up, adopt, install or start HeadCanon on a project."
+when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a project."
 ---
 
-# Adopt HeadCanon in this project
+# Adopt: create the first canon
 
-You are starting the canon for a project that does not have one. The outcome is a small, honest canon: the human's purpose and non-goals in their words, a glossary, and a first-level tree whose every node says where it came from and how certain it is. Depth comes later, lazily, when work touches a branch.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The briefing, formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 2.
 
-`HC` below means: `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`.
+Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The three lower layers are cut by the `refine` skill (`/headcanon:refine <ID> <layer>`), one node at a time, and it returns to this skill. The human decides every draft through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. You read the repository; they judge drafts, never files.
 
-## 0. Check
+## Checklist
 
-Run `HC check` from the project root. If a canon already exists, stop and tell the human to use `/headcanon:review` or `/headcanon:capture` instead. Otherwise continue.
+Write this list to your scratch file and tick items as you go. The human sees progress through the layer label on each question.
 
-## 1. Inventory the existing intent artifacts
+- [ ] 0 `HC check` reports no canon; otherwise point to `/headcanon:review` and stop.
+- [ ] 1 Read the repository silently; write the thread list.
+- [ ] 2 The briefing, as its own question; the premise waits for its answer.
+- [ ] 3 Premise: what it is, purpose, not this, glossary.
+- [ ] 4 `HC init`; write `canon/README.md`.
+- [ ] 5 Principles.
+- [ ] 6 Domains: refine ROOT.
+- [ ] 7 Capabilities: refine each domain.
+- [ ] 8 Requirements: refine each capability.
+- [ ] 9 Sweep unused threads.
+- [ ] 10 `HC check` clean, `HC summary`, `HC render`, `/headcanon:commit`.
+- [ ] 11 Report.
 
-Search before asking, so the human reviews what exists instead of restating it. Look for, at least:
+## Sources
 
-- `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `CONTRIBUTING*`
-- `docs/**/*.md`, `doc/**/*.md`
-- decision records: `docs/adr/**`, `decisions/**`, `.claude/decisions/**`
-- plans and analyses: `.claude/**/*.md`, `plans/**`, `*.plan.md`
-- `CLAUDE.md`, `AGENTS.md` (project instructions often carry intent)
-- the package manifest's description, and test names (`describe(` / `it(` strings) as evidence of intended behavior
+What the human approved or typed in the layer above is the primary source for the layer below. Threads (one thing an artifact says, with its `path:lines`) have two roles and no third: they **pre-fill** a draft where the layers above leave it open, and they are the **evidence** every draft is checked against. Precedence: the human's approval in this run, their typed words, the newest artifact, older artifacts. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 9.
 
-Present an inventory table: path, what it is, last modified date, size, and your guess at provenance (human-written, agent-written with the human's guidance, generated from code). Then ask the human to correct the provenance guesses. **Only text the human wrote themselves can become stated. Everything else is assumed until the human confirms it, however authoritative it looks.** A document being long, detailed or named REQUIREMENTS does not make it the human's intent.
+When a thread disagrees with an approval or with a draft derived from one: do not settle it and do not start the next layer. Ask "The document says A [1]. What you approved says B. Which stands?" with options **Keep what I approved** and **The document is right**; a typed third version is applied and asked again. Record the outcome, and list an overruled document in DEC-001 as superseded on that point.
 
-Record your inventory in your working notes; it becomes the `source` fields later.
+Read only this repository, reference.md and the human's answers. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent. With the viewer's tools present, call `headcanon_changes` before each layer: wording the human typed in the page is stated, and a refine-request names the branch to decompose next.
 
-## 2. Create the skeleton
+## Asking
 
-Run `HC init`. It creates `canon/README.md`, `canon/journeys/`, `canon/decisions/` and installs the commit-msg hook. Tell the human the hook now requires an Intent trailer on every commit, with `Intent: none (reason)` allowed. If init reports an existing hook it did not install, show the message and ask before using `--force`.
+- The full draft goes in the question text, once, as prose. A sentence resting on a thread ends with a footnote [1]; one "Sources:" line at the end lists them. Never a path or date inside a sentence.
+- Label each question by layer: "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
+- Options are exactly **Approve as written** and **Drop**; the briefing has told the human that Other replaces them with their own wording or a correction, so no question repeats it. An option carries no text.
+- A list gets one multi-select: each option's label is the ID and title, its description the item's one-line draft ending with its footnote; the question body holds only the layer label, the instruction and the Sources line, never the drafts again. Then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
+- Typed text is one of three kinds. **Wording** (the statement itself) is stated, quoted verbatim, and is the entry. **A correction** ("drop the counts") is applied exactly to the draft it names and that draft is asked again; in a list, only the items it changes come back, each on its own as ID, title and line, and items the text approves ("all of these are correct") count as ticked; neither the correction nor its reasons enter the entry. **A process instruction** ("one at a time") is followed for the rest of the run and recorded nowhere.
+- "Anything missing?" closes a layer with the options **Nothing missing** and **Remind me later in review**; typed text is the missing item, drafted and asked back. Remind me later adds a line under `## Open` in the root README with the date and the layer, which `/headcanon:review` walks.
+- Anything the human must know travels with a question, as its `notice` through the page or a sentence before it in the terminal, never inside the draft; free text between tool calls may never be read.
+- Write a file only after the question approving it is answered.
 
-## 3. Elicit the purpose, in the human's words
+## Entries
 
-Ask, in order, one or two questions at a time, and wait for answers:
+- An entry reads as an encyclopedia entry: what the thing is, complete for a reader who never saw this conversation, one concept per entry; no history, no reasons, no "not" clauses (exclusions live only in Not this), no counts, versions or statuses. Wrong examples and why: reference.md, section 5.
+- A requirement or a glossary entry is one or two sentences. A principle is a title and a paragraph of two to four sentences, because principles are the main alignment point and a one-liner cannot be judged.
+- Domains and capabilities in plain words; mechanisms and jargon only in requirements, using glossary terms.
+- A written entry carries no footnote markers; sources go in the node's `source` field, or on a Source line after a principle or glossary entry.
 
-1. What is this project for, in one or two sentences? Who is it for?
-2. What must it never become, or what is it explicitly not? (These become **Not this**.)
-3. Which terms do you use that mean something specific here? What does each mean, and what does it not mean?
+## Briefing
 
-Write the answers into `canon/README.md` **verbatim**, as blockquotes under `## Stated` and `## Not this`, each with `Source: conversation, <date>`. Do not tidy the human's wording. If an answer is vague, ask a follow-up; do not fill it in yourself. Change the root's `state` from `open` to `stated` only once the purpose is in the human's words.
+The first question is the briefing block in reference.md section 0, pasted verbatim, with the single option **Let's begin** and no draft, so the human agrees to the process before judging anything. The premise draft is the next question, asked only once that answer is in.
 
-## 4. Glossary
+## Steps
 
-Propose terms you found in the artifacts and in the human's answers, with a definition and a "not" clause each, in the format `**term** (`TERM-slug`): definition`. Mark the section `## Glossary [assumed]`. For every term the human confirms or corrects in their own words, quote them; the human's definition is stated, yours stays assumed. Keep the glossary short; ten terms the human actually uses beat forty you inferred.
+### 1 Read
 
-## 5. Propose the first-level tree
+Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. Note contradictions and which artifact is newer. Never present the list; never ask about provenance.
 
-From the inventory and the conversation, propose between five and twelve top-level requirements. For each: an ID (`REQ-1`, `REQ-2`, …), a title, the state (`stated` only for a verbatim quote from the human in this conversation; otherwise `assumed`), a `source` pointing at the file and line range or the conversation, an **Intent** paragraph, and a **Not this** line where the artifacts make one clear. Where an artifact lists sub-items, add at most one level of children, also assumed, with sources. Do not go deeper. Do not convert a whole document; the tree is filled lazily when work touches a branch.
+### 3 Premise
 
-Show the proposal as a change request before writing anything: one line per node with its ID, title, state and source. Ask the human to approve, change or drop nodes. Write the files only after the human explicitly says yes. The layout is one folder per node with children (`canon/REQ-1-<slug>/README.md`) and one file per leaf (`canon/REQ-1-<slug>/REQ-1.1-<slug>.md`), with front-matter `id`, `parent`, `title`, `state`, `source`, and optional `kind`, `steps`, `files`.
+One question each, in order: what it is (one or two sentences); purpose and for whom (one paragraph); not this (three to six non-goals, the only place for what the project is not; multi-select, one by one, then "anything missing?"); glossary (six to ten terms; multi-select, one by one).
 
-## 6. Decisions and journeys found in the repository
+### 4 Init
 
-If you found decision records, propose one `canon/decisions/DEC-NNN-<slug>.md` per record, state `assumed`, `intents` linking to the branches they serve, body summarizing the decision and citing the original file. If you found a described user flow, propose it as a journey only if it is clearly how the human wants the product used; otherwise leave it for later. Same rule: show, then write on an explicit yes.
+Run `HC init`; the human must learn in one sentence that the commit-msg hook now requires an Intent trailer on every commit: through the page it is the `notice` of the next question, never part of its text; in the terminal it is said before the next question. Write `canon/README.md` in the root format.
 
-## 7. Verify and commit
+### 5 Principles
 
-Run `HC check`; fix every error. Run `HC summary` and show the tree. Then use `/headcanon:commit` to compose the commit. The commit lists one `Intent-Change: create <ID>` per node and carries `Approved-By:` with the human's git user.name if they approved in this conversation, or `pending (…)` if the change goes to a pull request for approval.
+Direction: tone, taste, values, ways of working; a "never" the human states is a principle first. Draw on the premise answers first, then on the newest artifacts that state direction (charters, style guides, decision records); a milestone from an old plan is not a principle. Draft three to eight, each a title and a paragraph. Multi-select, one by one, "anything missing?". Write them under `## Principles`.
 
-## 8. Report
+### 6 Domains
 
-End with: which items are stated, which are assumed, which are open; what you chose not to convert and why; and that `/headcanon:review` walks the assumed items whenever the human is ready. Do not claim the canon is complete. It is a seed.
+Refine `ROOT` with layer `domain`, labelled "Domains (3 of 5)", passing two candidates every software project needs, documentation and verification, with source `software project`. The node is the approved premise and the archetype prompt reads "what distinct areas must exist for this product to operate?": a desktop app that turns bank statements into tax reports needs statement import, categorization, reporting; a platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access. Each domain is a folder with a `README.md`, `layer: domain`; the partition goes in the root README's front-matter. Fewer than about eight areas in total: they are the top level with `layer: capability`, and there is no domain layer.
 
-## Rules that apply throughout
+### 7 Capabilities
 
-- Never paraphrase into a stated item.
-- Never write a canon file without showing the change request first and hearing an explicit yes.
-- When you do not know something, record it as open rather than guessing.
-- If the human disagrees with a proposed node, record it as contested with both positions, not silently dropped.
-- Stopping to ask is a successful outcome.
+Per approved domain, in the order `HC next` gives: refine it with layer `capability`, labelled "Capabilities (4 of 5): <domain>". The archetype prompt reads "what does every system of this kind need for this domain to be complete?". The children are written under the domain, `layer: capability`.
+
+### 8 Requirements
+
+Per capability, in the order `HC next` gives, so what others build on is defined first: refine it with layer `requirement`, labelled "Requirements (5 of 5): <capability>". Stop at this depth; deeper levels wait for the human's Define this branch.
+
+### 9 Sweep
+
+Unused threads, at most eight per question, as a multi-select with per-thread options **add under <capability>**, **merge into <ID>**, **drop**. Adds become assumed nodes with their source; merges update the named node, citing the source; drops go to `canon/decisions/DEC-001-adoption-scope.md`, one line each with source and reason. An artifact the human calls obsolete gets one line for the whole artifact.
+
+### 10 Verify and commit
+
+`HC check`; fix every error; only proceed at 0 errors. `HC summary` and show the tree; `HC render`. `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `Intent-Change: update ROOT`, `Decision: DEC-001`, and `Approved-By` set to the human's git `user.name`, because they approved every item here.
+
+### 11 Report
+
+Domains with their capabilities; open capabilities and domains; counts of stated, resolved and assumed nodes; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the assumed and open items when they are ready. The canon is a seed, not complete.
+
+## Examples
+
+<example>
+Domain question, plain words, one line each, footnoted:
+Body: "Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
+
+Sources: [1] premise, [2] software project"
+Options: label "REQ-1 Statement import", description "bank statements in any common format become transactions. [1]"; label "REQ-2 Categorization", description "every transaction lands in a tax category, by rule or by hand. [1]"; label "REQ-3 Reporting", description "the categorized year becomes the forms an accountant needs. [1]"; label "REQ-4 Documentation", description "how the project records what it is and why. [2]"; label "REQ-5 Verification", description "how the project shows its code does what is intended. [2]".
+</example>
+
+<example>
+Typed correction applied exactly, then asked again:
+Human types: "Don't mention how many banks we support."
+Agent asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop."
+</example>
+
+<example>
+Glossary entries. Wrong: "Category: a label on a transaction; a rule is a saved category assignment. NOT a tag." Right: two entries. "Category: a label that places a transaction on one line of the tax report." "Rule: a saved condition that assigns a category to every transaction matching it."
+</example>

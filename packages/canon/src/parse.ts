@@ -1,5 +1,5 @@
 import YAML from "yaml";
-import { isState, type JourneyStep, type Section, type State, type Term } from "./types.js";
+import { isState, type JourneyStep, type Principle, type Section, type State, type Term } from "./types.js";
 
 export interface Parsed {
   data: Record<string, unknown>;
@@ -74,6 +74,45 @@ export function parseGlossary(body: string): Term[] {
     terms.push({ term: m[1] ?? "", id: m[2] ?? "", definition: (m[3] ?? "").trim() });
   }
   return terms;
+}
+
+/**
+ * Principles in the root README's `## Principles` section: a `**PRN-n Title**` line, then the
+ * paragraph until a blank line, then an optional `Source:` line. The older one-line form,
+ * `**PRN-n Title**: statement. Source: ...`, is read too.
+ */
+export function parsePrinciples(body: string): Principle[] {
+  const section = /^##\s+Principles\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(body)?.[1];
+  if (!section) return [];
+  const out: Principle[] = [];
+  const lines = section.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^\*\*(PRN-\d+)\s+(.+?)\*\*\s*(.*)$/.exec(lines[i] ?? "");
+    if (!m) continue;
+    const id = m[1] ?? "";
+    const title = (m[2] ?? "").trim();
+    let rest = (m[3] ?? "").replace(/^:\s*/, "").trim();
+    const para: string[] = [];
+    if (rest) para.push(rest);
+    let source: string | undefined;
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = (lines[j] ?? "").trim();
+      if (!l || l.startsWith("**PRN-")) break;
+      if (/^Source:/i.test(l)) {
+        source = l.replace(/^Source:\s*/i, "");
+        continue;
+      }
+      para.push(l);
+    }
+    let statement = para.join(" ");
+    const inline = /\s*Source:\s*(.+)$/i.exec(statement);
+    if (inline) {
+      source = source ?? inline[1]?.trim();
+      statement = statement.slice(0, inline.index).trim();
+    }
+    out.push({ id, title, statement, source });
+  }
+  return out;
 }
 
 /** Front-matter lists may be YAML arrays or comma-separated strings. */
