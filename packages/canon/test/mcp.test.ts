@@ -29,7 +29,17 @@ describe("mcp server over stdio [REQ-12.1.7]", () => {
 
   it("lists the five tools and answers through the viewer it started", async () => {
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(["headcanon_ask", "headcanon_changes", "headcanon_focus", "headcanon_open", "headcanon_wait"]);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(["headcanon_ask", "headcanon_changes", "headcanon_focus", "headcanon_open", "headcanon_say", "headcanon_wait"]);
+
+    // The session speaks, and a waiting changes call wakes on the human's next action.
+    const said = await client.callTool({ name: "headcanon_say", arguments: { text: "Hello from the session.", nodeId: "REQ-1" } });
+    expect(JSON.parse((said.content as Array<{ text: string }>)[0]!.text).kind).toBe("say");
+    const cursor = JSON.parse((await client.callTool({ name: "headcanon_changes", arguments: {} }).then((r) => (r.content as Array<{ text: string }>)[0]!.text))).cursor as number;
+    const waiting = client.callTool({ name: "headcanon_changes", arguments: { since: cursor, waitSeconds: 5 } });
+    await new Promise((r) => setTimeout(r, 200));
+    await fetch(`http://127.0.0.1:${port}/api/message`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "What do you mean by 'widget'?", nodeId: "REQ-1" }) });
+    const woke = JSON.parse(((await waiting).content as Array<{ text: string }>)[0]!.text) as { entries: Array<{ kind: string; id?: string }> };
+    expect(woke.entries.map((e) => `${e.kind}:${e.id}`)).toEqual(["message:REQ-1"]);
 
     const focus = await client.callTool({ name: "headcanon_focus", arguments: { id: "REQ-1" } });
     expect(JSON.parse((focus.content as Array<{ text: string }>)[0]!.text).ok).toBe(true);

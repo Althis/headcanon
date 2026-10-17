@@ -52,6 +52,32 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect((await get("/api/wait?id=nope&timeout=1"))["unknown"]).toBe(true);
   });
 
+  it("approves, rewrites and deletes nodes from the page, lets the session speak, and waits for changes", async () => {
+    const before = (await get("/api/changes"))["cursor"] as number;
+    const approved = await send("/api/node/REQ-2/approve", {});
+    expect(approved.status).toBe(200);
+    expect(loadCanon(join(dir, "canon")).nodes["REQ-2"]?.state).toBe("resolved");
+    const edited = await send("/api/node/REQ-2", { title: "Billing just works", intent: "Every invoice is paid without a reminder." }, "PUT");
+    expect(edited.status).toBe(200);
+    const n = loadCanon(join(dir, "canon")).nodes["REQ-2"]!;
+    expect(n.title).toBe("Billing just works");
+    expect(n.state).toBe("stated");
+    expect(n.body).toContain("> Every invoice is paid without a reminder.");
+    const said = await send("/api/say", { text: "Rewrote the parent to match.", nodeId: "REQ-2" });
+    expect(said.status).toBe(200);
+    // A waiter sees the next entry as soon as it arrives.
+    const waiting = fetch(`${base}/api/changes?since=${(await get("/api/changes"))["cursor"]}&timeout=5`).then((r) => r.json() as Promise<{ entries: Array<{ kind: string }> }>);
+    await new Promise((r) => setTimeout(r, 100));
+    await send("/api/finish", {});
+    const woke = await waiting;
+    expect(woke.entries.map((e) => e.kind)).toEqual(["finish-request"]);
+    const deleted = await fetch(`${base}/api/node/REQ-1.2`, { method: "DELETE" }).then((r) => r.json() as Promise<{ removed: string[] }>);
+    expect(deleted.removed).toEqual(["REQ-1.2"]);
+    expect(existsSync(join(dir, "canon", "REQ-1-onboarding", "REQ-1.2-orphan.md"))).toBe(false);
+    const kinds = ((await get(`/api/changes?since=${before}`))["entries"] as Array<{ kind: string }>).map((e) => e.kind);
+    expect(kinds).toEqual(["node-approved", "node-edited", "say", "finish-request", "node-deleted"]);
+  });
+
   it("enshrines a kept term, records a message and a refine request, and reports them as changes", async () => {
     const before = (await get("/api/changes"))["cursor"] as number;
     const kept = await send("/api/term", { term: "Widget", definition: "a small part", decision: "keep" });

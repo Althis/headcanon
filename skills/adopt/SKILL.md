@@ -1,50 +1,47 @@
 ---
 name: adopt
-description: "Creates a project's first canon from its repository and the human's answers, top-down: premise, principles, domains, capabilities, requirements, then a sweep of leftover artifact threads. Use when the session context says the project has no canon, or when the human asks to set up, adopt, install or start HeadCanon on a project."
-when_to_use: "No canon/README.md exists, or the human asks to add HeadCanon to a project."
+description: "Creates a project's first canon and reviews it with the human on the canvas: reads the repository, drafts premise, principles, domains, capabilities and requirements as assumptions, marks what it could not guess as open questions, then attends the page while the human approves, rewrites and deletes boxes until nothing red is left. Use when the session context says the project has no canon, when an adoption was started but not finished, or when the human asks to set up, adopt, install or start HeadCanon on a project."
+when_to_use: "No canon/README.md exists; or a canon exists without canon/decisions/DEC-001-adoption-scope.md, which is an unfinished adoption; or the human asks to add HeadCanon to a project."
 ---
 
-# Adopt: create the first canon
+# Adopt: draft the canon, then review it with the human
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The briefing, formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 2.
 
-Work top-down in five layers, each approved before the next: premise, principles, domains, capabilities, requirements; then a sweep of leftovers. The three lower layers are cut by the `refine` skill (`/headcanon:refine <ID> <layer>`), one node at a time, and it returns to this skill. The human decides every draft through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. You read the repository; they judge drafts, never files.
+The canon is drafted whole from the repository before the human judges anything: every entry the artifacts support is a guess marked `assumed`, every entry only the structure demands is an `open` question, and the human then reviews on the canvas, top-down, approving, rewriting or deleting one box at a time while you keep the rest consistent. Lay users refine the upper levels and the lower levels follow from them, so a guess that rests on a parent and a thread is worth more than a question. The `refine` skill cuts every node (`/headcanon:refine <ID> <layer> draft`); the `attend` skill runs the review loop; both return here.
 
 ## Checklist
 
-Write this list to your scratch file and tick items as you go. The human sees progress through the layer label on each question.
+Write this list to your scratch file and tick items as you go.
 
-- [ ] 0 `HC check` reports no canon; otherwise point to `/headcanon:review` and stop.
+- [ ] 0 Where things stand: no `canon/` is a fresh start, go to 1; a canon without `canon/decisions/DEC-001-adoption-scope.md` is an unfinished adoption, go to 6; both present, point to `/headcanon:review` and stop.
 - [ ] 1 Read the repository silently; write the thread list.
-- [ ] 2 The briefing, as its own question; the premise waits for its answer.
-- [ ] 3 Premise: what it is, purpose, not this, glossary.
-- [ ] 4 `HC init`; write `canon/README.md`.
-- [ ] 5 Principles.
-- [ ] 6 Domains: refine ROOT.
-- [ ] 7 Capabilities: refine each domain.
-- [ ] 8 Requirements: refine each capability.
-- [ ] 9 Sweep unused threads.
-- [ ] 10 `HC check` clean, `HC summary`, `HC render`, `/headcanon:commit`.
-- [ ] 11 Report.
+- [ ] 2 The briefing, as its own question.
+- [ ] 3 `HC init`; draft the root README.
+- [ ] 4 Draft the tree in `HC next` order: domains, capabilities, requirements.
+- [ ] 5 Recalculate: `HC check` at 0 errors, then the consistency pass.
+- [ ] 6 Open the canvas; say what is red and where to start.
+- [ ] 7 `/headcanon:attend` until the human finishes.
+- [ ] 8 Sweep leftovers, DEC-001, `HC render`, `/headcanon:commit`, report.
 
 ## Sources
 
-What the human approved or typed in the layer above is the primary source for the layer below. Threads (one thing an artifact says, with its `path:lines`) have two roles and no third: they **pre-fill** a draft where the layers above leave it open, and they are the **evidence** every draft is checked against. Precedence: the human's approval in this run, their typed words, the newest artifact, older artifacts. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 9.
+Threads (one thing an artifact says, with its `path:lines`) are the direction of every draft and the evidence every draft is checked against. Precedence: what the human approved or typed in the page, the newest artifact, older artifacts. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 8.
 
-When a thread disagrees with an approval or with a draft derived from one: do not settle it and do not start the next layer. Ask "The document says A [1]. What you approved says B. Which stands?" with options **Keep what I approved** and **The document is right**; a typed third version is applied and asked again. Record the outcome, and list an overruled document in DEC-001 as superseded on that point.
+Two threads that disagree on an entry: draft from the newer and make the node `contested`, with both statements under `## Contested`, so it comes up red. A thread that disagrees with something the human approved on the canvas is never settled by you: say it in the chat and ask "The document says A. You approved B. Which stands?" with **Keep what I approved** and **The document is right**; list an overruled document in DEC-001 as superseded on that point.
 
-Read only this repository, reference.md and the human's answers. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent. With the viewer's tools present, call `headcanon_changes` before each layer: wording the human typed in the page is stated, and a refine-request names the branch to decompose next.
+Read only this repository, reference.md and what the human does in the page. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent.
+
+## Guessing
+
+- **Enough to guess**: the entry's line can be written from its chain to the parent plus a thread or the archetype of its kind. Write it `assumed`, with the chain and the thread in `source`.
+- **Not enough**: only the chain exists and nothing in the project says what the thing concretely is. Write an `open` node titled as the question, with the chain in `source`, and invent nothing.
+- **Prefer the guess** whenever a thread speaks to the entry at all: the human corrects a wrong guess in one click, but cannot answer a question that was never asked.
+- The premise, the glossary and the principles are guessed the same way, from the newest artifacts that state them; a document the human did not watch being written never makes an entry stated.
 
 ## Asking
 
-- The full draft goes in the question text, once, as prose. A sentence resting on a thread ends with a footnote [1]; one "Sources:" line at the end lists them. Never a path or date inside a sentence.
-- Label each question by layer: "Premise (1 of 5): purpose", "Principles (2 of 5)", "Domains (3 of 5)", "Capabilities (4 of 5): <domain>", "Requirements (5 of 5): <capability>", then "Leftovers".
-- Options are exactly **Approve as written** and **Drop**; the briefing has told the human that Other replaces them with their own wording or a correction, so no question repeats it. An option carries no text.
-- A list gets one multi-select: each option's label is the ID and title, its description the item's one-line draft ending with its footnote; the question body holds only the layer label, the instruction and the Sources line, never the drafts again. Then one question per unticked item restating its draft. A ticked item is approved as written. Every multi-select repeats: "Tick every item that is right as written; unticked items come back one by one."
-- Typed text is one of three kinds. **Wording** (the statement itself) is stated, quoted verbatim, and is the entry. **A correction** ("drop the counts") is applied exactly to the draft it names and that draft is asked again; in a list, only the items it changes come back, each on its own as ID, title and line, and items the text approves ("all of these are correct") count as ticked; neither the correction nor its reasons enter the entry. **A process instruction** ("one at a time") is followed for the rest of the run and recorded nowhere.
-- "Anything missing?" closes a layer with the options **Nothing missing** and **Remind me later in review**; typed text is the missing item, drafted and asked back. Remind me later adds a line under `## Open` in the root README with the date and the layer, which `/headcanon:review` walks.
-- Anything the human must know travels with a question, as its `notice` through the page or a sentence before it in the terminal, never inside the draft; free text between tool calls may never be read.
-- Write a file only after the question approving it is answered.
+The few questions left, the briefing, the sweep and a disagreement after an approval, go through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. A draft in a question reads as prose; a sentence resting on a thread ends with a footnote [1] and one "Sources:" line lists them. Options are exactly **Approve as written** and **Drop** unless the step names others; an option carries no text; a list gets one multi-select whose options are ID and title with the one-line draft as description. Typed text is wording (stated, quoted verbatim), a correction (applied exactly to the draft it names, which is asked again; in a list only the changed items come back, and items the text approves count as ticked), or a process instruction (followed, recorded nowhere). Anything the human must know travels as a question's `notice` or a `headcanon_say`, never inside a draft and never as free text between tool calls, which may never be read.
 
 ## Entries
 
@@ -53,68 +50,50 @@ Read only this repository, reference.md and the human's answers. The plugin's ow
 - Domains and capabilities in plain words; mechanisms and jargon only in requirements, using glossary terms.
 - A written entry carries no footnote markers; sources go in the node's `source` field, or on a Source line after a principle or glossary entry.
 
-## Briefing
-
-The first question is the briefing block in reference.md section 0, pasted verbatim, with the single option **Let's begin** and no draft, so the human agrees to the process before judging anything. The premise draft is the next question, asked only once that answer is in.
-
 ## Steps
 
 ### 1 Read
 
 Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. Note contradictions and which artifact is newer. Never present the list; never ask about provenance.
 
-### 3 Premise
+### 2 Briefing
 
-One question each, in order: what it is (one or two sentences); purpose and for whom (one paragraph); not this (three to six non-goals, the only place for what the project is not; multi-select, one by one, then "anything missing?"); glossary (six to ten terms; multi-select, one by one).
+The briefing block in reference.md section 0, verbatim, as a question with the single option **Let's begin**. Nothing else is asked before the canvas opens.
 
-### 4 Init
+### 3 Root
 
-Run `HC init`; the human must learn in one sentence that the commit-msg hook now requires an Intent trailer on every commit: through the page it is the `notice` of the next question, never part of its text; in the terminal it is said before the next question. Write `canon/README.md` in the root format.
+`HC init`. Draft `canon/README.md` in the root format with everything `assumed`: what it is (one or two sentences) and the purpose and for whom (one paragraph) from the newest artifacts; Not this, three to six non-goals the artifacts state; a glossary of six to ten terms; three to eight principles, each a title and a paragraph, from charters, style guides and decision records, where a "never" the artifacts state is a principle first and a milestone from an old plan is not. The Glossary heading keeps `[assumed]`.
 
-### 5 Principles
+### 4 Tree
 
-Direction: tone, taste, values, ways of working; a "never" the human states is a principle first. Draw on the premise answers first, then on the newest artifacts that state direction (charters, style guides, decision records); a milestone from an old plan is not a principle. Draft three to eight, each a title and a paragraph. Multi-select, one by one, "anything missing?". Write them under `## Principles`.
+`refine ROOT domain draft`, passing documentation and verification as candidates with source `software project`; the archetype prompt reads "what distinct areas must exist for this product to operate?". Fewer than about eight areas: they are the top level with `layer: capability` and there is no domain layer. Then each domain with `capability draft` and each capability with `requirement draft`, in the order `HC next` gives, so that what others build on is defined first. Stop at the requirement layer; deeper levels wait for the human's Define further.
 
-### 6 Domains
+### 5 Recalculate
 
-Refine `ROOT` with layer `domain`, labelled "Domains (3 of 5)", passing two candidates every software project needs, documentation and verification, with source `software project`. The node is the approved premise and the archetype prompt reads "what distinct areas must exist for this product to operate?": a desktop app that turns bank statements into tax reports needs statement import, categorization, reporting; a platform that turns client PDFs into JSON needs intake, discovery, reconciliation, review, provenance, access. Each domain is a folder with a `README.md`, `layer: domain`; the partition goes in the root README's front-matter. Fewer than about eight areas in total: they are the top level with `layer: capability`, and there is no domain layer.
+`HC check`; fix every error. Then the consistency pass: `git add canon`, run the verifier agent (`headcanon:verifier`) and apply its findings before `git reset -q canon`. A contradiction makes both nodes `contested`, with the two statements under `## Contested` and a `conflicts` link. A reiteration merges the newer node into the older when they say one thing, PRN-1, and otherwise writes an `open` node asking whether they are one. Drift goes under the node's `## Open`. Uptake rewrites the parent's line as `assumed`.
 
-### 7 Capabilities
+### 6 Canvas
 
-Per approved domain, in the order `HC next` gives: refine it with layer `capability`, labelled "Capabilities (4 of 5): <domain>". The archetype prompt reads "what does every system of this kind need for this domain to be complete?". The children are written under the domain, `layer: capability`.
+`headcanon_open` with view `adopt`. `headcanon_say`: how many boxes are approved, guessed and need them; that the commit-msg hook now requires an Intent trailer on every commit; and where to start, the premise at the top, then the domains. `headcanon_focus` ROOT with `open`.
 
-### 8 Requirements
+### 7 Attend
 
-Per capability, in the order `HC next` gives, so what others build on is defined first: refine it with layer `requirement`, labelled "Requirements (5 of 5): <capability>". Stop at this depth; deeper levels wait for the human's Define this branch.
+`/headcanon:attend`. It returns when the human presses Finish with nothing red left.
 
-### 9 Sweep
+### 8 Finish
 
-Unused threads, at most eight per question, as a multi-select with per-thread options **add under <capability>**, **merge into <ID>**, **drop**. Adds become assumed nodes with their source; merges update the named node, citing the source; drops go to `canon/decisions/DEC-001-adoption-scope.md`, one line each with source and reason. An artifact the human calls obsolete gets one line for the whole artifact.
-
-### 10 Verify and commit
-
-`HC check`; fix every error; only proceed at 0 errors. `HC summary` and show the tree; `HC render`. `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `Intent-Change: update ROOT`, `Decision: DEC-001`, and `Approved-By` set to the human's git `user.name`, because they approved every item here.
-
-### 11 Report
-
-Domains with their capabilities; open capabilities and domains; counts of stated, resolved and assumed nodes; what was dropped and why; what the human corrected; and that `/headcanon:review` walks the assumed and open items when they are ready. The canon is a seed, not complete.
+Unused threads, at most eight per question, as a multi-select with per-thread options **add under <ID>**, **merge into <ID>**, **drop**: adds become assumed nodes with their source, merges update the named node citing the source, drops go to `canon/decisions/DEC-001-adoption-scope.md` one line each with source and reason; an artifact the human calls obsolete gets one line. Write DEC-001 (reference.md section 3). `HC check` at 0 errors; `HC render`; `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `update ROOT`, `Decision: DEC-001`, and `Approved-By` the human's git `user.name`, because every green box carries their approval. Report in the chat: domains with their capabilities; counts of approved, guessed and open; what they rewrote or deleted; and that `/headcanon:review` walks what stayed assumed.
 
 ## Examples
 
 <example>
-Domain question, plain words, one line each, footnoted:
-Body: "Domains (3 of 5). For Ledgerline to operate, these areas must exist. Tick every item that is right as written; unticked items come back one by one.
-
-Sources: [1] premise, [2] software project"
-Options: label "REQ-1 Statement import", description "bank statements in any common format become transactions. [1]"; label "REQ-2 Categorization", description "every transaction lands in a tax category, by rule or by hand. [1]"; label "REQ-3 Reporting", description "the categorized year becomes the forms an accountant needs. [1]"; label "REQ-4 Documentation", description "how the project records what it is and why. [2]"; label "REQ-5 Verification", description "how the project shows its code does what is intended. [2]".
+Enough to guess. Parent: "Statement import: bank statements in any common format become transactions." Thread: docs/formats.md:3 lists CSV, OFX and QIF. Child written assumed: "REQ-1.2 Parsing: a statement in CSV, OFX or QIF becomes transactions, one per line", source "REQ-1 (consequence of 'become transactions'); docs/formats.md:3".
 </example>
 
 <example>
-Typed correction applied exactly, then asked again:
-Human types: "Don't mention how many banks we support."
-Agent asks: "Merged text: 'Ledgerline imports statements from any bank that exports a common format, and keeps the original file next to the transactions it produced.' Approve as written / Drop."
+Not enough. The same parent implies that a statement imported twice must not double its transactions, but no document says how a duplicate is told apart. Child written open: title "How is a duplicate transaction recognized?", source "REQ-1 (failure of 'one transaction per line')", no Intent.
 </example>
 
 <example>
-Glossary entries. Wrong: "Category: a label on a transaction; a rule is a saved category assignment. NOT a tag." Right: two entries. "Category: a label that places a transaction on one line of the tax report." "Rule: a saved condition that assigns a category to every transaction matching it."
+Resuming. The session starts, `canon/README.md` exists and DEC-001 does not. Step 0 sends you to 6: open the canvas, say "12 approved, 31 guessed, 4 need you; REQ-2.3 is the first red box", focus it, and attend.
 </example>

@@ -79,7 +79,9 @@ function render() {
   const { view, arg } = route();
   const tab = view === "node" ? "tree" : view === "journey" ? "journeys" : view === "decision" ? "decisions" : view;
   for (const a of document.querySelectorAll("#tabs a")) a.classList.toggle("active", a.dataset.view === tab);
-  const views = { overview, tree: () => tree(arg), node: () => tree(arg), health, attention, journeys: () => journeys(arg), journey: () => journeys(arg), decisions: () => decisions(arg), decision: () => decisions(arg), glossary };
+  document.body.classList.toggle("adopt-mode", view === "adopt");
+  if (view !== "adopt") closePopup();
+  const views = { overview, adopt: () => adopt(arg), tree: () => tree(arg), node: () => tree(arg), health, attention, journeys: () => journeys(arg), journey: () => journeys(arg), decisions: () => decisions(arg), decision: () => decisions(arg), glossary };
   $main.innerHTML = (views[view] ?? overview)();
   afterRender(view);
 }
@@ -432,6 +434,7 @@ function afterRender(view) {
   }
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
   if ((view === "tree" || view === "node") && ui.graph) buildGraph(route().arg);
+  if (view === "adopt") { buildAdoptCanvas(); openSession(); }
   const diagrams = $main.querySelectorAll(".mermaid");
   if (diagrams.length && window.mermaid) {
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
@@ -518,21 +521,32 @@ async function pollSession() {
     const pill = document.getElementById("session-pending");
     pill.textContent = s.pending; pill.hidden = s.pending === 0;
     document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
-    if (s.focus && s.focus.seq !== lastFocusSeq) { lastFocusSeq = s.focus.seq; if (s.focus.id) location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`; }
+    if (s.focus && s.focus.seq !== lastFocusSeq) {
+      lastFocusSeq = s.focus.seq;
+      if (s.focus.id) {
+        if (route().view === "adopt") { adoptState.selected = s.focus.id; if (s.focus.id !== "ROOT") expandTo(s.focus.id); location.hash = `#/adopt/${s.focus.id}`; render(); if (s.focus.open) openPopup(s.focus.id); }
+        else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
+      }
+    }
     if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
-    if (s.cursor !== lastCursor) { lastCursor = s.cursor; if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); } }
+    if (s.cursor !== lastCursor) {
+      lastCursor = s.cursor;
+      const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { working = null; if (!s.question) { $question.innerHTML = `<p class="muted">Waiting for you. Open a box on the canvas, or write below.</p>`; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
+      if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); }
+    }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
 }
 // Between questions: the session is reading, writing or thinking; show that it is, and for how long.
 let working = null;
 const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
-function showWorking() {
+function showWorking(what) {
   if (!working) working = { since: Date.now(), answer: "" };
   $question.innerHTML = `
-    <div class="working"><span class="spinner"></span><div><b>The session is working.</b> Its next question appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
+    <div class="working"><span class="spinner"></span><div><b>The session is working${what ? ` since ${esc(what)}` : ""}.</b> What it says or asks next appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
     ${working.answer ? `<p class="muted">You answered: <b>${esc(working.answer.slice(0, 200))}</b></p>` : ""}`;
 }
 function renderQuestion(q, pending = 1) {
@@ -631,5 +645,305 @@ async function submitAnswer(q) {
   } catch (e) { showToast(e); }
 }
 document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && !e.target.classList?.contains("jargon")) { $tooltip.hidden = true; tooltipPinned = false; } });
+
+// ---------------------------------------------------------------- adopt: the canvas for reviewing a drafted canon
+// Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
+// human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
+// Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, view: null };
+function colorOf(id) {
+  if (id === "ROOT") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  const n = node(id);
+  if (!n) return "yellow";
+  if (n.state === "open" || n.state === "contested") return "red";
+  if (findingsFor(id).some((f) => f.level !== "info")) return "red";
+  return n.state === "stated" || n.state === "resolved" ? "green" : "yellow";
+}
+function ensureExpanded() {
+  if (adoptState.expanded) return;
+  adoptState.expanded = new Set(["ROOT", ...snap.canon.roots]);
+}
+function adoptScope() {
+  ensureExpanded();
+  const show = ["ROOT", ...snap.canon.roots];
+  const visit = (id) => { if (!adoptState.expanded.has(id)) return; for (const c of node(id).children) { show.push(c); visit(c); } };
+  for (const r of snap.canon.roots) visit(r);
+  return show;
+}
+function adoptCounts() {
+  const c = { green: 0, yellow: 0, red: 0 };
+  for (const id of Object.keys(snap.canon.nodes)) c[colorOf(id)]++;
+  return c;
+}
+function adopt(selectedId) {
+  if (selectedId) adoptState.selected = selectedId;
+  const c = adoptCounts();
+  return `<div class="adopt">
+    <div class="toolbar adopt-bar">
+      <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
+      <span class="muted">click a circle for its name; double-click or ↗ opens it; the handle below shows its children; drag to pan, wheel to zoom</span>
+      <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" title="Show or hide every name">Names</button>
+      <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
+      <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
+      <button class="btn small" data-fit="1">Fit</button>
+      <button class="btn small" data-expand-all="1">Show all</button>
+      <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
+    </div>
+    <div id="cy" class="cy-full"></div>
+  </div>`;
+}
+function buildAdoptCanvas() {
+  const el = $main.querySelector(".adopt #cy");
+  if (!el || !window.cytoscape) return;
+  if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
+  const show = adoptScope();
+  const shown = new Set(show);
+  const info = (id) => (id === "ROOT" ? { title: snap.canon.root?.title ?? "Premise", children: snap.canon.roots, parent: undefined, requires: [], conflicts: [] } : node(id));
+  const labelled = (id) => adoptState.labels || adoptState.labelled.has(id);
+  const elements = [];
+  for (const id of show) {
+    const n = info(id);
+    elements.push({ data: { id, label: `${id === "ROOT" ? "" : id + "\n"}${n.title}` }, classes: `${colorOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}` });
+    const parent = id === "ROOT" ? undefined : n.parent ?? "ROOT";
+    if (parent && shown.has(parent)) elements.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: `contains ${adoptState.edges ? "" : "hidden"}` });
+    for (const t of n.requires) if (shown.has(t)) elements.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: `requires dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
+    for (const t of n.conflicts) if (shown.has(t)) elements.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: `conflicts dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
+  }
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const layout = () => (window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 18, rankSep: 70, padding: 40, fit: false } : { name: "breadthfirst", directed: true, padding: 40, fit: false });
+  const cy = window.cytoscape({
+    container: el, elements, minZoom: 0.05, maxZoom: 4,
+    style: [
+      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "", "border-width": 2, "background-color": "#fef3c7", "border-color": "#d97706" } },
+      { selector: "node.green", style: { "background-color": "#dcfce7", "border-color": "#16a34a" } },
+      { selector: "node.yellow", style: { "background-color": "#fef3c7", "border-color": "#d97706" } },
+      { selector: "node.red", style: { "background-color": "#fee2e2", "border-color": "#dc2626" } },
+      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "data(label)", "text-wrap": "wrap", "text-max-width": 172, "font-size": 11, "text-valign": "center", "text-halign": "center", color: "#1f2937", "border-width": 1.5 } },
+      { selector: "node.selected", style: { "border-width": 4 } },
+      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
+      { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
+      { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+      { selector: ".hidden", style: { display: "none" } },
+    ],
+    layout: layout(),
+  });
+  window.__cy = cy;
+  // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
+  const grid = () => {
+    const z = cy.zoom(), p = cy.pan();
+    let step = 48 * z;
+    while (step < 24) step *= 2;
+    while (step > 96) step /= 2;
+    el.style.backgroundSize = `${step}px ${step}px`;
+    el.style.backgroundPosition = `${p.x}px ${p.y}px`;
+  };
+  // Buttons that float over the boxes: the children handle under every box that has children, and, on a
+  // named box, the eye that hides the name and the ↗ that opens the card.
+  const overlay = document.createElement("div");
+  overlay.className = "overlays";
+  el.appendChild(overlay);
+  const makeOverlays = () => {
+    overlay.innerHTML = "";
+    for (const id of show) {
+      const kids = info(id).children.length;
+      if (kids) {
+        const open = adoptState.expanded.has(id);
+        const b = document.createElement("button");
+        b.className = "ov handle"; b.dataset.id = id; b.dataset.kind = "handle"; b.textContent = open ? "−" : `+${kids}`; b.title = open ? "Hide the children" : `Show ${kids} children`;
+        b.addEventListener("click", (ev) => { ev.stopPropagation(); toggleExpand(id); });
+        overlay.appendChild(b);
+      }
+      if (cy.getElementById(id).hasClass("labelled")) {
+        const eye = document.createElement("button");
+        eye.className = "ov eye"; eye.dataset.id = id; eye.dataset.kind = "eye"; eye.textContent = "👁"; eye.title = "Hide the name";
+        eye.addEventListener("click", (ev) => { ev.stopPropagation(); hideLabel(id); });
+        overlay.appendChild(eye);
+        const go = document.createElement("button");
+        go.className = "ov go"; go.dataset.id = id; go.dataset.kind = "go"; go.textContent = "↗"; go.title = "Open this box";
+        go.addEventListener("click", (ev) => { ev.stopPropagation(); select(id); openPopup(id); });
+        overlay.appendChild(go);
+      }
+    }
+    place();
+  };
+  const place = () => {
+    const r = el.getBoundingClientRect();
+    for (const h of overlay.children) {
+      const n = cy.getElementById(h.dataset.id);
+      if (!n.length) continue;
+      const p = n.renderedPosition(), w = n.renderedWidth(), hh = n.renderedHeight();
+      const inside = p.x > -40 && p.y > -40 && p.x < r.width + 40 && p.y < r.height + 40;
+      h.style.display = inside ? "" : "none";
+      if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; }
+      else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 12}px`; h.style.top = `${p.y - hh / 2}px`; }
+      else { h.style.left = `${p.x + w / 2 - 36}px`; h.style.top = `${p.y - hh / 2}px`; }
+    }
+  };
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
+  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); };
+  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); };
+  let lastTap = { id: null, at: 0 };
+  cy.on("tap", "node", (e) => {
+    const id = e.target.id(), now = Date.now();
+    if (lastTap.id === id && now - lastTap.at < 400) { lastTap = { id: null, at: 0 }; select(id); openPopup(id); return; }
+    lastTap = { id, at: now };
+    select(id);
+    showLabel(id);
+  });
+  cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
+  cy.on("position layoutstop", place);
+  cy.ready(() => {
+    if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
+    grid(); makeOverlays();
+  });
+  if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
+  $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 40); });
+  $main.querySelector("[data-labels]")?.addEventListener("click", (ev) => {
+    adoptState.labels = !adoptState.labels;
+    ev.currentTarget.classList.toggle("on", adoptState.labels);
+    if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
+    else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
+    cy.layout(layout()).run();
+    makeOverlays();
+  });
+  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
+  $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
+  $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); render(); });
+  $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
+}
+function toggleExpand(id) { ensureExpanded(); adoptState.expanded.has(id) ? adoptState.expanded.delete(id) : adoptState.expanded.add(id); render(); }
+function expandTo(id) { ensureExpanded(); let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
+
+// The node card: what the node says, why it has its colour, and the actions on it.
+const $popup = document.getElementById("popup");
+const $why = document.getElementById("ask-why");
+function openPopup(id) {
+  const isRoot = id === "ROOT";
+  const n = isRoot ? null : node(id);
+  if (!isRoot && !n) return;
+  const color = colorOf(id);
+  const state = isRoot ? snap.canon.root?.state : n.state;
+  const because = color === "red"
+    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? "Two statements pull against each other; keep one or rewrite." : "A check flagged it; see below.")
+    : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
+  const fs = isRoot ? [] : findingsFor(id).filter((f) => f.level !== "info");
+  const kids = isRoot ? snap.canon.roots.length : n.children.length;
+  $popup.innerHTML = `
+    <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
+    <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
+    <div class="popup-body body" id="pp-body">${markSections(snap.html[id] ?? "<p class='muted'>No text yet.</p>")}</div>
+    ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
+    <div class="row pp-actions">
+      ${color !== "green" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
+      <button class="btn" id="pp-edit" title="Say it in your own words">Rewrite</button>
+      ${isRoot ? "" : `<button class="btn" id="pp-delete" title="Remove this node and everything under it">Delete</button>`}
+      ${kids && !isRoot ? `<button class="btn" id="pp-toggle">${adoptState.expanded?.has(id) ? "Hide children" : `Show ${kids} children`}</button>` : ""}
+      ${isRoot ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
+    </div>
+    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <div id="pp-editor" class="editor"></div>
+    <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
+  const wasHidden = $popup.hidden;
+  $popup.hidden = false;
+  $popup.dataset.id = id;
+  if (wasHidden) centerPopup();
+  wirePopupMoves();
+  $popup.querySelector("#pp-close").addEventListener("click", closePopup);
+  $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
+    try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
+  });
+  $popup.querySelector("#pp-delete")?.addEventListener("click", async () => {
+    if (!confirm(`Delete ${id}${kids ? ` and its ${kids} children` : ""}? The session will re-check what depended on it.`)) return;
+    try { await fetch(`/api/node/${encodeURIComponent(id)}`, { method: "DELETE" }); closePopup(); adoptState.selected = null; await load(); render(); startWorking(`you deleted ${id}`); } catch (e) { showToast(e); }
+  });
+  $popup.querySelector("#pp-toggle")?.addEventListener("click", () => { toggleExpand(id); openPopup(id); });
+  $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
+  $popup.querySelector("#pp-edit").addEventListener("click", async () => {
+    const editor = $popup.querySelector("#pp-editor");
+    const raw = await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
+    const intent = (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
+    editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
+      ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
+      <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
+      <div class="row"><button class="btn primary" id="pp-save">Save</button><button class="btn" id="pp-cancel">Cancel</button></div>`;
+    editor.querySelector("#pp-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.querySelector("#pp-save").addEventListener("click", async () => {
+      const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
+      try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
+    });
+  });
+}
+function closePopup() { $popup.hidden = true; $why.hidden = true; delete $popup.dataset.id; }
+// The card opens in the middle of the canvas, moves by its header and resizes from any corner.
+function centerPopup() {
+  const area = $main.querySelector(".adopt #cy")?.getBoundingClientRect() ?? $main.getBoundingClientRect();
+  const w = Math.min(560, Math.max(320, area.width - 40));
+  $popup.style.width = `${w}px`;
+  $popup.style.height = "";
+  const h = Math.min($popup.offsetHeight, area.height - 40);
+  $popup.style.height = `${h}px`;
+  $popup.style.left = `${Math.max(8, area.left + (area.width - w) / 2)}px`;
+  $popup.style.top = `${Math.max(60, area.top + (area.height - h) / 2)}px`;
+}
+function wirePopupMoves() {
+  const head = $popup.querySelector(".popup-head");
+  head.addEventListener("mousedown", (e) => {
+    if (e.target.closest("button")) return;
+    e.preventDefault();
+    const start = { x: e.clientX, y: e.clientY, left: $popup.offsetLeft, top: $popup.offsetTop };
+    const move = (ev) => { $popup.style.left = `${start.left + ev.clientX - start.x}px`; $popup.style.top = `${start.top + ev.clientY - start.y}px`; };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  });
+  for (const grip of $popup.querySelectorAll(".pp-resize")) grip.addEventListener("mousedown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const dirs = grip.className.replace("pp-resize", "").trim();
+    const start = { x: e.clientX, y: e.clientY, left: $popup.offsetLeft, top: $popup.offsetTop, w: $popup.offsetWidth, h: $popup.offsetHeight };
+    const move = (ev) => {
+      const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+      let { left, top, w, h } = start;
+      if (dirs.includes("e")) w = Math.max(320, start.w + dx);
+      if (dirs.includes("s")) h = Math.max(220, start.h + dy);
+      if (dirs.includes("w")) { w = Math.max(320, start.w - dx); left = start.left + (start.w - w); }
+      if (dirs.includes("n")) { h = Math.max(220, start.h - dy); top = start.top + (start.h - h); }
+      Object.assign($popup.style, { left: `${left}px`, top: `${top}px`, width: `${w}px`, height: `${h}px` });
+    };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  });
+}
+// The ? tool: select words in the card, press ?, and the session explains them in the chat.
+document.addEventListener("mouseup", () => {
+  setTimeout(() => {
+    const sel = window.getSelection();
+    const text = sel?.toString().trim();
+    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode)) { if (!$why.matches(":hover")) $why.hidden = true; return; }
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    $why.style.left = `${Math.min(window.innerWidth - 34, r.right + 6)}px`; $why.style.top = `${Math.max(8, r.top - 30)}px`;
+    $why.dataset.text = text.slice(0, 300);
+    $why.hidden = false;
+  }, 0);
+});
+$why.addEventListener("click", async () => {
+  const text = $why.dataset.text, id = $popup.dataset.id;
+  $why.hidden = true;
+  try { await post("/api/message", { text: `What do you mean by "${text}"?`, nodeId: id }); appendChat([{ kind: "message", text: `What do you mean by "${text}"?`, id }]); startWorking("you asked about a passage"); } catch (e) { showToast(e); }
+});
+
+// The chat: what the session says and what the human sends, with the actions between them as quiet lines.
+let chatCursor = 0;
+function appendChat(entries) {
+  const list = document.getElementById("activity");
+  for (const e of entries) {
+    const li = document.createElement("li");
+    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${esc(e.text ?? "")}${e.id ? ` ${idLink(e.id)}` : ""}`; }
+    else if (e.kind === "message") { li.className = "message"; li.textContent = e.text ?? ""; }
+    else { li.className = "sys"; li.textContent = e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind; }
+    list.appendChild(li);
+  }
+  while (list.children.length > 60) list.firstChild.remove();
+  list.lastElementChild?.scrollIntoView({ block: "nearest" });
+}
+function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
 
 load().then(render).catch(showError).finally(pollSession);

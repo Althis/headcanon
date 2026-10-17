@@ -11,6 +11,7 @@ export { titleOverlap } from "./check.js";
 export { SessionState, DEFAULT_OPTIONS, type AskRequest, type AskAnswer, type AskOption, type PendingQuestion, type TermGuess, type TermDecision, type FeedEntry, type FeedKind } from "./session.js";
 export { detectTerms, nameWords, type DetectOptions } from "./terms.js";
 export { addGlossaryTerm, termId } from "./glossary.js";
+export { approveNode, editNode, setField, upsertSection, clearMarkers } from "./edits.js";
 export { runMcp, type McpOptions } from "./mcp.js";
 export { initCanon, rootReadme, type InitOptions, type InitResult } from "./init.js";
 export { sessionContext } from "./context.js";
