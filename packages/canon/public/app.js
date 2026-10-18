@@ -656,7 +656,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "lanes", menu: true, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "lanes", menu: true, prn: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -671,8 +671,7 @@ function ensureExpanded() {
 }
 function adoptScope() {
   ensureExpanded();
-  const show = ["ROOT", "PRINCIPLES", ...snap.canon.roots];
-  if (adoptState.expanded.has("PRINCIPLES")) for (const p of snap.canon.principles) show.push(p.id);
+  const show = ["ROOT", ...snap.canon.roots];
   const visit = (id) => { if (!adoptState.expanded.has(id)) return; for (const c of node(id).children) { show.push(c); visit(c); } };
   for (const r of snap.canon.roots) visit(r);
   return show;
@@ -774,6 +773,7 @@ function buildAdoptCanvas() {
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#60a5fa", "target-arrow-color": "#60a5fa" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#ef4444", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#ef4444", "target-arrow-color": "#ef4444" } },
       { selector: "edge.fork", style: { "curve-style": "round-segments", "segment-radii": 14, "edge-distances": "node-position", "target-arrow-shape": "none" } },
+      { selector: "edge.route", style: { "curve-style": "round-segments", "segment-radii": 10, "edge-distances": "node-position" } },
       { selector: "edge.dim", style: { opacity: 0.18 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
@@ -832,7 +832,7 @@ function buildAdoptCanvas() {
     const rings = ringGeom();
     const radius = (id) => rings[ringOf(cy.getElementById(id))]?.c ?? 0;
     const kids = new Map();
-    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, (id === "ROOT" ? ["PRINCIPLES", ...info("ROOT").children] : info(id).children).filter((c) => cy.getElementById(c).length)); return kids.get(id); };
+    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, info(id).children.filter((c) => cy.getElementById(c).length)); return kids.get(id); };
     const size = new Map();
     const count = (id) => { let s = 1; for (const c of kidsOf(id)) s += count(c); size.set(id, s); return s; };
     count("ROOT");
@@ -905,13 +905,13 @@ function buildAdoptCanvas() {
     place();
     if (animated) follow(380);
   };
-  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
+  const unfork = () => { cy.edges(".fork, .route").removeClass("fork route").removeStyle("segment-weights segment-distances"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
   // A fork as a segment line: the points are given relative to the straight line from parent to child.
-  const fork = (e, S, T, pts) => {
+  const fork = (e, S, T, pts, cls = "fork") => {
     const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
     const ws = [], ds = [];
     for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
-    e.addClass("fork").style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
+    e.addClass(cls).style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
   };
   // Dendrogram: left to right, one column per level, every box a single row showing its number and its
   // whole title; a column is as wide as its widest row. A leaf takes one row, a parent as many as its
@@ -920,23 +920,26 @@ function buildAdoptCanvas() {
   // outright like the rings, with the same forks: out of the parent's right side, down the gutter before
   // the children's column, into each child's left side. Nothing is collapsed here and nothing is dragged.
   const ROWH = 44, COLGAP = 72;
+  // what a row says about its dependencies, when the Dependencies switch is on
+  const needsOf = (id) => { if (!adoptState.deps) return ""; const n = info(id), parts = []; if (n.requires.length) parts.push("needs " + n.requires.map(shortOf).join(", ")); if (n.conflicts.length) parts.push("clashes " + n.conflicts.map(shortOf).join(", ")); return parts.join(" · "); };
   const rowWidth = (() => {
     const ctx = document.createElement("canvas").getContext("2d"), cache = new Map();
     return (id) => {
-      const title = info(id).title, key = id + "\n" + title;
+      const title = info(id).title, needs = needsOf(id), key = id + "\n" + title + "\n" + needs;
       if (cache.has(key)) return cache.get(key);
       ctx.font = `600 11px ${getComputedStyle(document.body).fontFamily}`;
       const tw = ctx.measureText(title).width;
       ctx.font = `9px ${getComputedStyle(document.documentElement).getPropertyValue("--mono") || "ui-monospace, monospace"}`;
       const gw = ctx.measureText(id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id).width;
-      const w = Math.ceil(8 + gw + 10 + 6 + tw + 8 + 6);
+      const nw = needs ? 8 + ctx.measureText(needs).width : 0;
+      const w = Math.ceil(8 + gw + 10 + 6 + tw + nw + 8 + 6);
       cache.set(key, w);
       return w;
     };
   })();
   const layoutDendro = (animated) => {
     const kids = new Map();
-    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, (id === "ROOT" ? ["PRINCIPLES", ...info("ROOT").children] : info(id).children).filter((c) => cy.getElementById(c).length)); return kids.get(id); };
+    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, info(id).children.filter((c) => cy.getElementById(c).length)); return kids.get(id); };
     const depth = new Map(), order = [];
     const walk = (id, d) => { depth.set(id, d); order.push(id); for (const c of kidsOf(id)) walk(c, d + 1); };
     walk("ROOT", 0);
@@ -972,6 +975,15 @@ function buildAdoptCanvas() {
         const fx = cols[depth.get(t)].left - 26;
         fork(e, S, T, [{ x: S.x + widths.get(s) / 2 + 18, y: S.y }, { x: fx, y: S.y }, { x: fx, y: T.y }, { x: T.x - widths.get(t) / 2 - 18, y: T.y }]);
       }
+      // a dependency line runs out of the box's side, along a bus beside the column, and into its target's side
+      for (const e of cy.edges(".dep")) {
+        const s = e.source().id(), t = e.target().id(), S = P.get(s), T = P.get(t);
+        if (!S || !T) continue;
+        const ds = depth.get(s), dt = depth.get(t), ws = widths.get(s), wt = widths.get(t), col = cols[ds];
+        const back = dt < ds, bus = back ? col.left - 48 : col.left + col.width + 22;
+        fork(e, S, T, [{ x: back ? S.x - ws / 2 - 8 : S.x + ws / 2 + 8, y: S.y }, { x: bus, y: S.y }, { x: bus, y: T.y }, { x: dt > ds ? T.x - wt / 2 - 8 : T.x + wt / 2 + 8, y: T.y }], "route");
+      }
+      applyDeps();
       cy.nodes().ungrabify();
       for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out", queue: false }); else n.position(p); }
     });
@@ -1154,7 +1166,8 @@ function buildAdoptCanvas() {
         const card = document.createElement("div");
         card.className = "ov-card row"; card.dataset.id = id; card.dataset.kind = "card"; card.style.width = n.data("dw") + "px";
         const tag = id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id;
-        card.innerHTML = `<span class="tag">${esc(tag)}</span><span class="ttl">${esc(info(id).title)}</span>`;
+        const needs = needsOf(id);
+        card.innerHTML = `<span class="tag">${esc(tag)}</span><span class="ttl">${esc(info(id).title)}</span>${needs ? `<span class="needs">${esc(needs)}</span>` : ""}`;
         overlay.appendChild(card);
       } else if (n.hasClass("labelled")) {
         const card = document.createElement("div");
@@ -1250,6 +1263,15 @@ function buildAdoptCanvas() {
   for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) menu.addEventListener(ev, (e) => e.stopPropagation());
   menu.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.menu = !adoptState.menu; menu.classList.toggle("closed", !adoptState.menu); });
   const labelButton = () => { const b = menu.querySelector("[data-labels]"); b.classList.toggle("on", adoptState.labels); b.textContent = adoptState.labels ? "Collapse" : "Expand"; };
+  // The principles keep one place in every view, the canvas's top left corner; each row opens its card.
+  const prnBox = document.createElement("div");
+  prnBox.className = "menu principles" + (adoptState.prn ? "" : " closed");
+  const prnRows = snap.canon.principles.map((p) => `<button class="btn small prn-row" data-prn="${esc(p.id)}" title="${esc(p.statement)}"><i class="sw ${colorOf(p.id)}"></i><span class="tag">${esc(p.id)}</span><span>${esc(p.title)}</span></button>`).join("") || `<span class="muted">none yet</span>`;
+  prnBox.innerHTML = `<div class="menu-head"><b>Principles</b><button class="btn small caret" data-collapse="1" title="Fold or unfold the principles">▾</button></div><div class="menu-body">${prnRows}</div>`;
+  el.appendChild(prnBox);
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) prnBox.addEventListener(ev, (e) => e.stopPropagation());
+  prnBox.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.prn = !adoptState.prn; prnBox.classList.toggle("closed", !adoptState.prn); });
+  for (const b of prnBox.querySelectorAll("[data-prn]")) b.addEventListener("click", () => openPopup(b.dataset.prn));
   const setMode = (mode) => {
     if (adoptState.mode === mode) return;
     adoptState.mode = mode;
@@ -1257,6 +1279,7 @@ function buildAdoptCanvas() {
     for (const b of menu.querySelectorAll(".mode button")) b.classList.toggle("on", b.dataset.mode === mode);
     cancelAnimationFrame(sim.raf); sim.alpha = 0; sim.heavy.clear();
     unfork();
+    applyDeps();
     if (mode !== "lanes") { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; relayout(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
     const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     seed();
@@ -1270,8 +1293,11 @@ function buildAdoptCanvas() {
   window.__sim.layoutRadial = layoutRadial; window.__sim.layoutDendro = layoutDendro;
   // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
   const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
-  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); keepInView(id); };
-  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
+  // Which dependency lines show: they follow the Dependencies and Edges switches, and in the tree only the
+  // selected box's are drawn; the rows say the rest.
+  const applyDeps = () => { const on = adoptState.deps && adoptState.edges; for (const e of cy.edges(".dep")) e.toggleClass("hidden", !on || (adoptState.mode === "dendro" && e.source().id() !== adoptState.selected && e.target().id() !== adoptState.selected)); };
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); applyDeps(); place(); keepInView(id); };
+  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); applyDeps(); place(); } });
   // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
   const cardSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
   const showLabel = (id) => {
@@ -1367,8 +1393,8 @@ function buildAdoptCanvas() {
     makeOverlays();
     settle(0.8);
   });
-  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
-  $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
+  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); applyDeps(); if (adoptState.mode === "dendro") settle(0.5); });
+  $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); applyDeps(); });
   $main.querySelector("[data-bands]")?.addEventListener("click", (ev) => { adoptState.bands = !adoptState.bands; ev.currentTarget.classList.toggle("on", adoptState.bands); laneLines(); settle(0.6); });
   $main.querySelector("[data-order]")?.addEventListener("click", (ev) => { adoptState.order = !adoptState.order; ev.currentTarget.classList.toggle("on", adoptState.order); settle(0.5); });
   $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); adoptState.focus.clear(); sync(); });

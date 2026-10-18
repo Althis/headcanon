@@ -290,6 +290,12 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .ov-card.row { display: flex; flex-direction: row; align-items: center; gap: 6px; height: 30px; padding: 0 8px; white-space: nowrap; overflow: hidden; }
 .ov-card.row .tag { position: static; }
 .ov-card.row .ttl { margin-top: 0; text-align: left; }
+.ov-card.row .needs { font-family: var(--mono); font-size: 9px; color: #60a5fa; white-space: nowrap; }
+.menu.principles { left: 10px; right: auto; max-width: 340px; }
+.menu.principles .menu-head b { font-size: 12px; padding-left: 4px; }
+.prn-row { display: flex; align-items: center; gap: 6px; text-align: left; white-space: normal; }
+.prn-row .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.prn-row .sw { margin: 0; flex: none; }
 .lane.col { left: auto; right: auto; width: 0; border-top: 0; border-left: 1px dotted rgba(154,163,178,.35); padding: 2px 0 0 6px; white-space: nowrap; }
 .lane.sep { right: auto; border-top: 1px dotted rgba(154,163,178,.35); padding: 0; }
 .mode { display: flex; }
