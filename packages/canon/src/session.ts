@@ -55,7 +55,18 @@ export interface PendingQuestion {
   notice: string | undefined;
 }
 
-export type FeedKind = "answer" | "message" | "refine-request" | "node-edited" | "node-created" | "term-enshrined" | "term-dropped";
+export type FeedKind =
+  | "answer"
+  | "message"
+  | "say"
+  | "refine-request"
+  | "finish-request"
+  | "node-edited"
+  | "node-created"
+  | "node-approved"
+  | "node-deleted"
+  | "term-enshrined"
+  | "term-dropped";
 
 export interface FeedEntry {
   seq: number;
@@ -79,6 +90,8 @@ export class SessionState {
   private seq = 0;
   private focusId: string | undefined;
   private focusSeq = 0;
+  private focusOpen = false;
+  private changeWaiters: Array<() => void> = [];
 
   /** Queue a question. The head of the queue is what the page shows. */
   ask(req: AskRequest): PendingQuestion {
@@ -148,13 +161,15 @@ export class SessionState {
     });
   }
 
-  setFocus(id: string): void {
+  /** Point the page at a node; `open` also opens it for reading and editing. */
+  setFocus(id: string, open = false): void {
     this.focusId = id;
+    this.focusOpen = open;
     this.focusSeq++;
   }
 
-  focus(): { id: string | undefined; seq: number } {
-    return { id: this.focusId, seq: this.focusSeq };
+  focus(): { id: string | undefined; seq: number; open: boolean } {
+    return { id: this.focusId, seq: this.focusSeq, open: this.focusOpen };
   }
 
   push(kind: FeedKind, data: { id?: string | undefined; text?: string | undefined; path?: string | undefined } = {}): FeedEntry {
@@ -164,11 +179,30 @@ export class SessionState {
     if (data.path) e.path = data.path;
     this.feed.push(e);
     if (this.feed.length > 500) this.feed.splice(0, this.feed.length - 500);
+    for (const w of this.changeWaiters.splice(0)) w();
     return e;
   }
 
   /** Feed entries after `since`; the cursor to pass next time is `cursor`. */
   changes(since = 0): { cursor: number; entries: FeedEntry[] } {
     return { cursor: this.seq, entries: this.feed.filter((e) => e.seq > since) };
+  }
+
+  /** The same, but waits up to `ms` for a first entry, so the session can attend the page without polling. */
+  waitChanges(since: number, ms: number): Promise<{ cursor: number; entries: FeedEntry[] }> {
+    const now = this.changes(since);
+    if (now.entries.length || ms <= 0) return Promise.resolve(now);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        const i = this.changeWaiters.indexOf(wake);
+        if (i >= 0) this.changeWaiters.splice(i, 1);
+        resolve(this.changes(since));
+      }, ms);
+      const wake = () => {
+        clearTimeout(timer);
+        resolve(this.changes(since));
+      };
+      this.changeWaiters.push(wake);
+    });
   }
 }

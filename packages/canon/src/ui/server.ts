@@ -1,10 +1,11 @@
-import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
+import { approveNode, editNode } from "../edits.js";
 import { addGlossaryTerm } from "../glossary.js";
-import { loadCanon } from "../load.js";
+import { descendants, loadCanon } from "../load.js";
 import { parseFrontMatter, str } from "../parse.js";
 import { SessionState, type AskAnswer, type AskRequest, type PendingQuestion, type TermDecision } from "../session.js";
 import { buildSnapshot } from "../snapshot.js";
@@ -92,18 +93,29 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     return json(ok ? 200 : 404, { ok });
   }
   if (p === "/api/focus" && method === "POST") {
-    const body = (await readJson(req)) as { id?: string };
+    const body = (await readJson(req)) as { id?: string; open?: boolean };
     if (!body?.id) return json(400, { error: "id is required" });
-    session.setFocus(body.id);
+    session.setFocus(body.id, body.open === true);
     return json(200, { ok: true, focus: session.focus() });
   }
   if (p === "/api/changes" && method === "GET") {
-    return json(200, session.changes(Number(url.searchParams.get("since") ?? 0)));
+    const since = Number(url.searchParams.get("since") ?? 0);
+    const timeout = Math.min(Math.max(Number(url.searchParams.get("timeout") ?? 0), 0), 25);
+    return json(200, await session.waitChanges(since, timeout * 1000));
   }
   if (p === "/api/message" && method === "POST") {
-    const body = (await readJson(req)) as { text?: string };
+    const body = (await readJson(req)) as { text?: string; nodeId?: string };
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
-    return json(200, session.push("message", { text: body.text.trim() }));
+    return json(200, session.push("message", { text: body.text.trim(), id: body.nodeId }));
+  }
+  // The session speaks to the human: a line in the page's chat, optionally about a node.
+  if (p === "/api/say" && method === "POST") {
+    const body = (await readJson(req)) as { text?: string; nodeId?: string };
+    if (!body?.text?.trim()) return json(400, { error: "text is required" });
+    return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId }));
+  }
+  if (p === "/api/finish" && method === "POST") {
+    return json(200, session.push("finish-request", { text: "The human asked to finish the adoption." }));
   }
   if (p === "/api/refine" && method === "POST") {
     const body = (await readJson(req)) as { id?: string; note?: string };
@@ -120,23 +132,46 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     return json(200, { ok: true, feed: session.push("term-dropped", { text: `${body.term}${body.replacement ? ` → ${body.replacement}` : ""}` }) });
   }
 
-  // ---- nodes: read raw, edit, create ----
-  const nodeMatch = /^\/api\/node\/([^/]+)(\/raw)?$/.exec(p);
-  if (nodeMatch && method === "GET" && nodeMatch[2]) {
+  // ---- nodes: read raw, edit, approve, delete, create ----
+  const nodeMatch = /^\/api\/node\/([^/]+)(\/raw|\/approve)?$/.exec(p);
+  const today = () => new Date().toISOString().slice(0, 10);
+  if (nodeMatch && method === "GET" && nodeMatch[2] === "/raw") {
     const file = fileOf(canonDir, decodeURIComponent(nodeMatch[1] ?? ""));
     if (!file) return json(404, { error: "no such node" });
     return json(200, { id: nodeMatch[1], path: file.rel, text: readFileSync(file.abs, "utf8") });
+  }
+  if (nodeMatch && method === "POST" && nodeMatch[2] === "/approve") {
+    const id = decodeURIComponent(nodeMatch[1] ?? "");
+    const file = fileOf(canonDir, id);
+    if (!file) return json(404, { error: "no such node" });
+    writeFileSync(file.abs, approveNode(readFileSync(file.abs, "utf8"), today()));
+    return json(200, { ok: true, path: file.rel, feed: session.push("node-approved", { id, path: file.rel, text: `${id} approved as written` }) });
   }
   if (nodeMatch && method === "PUT" && !nodeMatch[2]) {
     const id = decodeURIComponent(nodeMatch[1] ?? "");
     const file = fileOf(canonDir, id);
     if (!file) return json(404, { error: "no such node" });
-    const body = (await readJson(req)) as { text?: string };
-    if (typeof body?.text !== "string") return json(400, { error: "text is required" });
-    const { data } = parseFrontMatter(body.text);
-    if (str(data["id"])?.trim() !== id) return json(400, { error: `the front-matter id must stay ${id}` });
-    writeFileSync(file.abs, body.text.endsWith("\n") ? body.text : body.text + "\n");
-    return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: "edited in the page" }) });
+    const body = (await readJson(req)) as { text?: string; title?: string; intent?: string };
+    if (typeof body?.text === "string") {
+      const { data } = parseFrontMatter(body.text);
+      if (str(data["id"])?.trim() !== id) return json(400, { error: `the front-matter id must stay ${id}` });
+      writeFileSync(file.abs, body.text.endsWith("\n") ? body.text : body.text + "\n");
+      return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: "edited in the page" }) });
+    }
+    // Fields from the popup: the typed text is the human's wording, stated, and becomes the entry.
+    if (typeof body?.intent !== "string" || !body.intent.trim()) return json(400, { error: "text or intent is required" });
+    writeFileSync(file.abs, editNode(readFileSync(file.abs, "utf8"), { title: body.title?.trim() || undefined, intent: body.intent }, today()));
+    return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: `${id} rewritten: ${body.intent.trim().slice(0, 120)}` }) });
+  }
+  if (nodeMatch && method === "DELETE" && !nodeMatch[2]) {
+    const id = decodeURIComponent(nodeMatch[1] ?? "");
+    const file = fileOf(canonDir, id);
+    if (!file) return json(404, { error: "no such node" });
+    const canon = loadCanon(canonDir);
+    const removed = [id, ...descendants(canon, id)];
+    if (basename(file.abs) === "README.md") rmSync(dirname(file.abs), { recursive: true, force: true });
+    else rmSync(file.abs, { force: true });
+    return json(200, { ok: true, removed, feed: session.push("node-deleted", { id, path: file.rel, text: `${removed.join(", ")} deleted in the page` }) });
   }
   if (p === "/api/node" && method === "POST") {
     const body = (await readJson(req)) as { parent?: string; title?: string; intent?: string; layer?: string };

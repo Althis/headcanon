@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -89,10 +90,17 @@ const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSO
 export async function runMcp(opts: McpOptions): Promise<void> {
   const base = await attachViewer(opts.canonDir, opts.port);
   let opened = false;
+  // Where the human lands: an adoption in progress, no canon yet or no scope decision, is the Adopt
+  // view's business; a finished canon opens on the overview.
+  const landing = () => {
+    const decisions = join(opts.canonDir, "decisions");
+    const finished = existsSync(decisions) && readdirSync(decisions).some((f) => /adoption-scope/.test(f));
+    return finished ? `${base}/` : `${base}/#/adopt`;
+  };
   const ensureOpen = () => {
     if (opened || !opts.openBrowser) return;
     opened = true;
-    openBrowser(`${base}/`);
+    openBrowser(landing());
   };
 
   const waitFor = async (questionId: string, seconds: number) => {
@@ -143,7 +151,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       if (!list.length) return text({ error: "pass `question` or `questions`" });
       const ids: string[] = [];
       for (const req of list) ids.push((await api<{ questionId: string }>(base, "/api/ask", { method: "POST", body: JSON.stringify(req) })).questionId);
-      if (ids.length === 1) return text({ questionId: ids[0], url: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
+      if (ids.length === 1) return text({ questionId: ids[0], url: landing(), base: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
       // Several: the human answers them in order, so wait for each in turn within one deadline.
       const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? WAIT_DEFAULT, 1), WAIT_MAX) * 1000;
       const answers: unknown[] = [];
@@ -154,7 +162,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
         if (r.answered) answers.push({ questionId: id, answer: (r as { answer: unknown }).answer });
         else pending.push(id);
       }
-      return text({ questionIds: ids, url: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The human has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
+      return text({ questionIds: ids, url: landing(), base: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The human has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
     },
   );
 
@@ -171,14 +179,25 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   server.registerTool(
     "headcanon_focus",
     {
-      title: "Open a node on the human's screen",
-      description: "Navigates the HeadCanon viewer to a canon node so the human sees what you are talking about.",
-      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT") },
+      title: "Point at a node on the human's screen, or open it",
+      description: "Navigates the HeadCanon viewer to a canon node so the human sees what you are talking about. With `open`, the node's card opens as well, with its text and its approve, edit and delete actions.",
+      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("True to open the node's card, not only point at it.") },
     },
-    async ({ id }) => {
+    async ({ id, open }) => {
       ensureOpen();
-      return text(await api(base, "/api/focus", { method: "POST", body: JSON.stringify({ id }) }));
+      return text(await api(base, "/api/focus", { method: "POST", body: JSON.stringify({ id, open: open === true }) }));
     },
+  );
+
+  server.registerTool(
+    "headcanon_say",
+    {
+      title: "Say something to the human in the page's chat",
+      description:
+        "Posts a line from you into the HeadCanon viewer's chat, where the human reads it beside the canvas. Use it to explain a passage they asked about, to summarize what you changed after their edit, to say what is still red and where to start, and to end a working spell: the page shows a working indicator from the human's last action until your next say or question. One or two sentences; the chat is not a report.",
+      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it.") },
+    },
+    async ({ text: line, nodeId }) => text(await api(base, "/api/say", { method: "POST", body: JSON.stringify({ text: line, nodeId }) })),
   );
 
   server.registerTool(
@@ -186,23 +205,36 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     {
       title: "What the human did in the page",
       description:
-        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they edited or created (treat their wording as stated), glossary terms they enshrined or dropped, free-text messages they typed, and refine-request entries naming a branch they want defined next. Call it before drafting each layer and whenever a question returns. Pass the cursor from the previous call.",
-      inputSchema: { since: z.number().optional().describe("The cursor returned last time; 0 or omitted for everything.") },
+        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages and questions about a passage, refine-request entries naming a branch to define next, and a finish-request when they pressed Finish. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
+      inputSchema: {
+        since: z.number().optional().describe("The cursor returned last time; 0 or omitted for everything."),
+        waitSeconds: z.number().optional().describe(`Wait this long for a first entry before returning empty (max ${WAIT_MAX}).`),
+      },
     },
-    async ({ since }) => text(await api(base, `/api/changes?since=${since ?? 0}`)),
+    async ({ since, waitSeconds }) => {
+      const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? 0, 0), WAIT_MAX) * 1000;
+      let r = await api<{ cursor: number; entries: unknown[] }>(base, `/api/changes?since=${since ?? 0}&timeout=${Math.min(25, Math.max(0, Math.ceil((deadline - Date.now()) / 1000)))}`);
+      while (!r.entries.length && Date.now() < deadline) {
+        const slice = Math.min(25, Math.ceil((deadline - Date.now()) / 1000));
+        r = await api(base, `/api/changes?since=${since ?? 0}&timeout=${slice}`);
+      }
+      return text(r);
+    },
   );
 
   server.registerTool(
     "headcanon_open",
     {
       title: "Open the HeadCanon page in the browser",
-      description: "Opens the viewer in the human's default browser and returns its URL.",
-      inputSchema: {},
+      description: "Opens the viewer in the human's default browser and returns its URL. `view` picks the page: `adopt` is the canvas for reviewing a drafted canon.",
+      inputSchema: { view: z.string().optional().describe("adopt, tree, health, attention, journeys, decisions or glossary; omitted for the overview.") },
     },
-    async () => {
+    async ({ view }) => {
       opened = false;
       ensureOpen();
-      return text({ url: `${base}/` });
+      const url = view ? `${base}/#/${view}` : landing();
+      if (view) openBrowser(url);
+      return text({ url, base: `${base}/` });
     },
   );
 
