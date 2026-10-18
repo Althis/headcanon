@@ -62,7 +62,7 @@ The briefing block in reference.md section 0, verbatim, as a question with the s
 
 ### 3 Root
 
-`HC init`. Draft `canon/README.md` in the root format with everything `assumed`: what it is (one or two sentences) and the purpose and for whom (one paragraph) from the newest artifacts; Not this, three to six non-goals the artifacts state; a glossary of six to ten terms; three to eight principles, each a title and a paragraph, from charters, style guides and decision records, where a "never" the artifacts state is a principle first and a milestone from an old plan is not. The Glossary heading keeps `[assumed]`.
+`HC init`. Draft `canon/README.md` in the root format with everything `assumed` (each principle's title line carries `[assumed]`): what it is (one or two sentences) and the purpose and for whom (one paragraph) from the newest artifacts; Not this, three to six non-goals the artifacts state; a glossary of six to ten terms; three to eight principles, each a title and a paragraph, from charters, style guides and decision records, where a "never" the artifacts state is a principle first and a milestone from an old plan is not. The Glossary heading keeps `[assumed]`.
 
 ### 4 Domains
 

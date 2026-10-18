@@ -42,13 +42,13 @@
     </div>
     <div class="session-body">
       <div id="question"><p class="muted">When the session asks something, it appears here. Edits you make in the tree, messages you send and branches you ask for reach the session too.</p></div>
+      <div id="quote" class="quote-chip" hidden></div>
       <div class="session-msg"><textarea id="msg" rows="2" placeholder="Message the session…"></textarea><button class="btn" id="msg-send">Send</button></div>
       <ul id="activity" class="activity chat"></ul>
     </div>
   </aside>
   <div id="tooltip" class="tooltip" hidden></div>
   <div id="popup" class="popup" hidden></div>
-  <button id="ask-why" class="btn small whybtn" hidden title="Ask the session what this passage means">?</button>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" defer></script>

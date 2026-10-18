@@ -75,6 +75,8 @@ export interface FeedEntry {
   id?: string;
   text?: string;
   path?: string;
+  /** On a message: the passage the human highlighted in a node's card before writing. */
+  quote?: string;
 }
 
 export const DEFAULT_OPTIONS: AskOption[] = [
@@ -172,11 +174,12 @@ export class SessionState {
     return { id: this.focusId, seq: this.focusSeq, open: this.focusOpen };
   }
 
-  push(kind: FeedKind, data: { id?: string | undefined; text?: string | undefined; path?: string | undefined } = {}): FeedEntry {
+  push(kind: FeedKind, data: { id?: string | undefined; text?: string | undefined; path?: string | undefined; quote?: string | undefined } = {}): FeedEntry {
     const e: FeedEntry = { seq: ++this.seq, at: new Date().toISOString(), kind };
     if (data.id) e.id = data.id;
     if (data.text) e.text = data.text;
     if (data.path) e.path = data.path;
+    if (data.quote) e.quote = data.quote;
     this.feed.push(e);
     if (this.feed.length > 500) this.feed.splice(0, this.feed.length - 500);
     for (const w of this.changeWaiters.splice(0)) w();

@@ -508,13 +508,30 @@ function setToggle(collapsed) {
 }
 function openSession() { $session.classList.remove("collapsed"); setToggle(false); }
 document.getElementById("session-toggle").addEventListener("click", () => setToggle($session.classList.toggle("collapsed")));
-document.getElementById("msg-send").addEventListener("click", async () => {
-  const ta = document.getElementById("msg");
-  if (!ta.value.trim()) return;
-  await post("/api/message", { text: ta.value }).catch(showToast);
-  showToast(`Sent: ${ta.value.trim().slice(0, 80)}`);
-  ta.value = "";
-});
+// A message carries the passage the human highlighted in a card, when they did: the chip above the box names
+// the node and the words, and both go with the text. Enter sends; Shift+Enter breaks a line.
+const $msg = document.getElementById("msg"), $quote = document.getElementById("quote");
+let quote = null;
+function setQuote(q) {
+  quote = q;
+  $quote.hidden = !q;
+  if (q) {
+    $quote.innerHTML = `<span class="muted">about</span> ${idLink(q.id)} <q>${esc(q.text)}</q><button class="btn small" id="quote-x" title="Drop the passage">✕</button>`;
+    $quote.querySelector("#quote-x").addEventListener("click", () => setQuote(null));
+    $msg.placeholder = "Ask about the highlighted passage…";
+  } else { $msg.placeholder = "Message the session…"; window.CSS?.highlights?.delete("quote"); }
+}
+async function sendMessage() {
+  const text = $msg.value.trim();
+  if (!text) return;
+  const q = quote;
+  try { await post("/api/message", { text, nodeId: q?.id, quote: q?.text }); } catch (e) { showToast(e); return; }
+  $msg.value = "";
+  setQuote(null);
+  if (q) startWorking("you asked about a passage"); else showToast(`Sent: ${text.slice(0, 80)}`);
+}
+document.getElementById("msg-send").addEventListener("click", sendMessage);
+$msg.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 async function pollSession() {
   try {
     const s = await fetch("/api/session", { cache: "no-store" }).then((r) => r.json());
@@ -658,7 +675,8 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
 const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "dendro", menu: true, prn: true, view: null, focus: new Set() };
 function colorOf(id) {
-  if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  if (id === "ROOT" || id === "PRINCIPLES") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  if (id.startsWith("PRN-")) { const s = snap.canon.principles.find((p) => p.id === id)?.state ?? "assumed"; return s === "open" || s === "contested" ? "red" : s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
   if (!n) return "yellow";
   if (n.state === "open" || n.state === "contested") return "red";
@@ -679,6 +697,7 @@ function adoptScope() {
 function adoptCounts() {
   const c = { green: 0, yellow: 0, red: 0 };
   for (const id of Object.keys(snap.canon.nodes)) c[colorOf(id)]++;
+  for (const p of snap.canon.principles) c[colorOf(p.id)]++;
   return c;
 }
 function adopt(selectedId) {
@@ -1408,24 +1427,22 @@ function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptStat
 
 // The node card: what the node says, why it has its colour, and the actions on it.
 const $popup = document.getElementById("popup");
-const $why = document.getElementById("ask-why");
 function openPopup(id) {
   const isRoot = id === "ROOT";
   const isPrinciples = id === "PRINCIPLES";
   const prn = id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id) : null;
-  const n = isRoot || isPrinciples || prn ? null : node(id);
-  if (!n && !isRoot && !isPrinciples && !prn) return;
-  if (isPrinciples || prn) { openTextCard(id, isPrinciples ? "Principles" : prn.title, isPrinciples
-    ? snap.canon.principles.map((p) => `<p><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")
-    : `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}`); return; }
+  // a principle is its own card: its statement, its own state, and the same actions as a node
+  const n = isRoot || isPrinciples ? null : prn ? { title: prn.title, state: prn.state, children: [] } : node(id);
+  if (!n && !isRoot && !isPrinciples) return;
+  if (isPrinciples) { openTextCard(id, "Principles", snap.canon.principles.map((p) => `<p><i class="sw ${colorOf(p.id)}"></i><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")); return; }
   const color = colorOf(id);
   const state = isRoot ? snap.canon.root?.state : n.state;
   const because = color === "red"
     ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? "Two statements pull against each other; keep one or rewrite." : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
-  const fs = isRoot ? [] : findingsFor(id).filter((f) => f.level !== "info");
+  const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
-  const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : snap.html[id];
+  const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : prn ? `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}` : snap.html[id];
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
@@ -1436,9 +1453,9 @@ function openPopup(id) {
       <button class="btn" id="pp-edit" title="Say it in your own words">Rewrite</button>
       ${isRoot ? "" : `<button class="btn" id="pp-delete" title="Remove this node and everything under it">Delete</button>`}
       ${kids && !isRoot ? `<button class="btn" id="pp-toggle">${adoptState.expanded?.has(id) ? "Hide children" : `Show ${kids} children`}</button>` : ""}
-      ${isRoot ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
+      ${isRoot || prn ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
     </div>
-    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <p class="sub">Select any words above to ask the session about them in the chat.</p>
     <div id="pp-editor" class="editor"></div>
     <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
   const wasHidden = $popup.hidden;
@@ -1458,8 +1475,8 @@ function openPopup(id) {
   $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
   $popup.querySelector("#pp-edit").addEventListener("click", async () => {
     const editor = $popup.querySelector("#pp-editor");
-    const raw = await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
-    const intent = (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
+    const raw = prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
+    const intent = prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
     editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
       ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
       <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
@@ -1471,7 +1488,7 @@ function openPopup(id) {
     });
   });
 }
-function closePopup() { $popup.hidden = true; $why.hidden = true; delete $popup.dataset.id; }
+function closePopup() { $popup.hidden = true; delete $popup.dataset.id; window.CSS?.highlights?.delete("quote"); }
 /** Remove one rendered `<h2>` section from a node's HTML. */
 function stripHtmlSection(html, heading) {
   const re = new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
@@ -1481,10 +1498,10 @@ function stripHtmlSection(html, heading) {
 function openTextCard(id, title, html) {
   const wasHidden = $popup.hidden;
   $popup.innerHTML = `
-    <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(snap.canon.root?.state ?? "assumed")} <span><i class="sw ${colorOf(id)}"></i><span class="muted">Direction the whole canon is judged against; rewrite it in the premise card.</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
+    <div class="popup-head"><span class="id">${esc(id)}</span> <span class="muted">Each principle has its own card and approval; open one from the panel.</span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(title)}</h2>
     <div class="popup-body body" id="pp-body">${html}</div>
-    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <p class="sub">Select any words above to ask the session about them in the chat.</p>
     <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
   $popup.hidden = false;
   $popup.dataset.id = id;
@@ -1530,22 +1547,18 @@ function wirePopupMoves() {
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
   });
 }
-// The ? tool: select words in the card, press ?, and the session explains them in the chat.
+// Asking about a passage: select words in a card and the chat is ready with them. The words stay lit in the
+// card, the chip above the message box names the node and the words, and the cursor is in the box.
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
-    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode)) { if (!$why.matches(":hover")) $why.hidden = true; return; }
-    const r = sel.getRangeAt(0).getBoundingClientRect();
-    $why.style.left = `${Math.min(window.innerWidth - 34, r.right + 6)}px`; $why.style.top = `${Math.max(8, r.top - 30)}px`;
-    $why.dataset.text = text.slice(0, 300);
-    $why.hidden = false;
+    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) return;
+    if (window.CSS?.highlights && window.Highlight) CSS.highlights.set("quote", new Highlight(sel.getRangeAt(0).cloneRange()));
+    setQuote({ id: $popup.dataset.id, text: text.slice(0, 300) });
+    openSession();
+    $msg.focus();
   }, 0);
-});
-$why.addEventListener("click", async () => {
-  const text = $why.dataset.text, id = $popup.dataset.id;
-  $why.hidden = true;
-  try { await post("/api/message", { text: `What do you mean by "${text}"?`, nodeId: id }); appendChat([{ kind: "message", text: `What do you mean by "${text}"?`, id }]); startWorking("you asked about a passage"); } catch (e) { showToast(e); }
 });
 
 // The chat: what the session says and what the human sends, with the actions between them as quiet lines.
@@ -1555,7 +1568,7 @@ function appendChat(entries) {
   for (const e of entries) {
     const li = document.createElement("li");
     if (e.kind === "say") { li.className = "say"; li.innerHTML = `${esc(e.text ?? "")}${e.id ? ` ${idLink(e.id)}` : ""}`; }
-    else if (e.kind === "message") { li.className = "message"; li.textContent = e.text ?? ""; }
+    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? esc(e.id) + " › " : ""}“${esc(e.quote)}”</span>` : ""}${esc(e.text ?? "")}`; }
     else { li.className = "sys"; li.textContent = e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind; }
     list.appendChild(li);
   }

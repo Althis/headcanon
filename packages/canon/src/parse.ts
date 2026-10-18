@@ -91,7 +91,12 @@ export function parsePrinciples(body: string): Principle[] {
     if (!m) continue;
     const id = m[1] ?? "";
     const title = (m[2] ?? "").trim();
-    let rest = (m[3] ?? "").replace(/^:\s*/, "").trim();
+    // a `[state]` marker after the title is the principle's own certainty; none means the human's (stated)
+    let rest = (m[3] ?? "").trim();
+    let state: State = "stated";
+    const mk = /^\[([a-z]+)\]\s*/.exec(rest);
+    if (mk && isState(mk[1])) { state = mk[1]; rest = rest.slice(mk[0].length); }
+    rest = rest.replace(/^:\s*/, "").trim();
     const para: string[] = [];
     if (rest) para.push(rest);
     let source: string | undefined;
@@ -110,7 +115,7 @@ export function parsePrinciples(body: string): Principle[] {
       source = source ?? inline[1]?.trim();
       statement = statement.slice(0, inline.index).trim();
     }
-    out.push({ id, title, statement, source });
+    out.push({ id, title, state, statement, source });
   }
   return out;
 }

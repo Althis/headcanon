@@ -55,7 +55,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
 
   if (canon.principles.length) {
     const first = (s: string) => (/^(.*?[.!?])(\s|$)/.exec(s)?.[1] ?? s).slice(0, 160);
-    head.push("## Principles", "", ...canon.principles.map((p) => `- **${p.id} ${p.title}**: ${first(p.statement)}`), "");
+    head.push("## Principles", "", ...canon.principles.map((p) => `- **${p.id} ${p.title}**${p.state === "stated" ? "" : ` [${p.state}]`}: ${first(p.statement)}`), "");
   }
   if (canon.terms.length) {
     const def = (d: string) => (d.length > 110 ? d.slice(0, 109) + "…" : d);

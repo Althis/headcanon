@@ -177,7 +177,11 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: min(424px, 
 .popup .body h2 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
 .pp-actions { gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .pp-findings { margin: 8px 0; padding-left: 18px; }
-.whybtn { position: fixed; z-index: 40; border-radius: 50%; width: 26px; height: 26px; padding: 0; font-weight: 700; }
+.quote-chip { display: flex; align-items: center; gap: 6px; padding: 4px 8px; margin-bottom: 6px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 12px; background: var(--bg); }
+.quote-chip q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quote-chip .btn { padding: 0 6px; }
+.chat li.message .q { display: block; font-size: 11px; opacity: .85; margin-bottom: 3px; }
+::highlight(quote) { background: rgba(96,165,250,.35); color: inherit; }
 .chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .chat li { padding: 6px 10px; border-radius: 10px; max-width: 92%; font-size: 13px; }
 .chat li.say { background: var(--bg); align-self: flex-start; border: 1px solid var(--line); }

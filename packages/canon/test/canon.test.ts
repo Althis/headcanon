@@ -66,7 +66,8 @@ describe("layers and principles [REQ-6.7, REQ-3.7]", () => {
 
   it("parses principles in both the paragraph and the one-line form", () => {
     expect(canon.principles.map((p) => p.id)).toEqual(["PRN-1", "PRN-2"]);
-    expect(canon.principles[0]).toEqual({ id: "PRN-1", title: "Keep the original", statement: "Every imported file is kept beside what was made from it. A reader can always go back to the source.", source: "docs/design.md:12-15" });
+    expect(canon.principles[0]).toEqual({ id: "PRN-1", title: "Keep the original", state: "stated", statement: "Every imported file is kept beside what was made from it. A reader can always go back to the source.", source: "docs/design.md:12-15" });
+    expect(canon.principles[1]?.state).toBe("assumed");
     expect(canon.principles[1]?.statement).toBe("a figure in a report links to the transactions behind it.");
     expect(canon.principles[1]?.source).toBe("conversation, 2026-01-01");
   });

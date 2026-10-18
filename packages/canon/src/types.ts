@@ -25,6 +25,8 @@ export function isLayer(v: unknown): v is Layer {
 export interface Principle {
   id: string;
   title: string;
+  /** From the `[state]` marker on its title line; none means the human's own (stated). */
+  state: State;
   statement: string;
   source: string | undefined;
 }

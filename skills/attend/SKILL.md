@@ -22,7 +22,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
    - **node-edited**: the human's words are stated. Children the new text no longer implies become `open`, titled as the question; children it still implies but words differently are rewritten `assumed`; the parent's line must still describe its children, or it is rewritten `assumed`; every node that `requires` this one is re-read for a concept that changed.
    - **node-deleted**: nodes that required it lose the edge; a node whose only reason was the deleted one becomes `open`; the parent's partition still holds or the parent's line is rewritten `assumed`.
    - **node-created**: the human's node; place it by descent if its parent is wrong, link what it duplicates, and give it a refiner when its layer has children.
-   - **message** quoting a passage ("What do you mean by …"): explain it in one or two sentences, in the human's words, with `nodeId`; when the passage is a glossary term, give the definition and where it is used.
+   - **message** with a `quote` (words the human highlighted in a node's card; `nodeId` names the node): the text is about that passage. A question gets one or two sentences in the human's words; a glossary term gets its definition and where it is used; wording given with it is applied as a rewrite of that passage, stated.
    - **message** otherwise: a question is answered in the chat; an instruction is followed; wording about a node is applied as a rewrite of that node.
    - **refine-request**: a refiner for that node with `draft`; say what was added when it returns.
    - **term-enshrined**, **term-dropped**: the glossary changed; reword every node that uses a dropped term with its replacement.
