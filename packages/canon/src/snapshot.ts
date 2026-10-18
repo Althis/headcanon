@@ -19,6 +19,7 @@ export interface Snapshot {
     unrefined: number;
     journeys: number;
     steps: number;
+    mocks: number;
     decisions: number;
     terms: number;
     errors: number;
@@ -43,6 +44,8 @@ export function buildSnapshot(canonDir: string): Snapshot {
   if (canon.root) html["ROOT"] = render(stripSection(canon.root.body, "Glossary"));
   for (const n of Object.values(canon.nodes)) html[n.id] = render(n.body);
   for (const j of canon.journeys) html[j.id] = render(j.body.replace(/```mermaid[\s\S]*?```/, ""));
+  // The page shows a mock's picture and table itself; the rest of the record renders as prose.
+  for (const m of canon.mocks) html[m.id] = render(m.body.replace(/^!\[[^\]]*\]\([^)]*\)[ \t]*$/gm, "").replace(/^\|.*$/gm, ""));
   for (const d of canon.decisions) html[d.id] = render(d.body);
 
   return {
@@ -58,6 +61,7 @@ export function buildSnapshot(canonDir: string): Snapshot {
       unrefined: ids.filter((id) => !canon.nodes[id]?.kind).length,
       journeys: canon.journeys.length,
       steps: canon.journeys.reduce((a, j) => a + j.steps.length, 0),
+      mocks: canon.mocks.length,
       decisions: canon.decisions.length,
       terms: canon.terms.length,
       errors: findings.filter((f) => f.level === "error").length,

@@ -34,7 +34,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
     "# HeadCanon",
     "",
     `Canon: ${canonDir}`,
-    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
+    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.mocks ? `${stats.mocks} mocks, ` : ""}${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
     "",
   ];
 

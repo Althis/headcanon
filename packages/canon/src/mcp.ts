@@ -124,6 +124,8 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     nodeId: z.string().optional().describe("A canon node to focus on the human's screen while they answer."),
     terms: z.array(z.object({ term: z.string(), definition: z.string() })).optional().describe("Jargon in the draft with the agent's guessed definition, from `headcanon terms`."),
     notice: z.string().optional().describe("One sentence the human must know that is not part of the draft, e.g. that the commit-msg hook is now installed; shown apart from the question."),
+    mock: z.string().optional().describe("A mock id, e.g. MOCK-3, whose picture the page shows above the question."),
+    draft: z.string().optional().describe("A proposed picture as inline SVG, shown beside the mock or alone, so the human can agree a mock or a revision before it is written to disk."),
   };
 
   server.registerTool(
@@ -140,6 +142,8 @@ export async function runMcp(opts: McpOptions): Promise<void> {
         nodeId: questionShape.nodeId,
         terms: questionShape.terms,
         notice: questionShape.notice,
+        mock: questionShape.mock,
+        draft: questionShape.draft,
         questions: z.array(z.object(questionShape)).optional().describe("Several questions for one turn, shown one after another; use this instead of `question`."),
         waitSeconds: z.number().optional().describe(`How long to wait for the answers before returning pending (default ${WAIT_DEFAULT}, max ${WAIT_MAX}).`),
       },
@@ -181,7 +185,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     {
       title: "Point at a node on the human's screen, or open it",
       description: "Navigates the HeadCanon viewer to a canon node so the human sees what you are talking about. With `open`, the node's card opens as well, with its text and its approve, edit and delete actions.",
-      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("True to open the node's card, not only point at it.") },
+      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, ROOT, or a mock id such as MOCK-3"), open: z.boolean().optional().describe("True to open the node's card, not only point at it.") },
     },
     async ({ id, open }) => {
       ensureOpen();

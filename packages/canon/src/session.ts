@@ -26,6 +26,10 @@ export interface AskRequest {
   terms?: TermGuess[];
   /** Something the human must know that is not part of the draft, shown apart from the question. */
   notice?: string;
+  /** A mock whose picture the page shows above the question (REQ-12.1.9). */
+  mock?: string;
+  /** A proposed picture as inline SVG, shown beside the mock or alone; it reaches the disk only once accepted. */
+  draft?: string;
 }
 
 export interface TermDecision {
@@ -53,6 +57,8 @@ export interface PendingQuestion {
   nodeId: string | undefined;
   terms: TermGuess[];
   notice: string | undefined;
+  mock: string | undefined;
+  draft: string | undefined;
 }
 
 export type FeedKind =
@@ -105,6 +111,8 @@ export class SessionState {
       nodeId: req.nodeId,
       terms: req.terms ?? [],
       notice: req.notice,
+      mock: req.mock,
+      draft: req.draft,
     };
     this.queue.push(q);
     // Focus follows the question on screen: the head of the queue, not the last one queued.

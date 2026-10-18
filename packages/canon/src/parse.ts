@@ -1,5 +1,5 @@
 import YAML from "yaml";
-import { isState, type JourneyStep, type Principle, type Section, type State, type Term } from "./types.js";
+import { isState, type JourneyStep, type MockElement, type Principle, type Section, type State, type Term } from "./types.js";
 
 export interface Parsed {
   data: Record<string, unknown>;
@@ -33,16 +33,17 @@ export function parseMermaid(body: string): string | undefined {
 }
 
 /**
- * Journey step table: `| S1 Label | state | REQ-1, REQ-2 |`.
- * The brief's shape has two columns (step, requirements); a middle state column is optional.
+ * A link table row: `| S1 Label | state | REQ-1, REQ-2 |`. A journey names its steps `S1` (REQ-4.3); a mock
+ * names its elements `#finish` (REQ-6.8). The brief's shape has two columns (id, requirements); a middle
+ * state column is optional.
  */
-export function parseStepTable(body: string): JourneyStep[] {
+function parseLinkTable(body: string, idRe: RegExp): JourneyStep[] {
   const steps: JourneyStep[] = [];
   for (const line of body.split(/\r?\n/)) {
     if (!line.startsWith("|")) continue;
     const cells = line.split("|").slice(1, -1).map((c) => c.trim());
     const first = cells[0] ?? "";
-    const idm = /^(S\d+)\b\s*(.*)$/.exec(first);
+    const idm = idRe.exec(first);
     if (!idm) continue;
     const id = idm[1] ?? "";
     const label = (idm[2] ?? "").trim();
@@ -63,6 +64,16 @@ export function parseStepTable(body: string): JourneyStep[] {
     steps.push({ id, label, state, requirements });
   }
   return steps;
+}
+
+/** Journey step table: `| S1 Label | state | REQ-1, REQ-2 |`. */
+export function parseStepTable(body: string): JourneyStep[] {
+  return parseLinkTable(body, /^(S\d+)\b\s*(.*)$/);
+}
+
+/** Mock element table: `| #finish Finish button | state | REQ-1 |`; the id is kept without its `#`. */
+export function parseElementTable(body: string): MockElement[] {
+  return parseLinkTable(body, /^#([A-Za-z][\w-]*)\b\s*(.*)$/);
 }
 
 /** Glossary lines of the form: **term** (`TERM-slug`): definition */

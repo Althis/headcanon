@@ -283,3 +283,12 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .mode .btn { border-radius: 0; }
 .mode .btn:first-child { border-radius: 8px 0 0 8px; }
 .mode .btn:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+
+/* Mocks (REQ-12.1.9): the picture inline, its elements lit from the table and the table from the elements. */
+.mock-figure { margin: 10px 0; }
+.mock-figure svg { display: block; max-width: 100%; height: auto; background: #fff; border-radius: 8px; border: 1px solid var(--line); }
+.mock-figure figcaption { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.mock-figure .lit rect, .mock-figure .lit path, .mock-figure .lit circle, .mock-figure .lit ellipse, .mock-figure .lit line, .mock-figure .lit polygon, .mock-figure .lit polyline { stroke: #2563eb !important; stroke-width: 2.5 !important; }
+.mock-table tr.lit { background: rgba(37,99,235,.12); }
+.mock-pair { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+.mock-pair figure { flex: 1 1 240px; min-width: 0; }
