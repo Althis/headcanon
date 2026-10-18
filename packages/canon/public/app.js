@@ -831,7 +831,7 @@ function buildAdoptCanvas() {
   const collect = () => { const arr = []; for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); arr.push({ n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); } return arr; };
   const hardSeparate = () => {
     const arr = collect();
-    separate(arr, 1, 12);
+    separate(arr, 1, 80);
     cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id())) continue; p.n.position({ x: p.x, y: adoptState.bands ? inLane(p.n, p.y) : p.y }); } });
     place();
   };
@@ -868,7 +868,8 @@ function buildAdoptCanvas() {
       const ax = sg.a.x, ay = sg.a.y, vx = sg.b.x - ax, vy = sg.b.y - ay, len2 = vx * vx + vy * vy || 1;
       const t = Math.max(0.06, Math.min(0.94, ((p.x - ax) * vx + (p.y - ay) * vy) / len2));
       let dx = p.x - (ax + t * vx), dy = p.y - (ay + t * vy);
-      const rx = p.w / 2 + 28, ry = p.h / 2 + 28;
+      const pad = p.w > 60 ? 44 : 28;
+      const rx = p.w / 2 + pad, ry = p.h / 2 + pad;
       const dn = Math.hypot(dx / rx, dy / ry);
       if (dn >= 1) continue;
       let d = Math.hypot(dx, dy);
@@ -880,9 +881,10 @@ function buildAdoptCanvas() {
     for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
       const a = arr[i], b = arr[j];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01;
-      if (d < 320) { const f = Math.min(6, 2600 / (d * d)); a.fx -= (f * dx) / d; a.fy -= (f * dy) / d; b.fx += (f * dx) / d; b.fy += (f * dy) / d; }
+      const size = (a.w + b.w + a.h + b.h) / 4;
+      if (d < 220 + size * 2) { const f = Math.min(10, (2600 + 40 * size) / (d * d) * (size > 60 ? 3 : 1)); a.fx -= (f * dx) / d; a.fy -= (f * dy) / d; b.fx += (f * dx) / d; b.fy += (f * dy) / d; }
     }
-    separate(arr, sim.pinned.size ? 0.3 : 0.7, 1);
+    separate(arr, sim.pinned.size ? 0.3 : 0.9, 2);
     // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
     const gain = sim.alpha * (sim.pinned.size ? 0.35 : 1);
     cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * gain, y: adoptState.bands ? inLane(p.n, p.y + p.fy * gain) : p.y + p.fy * gain }); } });
