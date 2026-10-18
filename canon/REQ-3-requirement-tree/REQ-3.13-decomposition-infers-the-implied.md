@@ -5,7 +5,7 @@ title: "Decomposition infers what a node implies, and the inference is its own s
 state: stated
 layer: requirement
 source: "Claude Code session, 2026-10-11"
-files: [skills/refine/SKILL.md, skills/refine/reference.md]
+files: [skills/refine/SKILL.md, skills/refine/reference.md, agents/refiner.md]
 ---
 
 # Decomposition infers what a node implies, and the inference is its own skill, refine, invoked by the others
@@ -22,4 +22,4 @@ Source: Claude Code session, 2026-10-11.
 
 Given one approved node and the layer its children get, the skill derives the children by asking what must exist, and what follows, for the node to hold. Four prompts are applied to the node's meaning: prerequisites, what must exist before it is possible; consequences, what follows once it holds; failures, what happens when it does not hold and what must prevent it, which is the obstacle analysis the brief keeps in mind; and the archetype, what every system of this kind has at this point. Artifact threads are hints that something belongs in the node's scope, and each is laddered up to the child it points at (REQ-3.14). Each child carries its chain, the clause it follows from and the kind of inference, in its source, and the human approves the chain with the child. An inference with no chain is not proposed, which guards against invented needs. A child nothing in the project covers is marked as implied in the question and becomes an open node when the human leaves it undecided.
 
-The skill is named `refine`, after the brief's own verb for the step. It is invoked by adopt for the domain, capability and requirement layers, by capture when a branch is refined for implementation, by review when a branch is rebalanced, and by a Define this branch request from the viewer. It is separate so that neither it nor the skills that call it exceed their size limits.
+The skill is named `refine`, after the brief's own verb for the step. It is invoked by adopt for the domain layer, by capture when a branch is refined for implementation, by review when a branch is rebalanced, and by a Define this branch request from the viewer. Below the domains, and for every Define further request, it runs in draft as the refiner agent: one node per agent in a fresh context holding only the node's family, several agents at once in the order the next command gives, each returning what it wrote, what it set aside and which edges it moved, so that the attending session integrates and never cuts in its own context. It is separate so that neither it nor the skills that call it exceed their size limits.

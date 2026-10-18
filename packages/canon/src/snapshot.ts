@@ -2,6 +2,7 @@ import { marked } from "marked";
 import { gitAttention, type GitAttention } from "./attention.js";
 import { branchHealth, checkCanon, countStates, type BranchHealth, type StateCounts } from "./check.js";
 import { loadCanon } from "./load.js";
+import { isUnrefined } from "./next.js";
 import { renderTextTree } from "./tree.js";
 import type { Canon, Finding } from "./types.js";
 
@@ -16,7 +17,10 @@ export interface Snapshot {
   stats: {
     nodes: number;
     counts: StateCounts;
+    /** Leaves still to cut: no children, no kind, and not waiting on a human (REQ-3.3). */
     unrefined: number;
+    /** Leaves that carry a kind, and so a check. */
+    measurable: number;
     journeys: number;
     steps: number;
     decisions: number;
@@ -55,7 +59,8 @@ export function buildSnapshot(canonDir: string): Snapshot {
     stats: {
       nodes: ids.length,
       counts,
-      unrefined: ids.filter((id) => !canon.nodes[id]?.kind).length,
+      unrefined: ids.filter((id) => isUnrefined(canon.nodes[id]!)).length,
+      measurable: ids.filter((id) => Boolean(canon.nodes[id]?.kind)).length,
       journeys: canon.journeys.length,
       steps: canon.journeys.reduce((a, j) => a + j.steps.length, 0),
       decisions: canon.decisions.length,

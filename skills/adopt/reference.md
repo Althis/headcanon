@@ -89,7 +89,7 @@ title: "Plain-language title"
 state: stated | resolved | assumed | open | contested
 layer: domain | capability | requirement
 source: "path:lines, or: conversation, <date>, or: archetype"
-kind: binary            # only when the node is already a yes-or-no check
+kind: binary            # on a leaf, with its Check: binary | numeric | open-ended
 ---
 
 # Plain-language title
@@ -103,6 +103,9 @@ Source: conversation, <date>
 
 ## Resolution
 <option chosen and date, when approved as written>
+
+## Check
+<on a leaf: one sentence, what is observed and what counts as yes>
 
 ## Not this
 <when an artifact or the human made one clear>

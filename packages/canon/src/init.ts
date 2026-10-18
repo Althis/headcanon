@@ -92,7 +92,7 @@ export function initCanon(opts: InitOptions): InitResult {
   try {
     const hooksDir = execFileSync("git", ["rev-parse", "--git-path", "hooks"], { cwd: repoDir, encoding: "utf8" }).trim();
     hookPath = resolve(repoDir, hooksDir, "commit-msg");
-    const script = hookScript(opts.cliPath, canonDir);
+    const script = hookScript(opts.cliPath, canonDir, repoDir);
     if (existsSync(hookPath)) {
       const current = readFileSync(hookPath, "utf8");
       if (current.includes(HOOK_MARK)) {
@@ -129,14 +129,29 @@ export function initCanon(opts: InitOptions): InitResult {
   return { canonDir, created, hookPath, hookInstalled, notes };
 }
 
-function hookScript(cliPath: string, canonDir: string): string {
-  const q = (p: string) => `"${p.replace(/\\/g, "/")}"`;
+/**
+ * The hook finds the canon, and a launcher that lives inside the repository, from the repository the
+ * commit happens in, so a linked worktree or a moved checkout validates against its own canon.
+ */
+function hookScript(cliPath: string, canonDir: string, repoDir: string): string {
+  const posix = (p: string) => resolve(p).replace(/\\/g, "/");
+  const top = posix(repoDir);
+  const inside = (p: string): string | undefined => {
+    const abs = posix(p);
+    return abs.toLowerCase().startsWith(top.toLowerCase() + "/") ? abs.slice(top.length + 1) : undefined;
+  };
+  const arg = (p: string) => {
+    const r = inside(p);
+    return r ? `"$TOP/${r}"` : `"${posix(p)}"`;
+  };
   return `#!/bin/sh
 ${HOOK_MARK}
 # Installed by HeadCanon. Validates the commit message against the canon:
 # Conventional Commits header, an Intent trailer, and Approved-By on intent changes.
+# Paths are taken from the repository the commit happens in, so a worktree checks its own canon.
 # Reinstall with: headcanon init --force
-exec node ${q(cliPath)} commit-msg "$1" --canon ${q(canonDir)}
+TOP="$(git rev-parse --show-toplevel)"
+exec node ${arg(cliPath)} commit-msg "$1" --canon ${arg(canonDir)}
 `;
 }
 

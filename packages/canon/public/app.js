@@ -98,8 +98,8 @@ function overview() {
   const groups = [
     ["Requirements", "What the tree holds", [
       tile(stats.nodes, `in ${health.length} branches`),
-      tile(stats.nodes - stats.unrefined, "measurable leaves"),
-      tile(stats.unrefined, "not yet measurable"),
+      tile(stats.measurable, "leaves with a check"),
+      tile(stats.unrefined, "leaves to cut"),
     ]],
     ["Certainty", "Who has confirmed each node", STATES.map((s) => tile(stats.counts[s], `${s} · ${pct(stats.counts[s], stats.nodes)}%`, `s-${s}`, `#/tree`))],
     ["Findings", "From headcanon check", [
