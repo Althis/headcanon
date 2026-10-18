@@ -788,7 +788,7 @@ function buildAdoptCanvas() {
   // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
   // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
   const dimsOf = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
-  const sim = { alpha: 0, raf: 0, pinned: null };
+  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map() };
   const tick = () => {
     const P = new Map();
     for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); P.set(n.id(), { n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); }
@@ -797,11 +797,11 @@ function buildAdoptCanvas() {
       if (!a || !b) continue;
       if (e.hasClass("contains")) {
         // the child wants to sit a rank under its parent; the parent is pulled back only a little
-        const tx = a.x, ty = a.y + 110 + (a.h + b.h) / 4, k = 0.07;
+        const tx = a.x, ty = a.y + 110 + (a.h + b.h) / 4, kx = 0.02, ky = 0.09;
         const dx = tx - b.x, dy = ty - b.y;
-        b.fx += k * dx; b.fy += k * dy; a.fx -= k * dx * 0.25; a.fy -= k * dy * 0.25;
+        b.fx += kx * dx; b.fy += ky * dy; a.fx -= kx * dx * 0.25; a.fy -= ky * dy * 0.25;
       } else if (!e.hasClass("hidden")) {
-        const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, L = 150, k = 0.02, f = k * (d - L);
+        const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, L = 120, k = 0.05, f = k * (d - L);
         a.fx += (f * dx) / d; a.fy += (f * dy) / d; b.fx -= (f * dx) / d; b.fy -= (f * dy) / d;
       }
     }
@@ -814,23 +814,24 @@ function buildAdoptCanvas() {
       if (ox > 0 && oy > 0) {
         // overlapping: push apart along the axis of least overlap; a bright box has right of way over a faded one
         const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1;
-        const wa = a.bright && !b.bright ? 0 : b.bright && !a.bright ? 1 : 0.5, wb = 1 - wa;
+        const ha = sim.heavy.has(a.n.id()) || sim.pinned.has(a.n.id()), hb = sim.heavy.has(b.n.id()) || sim.pinned.has(b.n.id());
+        const wa = ha && !hb ? 0 : hb && !ha ? 1 : a.bright && !b.bright ? 0 : b.bright && !a.bright ? 1 : 0.5, wb = 1 - wa;
         if (ox < oy) { a.x -= sx * ox * wa; b.x += sx * ox * wb; } else { a.y -= sy * oy * wa; b.y += sy * oy * wb; }
       }
     }
-    cy.batch(() => { for (const p of arr) { if (p.n.id() === sim.pinned) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: p.y + p.fy * sim.alpha }); } });
+    // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
+    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: p.y + p.fy * sim.alpha }); } });
     place();
   };
   const run = () => {
     cancelAnimationFrame(sim.raf);
-    const step = () => { tick(); sim.alpha *= 0.94; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; place(); } };
+    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; sim.heavy.clear(); place(); } };
     sim.raf = requestAnimationFrame(step);
   };
   const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run();
   window.__sim = { tick, settle, state: sim };
   seed();
-  settle(1);
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
     const z = cy.zoom(), p = cy.pan();
@@ -935,13 +936,28 @@ function buildAdoptCanvas() {
     select(id);
     showLabel(id);
   });
-  cy.on("grab", "node", (e) => { sim.pinned = e.target.id(); settle(0.35); });
-  cy.on("drag", "node", () => { place(); if (sim.alpha < 0.25) settle(0.3); });
-  cy.on("free", "node", () => { sim.pinned = null; settle(0.4); });
+  const block = (id) => { const out = []; const walk = (x) => { for (const c of info(x).children) if (cy.getElementById(c).length) { out.push(c); walk(c); } }; walk(id); return out; };
+  cy.on("grab", "node", (e) => {
+    const id = e.target.id(), p = e.target.position();
+    sim.pinned = new Set([id, ...block(id)]);
+    sim.offsets = new Map([...sim.pinned].filter((k) => k !== id).map((k) => { const q = cy.getElementById(k).position(); return [k, { x: q.x - p.x, y: q.y - p.y }]; }));
+    settle(0.35);
+  });
+  cy.on("drag", "node", (e) => {
+    const p = e.target.position();
+    cy.batch(() => { for (const [k, o] of sim.offsets) cy.getElementById(k).position({ x: p.x + o.x, y: p.y + o.y }); });
+    place();
+    if (sim.alpha < 0.25) settle(0.3);
+  });
+  cy.on("free", "node", () => { sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
   cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
   cy.on("layoutstop", place);
   cy.ready(() => {
-    if (adoptState.view) cy.viewport(adoptState.view); else setTimeout(() => cy.fit(undefined, 40), 700);
+    // The opening arrangement settles fully before it is shown.
+    sim.alpha = 1;
+    for (let i = 0; i < 260 && sim.alpha > 0.02; i++) { tick(); sim.alpha *= 0.985; }
+    sim.alpha = 0;
+    if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
     grid(); applyFocus(); makeOverlays();
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
