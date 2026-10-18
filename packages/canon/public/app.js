@@ -722,7 +722,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, radial: false, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "lanes", menu: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -755,13 +755,6 @@ function adopt(selectedId) {
     <div class="toolbar adopt-bar">
       <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
       <span class="muted">click a circle for its name; double-click or ↗ opens it; the handle below shows its children; drag to pan, wheel to zoom</span>
-      <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" title="Show or hide every name">Names</button>
-      <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
-      <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
-      <button class="btn small ${adoptState.bands ? "on" : ""}" data-bands="1" title="Keep every level in its own lane">Levels</button>
-      <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" title="Sort each lane to untangle the lines">Order</button>
-      <button class="btn small" data-fit="1">Fit</button>
-      <button class="btn small" data-expand-all="1">Show all</button>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
     </div>
     ${progressStrip()}
@@ -811,14 +804,14 @@ function buildAdoptCanvas() {
   // A closed circle shows its number; a long number gets a smaller font, the circle never grows.
   const shortOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? "" : id.replace(/^(REQ|PRN)-/, ""));
   const fsOf = (short) => (short.length <= 3 ? 10 : short.length <= 5 ? 8 : short.length <= 7 ? 6.5 : 5.5);
-  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}`;
+  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
   const elementsFor = (show) => {
     const shown = new Set(show);
     const out = [];
     for (const id of show) {
       const n = info(id);
       const short = shortOf(id);
-      out.push({ data: { id, label: `${id}\n${n.title}`, short, fs: fsOf(short) }, classes: classesOf(id) });
+      out.push({ data: { id, label: `${id}\n${n.title}`, short, fs: fsOf(short), dw: 140 }, classes: classesOf(id) });
       const parent = parentOf(id);
       if (parent && shown.has(parent)) out.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: `contains ${adoptState.edges ? "" : "hidden"}` });
       for (const t of n.requires) if (shown.has(t)) out.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: `requires dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
@@ -840,6 +833,7 @@ function buildAdoptCanvas() {
       { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "", "border-width": 1, "background-opacity": 0.7 } },
       { selector: "node.premise.labelled, node.principles.labelled", style: { shape: "round-rectangle", width: 200, height: 60 } },
       { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48 } },
+      { selector: "node.dendro", style: { shape: "round-rectangle", width: "data(dw)", height: 30, label: "", "border-width": 1, "background-opacity": 0.7 } },
       { selector: "node.selected", style: { "border-width": 2.5 } },
       { selector: "node.dim", style: { opacity: 0.4 } },
       { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": "#6b7280", "target-arrow-shape": "triangle", "target-arrow-color": "#6b7280", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: "#cbd5e1", "text-background-color": "#0f1216", "text-background-opacity": 1, "text-background-padding": "2px" } },
@@ -886,7 +880,7 @@ function buildAdoptCanvas() {
   // to just inside the children's ring, around, and out to each child. Boxes cannot be dragged here.
   const ringOf = (n) => (n.id() === "ROOT" ? 0 : n.id() === "PRINCIPLES" ? 1 : n.hasClass("prn") ? 2 : n.id().replace(/^REQ-/, "").split(".").length);
   const closedSize = (n) => (n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30]);
-  const finalSize = (n) => (n.hasClass("labelled") ? cardSize(n) : closedSize(n));
+  const finalSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("labelled") ? cardSize(n) : closedSize(n));
   const ringGeom = () => {
     const deepest = Math.max(0, ...cy.nodes().map((n) => ringOf(n)));
     const carriers = new Array(deepest + 1).fill(0), need = new Array(deepest + 1).fill(0), ext = new Array(deepest + 1).fill(0);
@@ -967,10 +961,7 @@ function buildAdoptCanvas() {
         if (s === "ROOT") { pts.push(door(e.source(), S, Math.cos(at), Math.sin(at)), cart(rf, at)); }
         else { const as0 = A.get(s), da = angleDiff(at, as0), steps = Math.max(1, Math.ceil(Math.abs(da) / (Math.PI / 18))); pts.push(door(e.source(), S, Math.cos(as0), Math.sin(as0))); for (let k = 0; k <= steps; k++) pts.push(cart(rf, as0 + (da * k) / steps)); }
         pts.push(door(e.target(), T, -Math.cos(at), -Math.sin(at)));
-        const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
-        const ws = [], ds = [];
-        for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
-        e.addClass("fork").style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
+        fork(e, S, T, pts);
       }
       cy.nodes().ungrabify();
       // the glide runs alongside a card that is still growing, not after it, so the overlays can keep up
@@ -980,7 +971,82 @@ function buildAdoptCanvas() {
     place();
     if (animated) follow(380);
   };
-  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); cy.nodes().grabify(); };
+  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
+  // A fork as a segment line: the points are given relative to the straight line from parent to child.
+  const fork = (e, S, T, pts) => {
+    const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
+    const ws = [], ds = [];
+    for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
+    e.addClass("fork").style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
+  };
+  // Dendrogram: left to right, one column per level, every box a single row showing its number and its
+  // whole title; a column is as wide as its widest row. A leaf takes one row, a parent as many as its
+  // children together and stands level with their middle, so a branch never overlaps another. Dotted
+  // lines mark the columns and, inside a column, part one parent's children from the next's. Computed
+  // outright like the rings, with the same forks: out of the parent's right side, down the gutter before
+  // the children's column, into each child's left side. Nothing is collapsed here and nothing is dragged.
+  const ROWH = 44, COLGAP = 72;
+  const rowWidth = (() => {
+    const ctx = document.createElement("canvas").getContext("2d"), cache = new Map();
+    return (id) => {
+      const title = info(id).title, key = id + "\n" + title;
+      if (cache.has(key)) return cache.get(key);
+      ctx.font = `600 11px ${getComputedStyle(document.body).fontFamily}`;
+      const tw = ctx.measureText(title).width;
+      ctx.font = `9px ${getComputedStyle(document.documentElement).getPropertyValue("--mono") || "ui-monospace, monospace"}`;
+      const gw = ctx.measureText(id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id).width;
+      const w = Math.ceil(8 + gw + 10 + 6 + tw + 8 + 6);
+      cache.set(key, w);
+      return w;
+    };
+  })();
+  const layoutDendro = (animated) => {
+    const kids = new Map();
+    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, (id === "ROOT" ? ["PRINCIPLES", ...info("ROOT").children] : info(id).children).filter((c) => cy.getElementById(c).length)); return kids.get(id); };
+    const depth = new Map(), order = [];
+    const walk = (id, d) => { depth.set(id, d); order.push(id); for (const c of kidsOf(id)) walk(c, d + 1); };
+    walk("ROOT", 0);
+    const widths = new Map(cy.nodes().map((n) => [n.id(), rowWidth(n.id())]));
+    const deepest = Math.max(0, ...depth.values());
+    const cols = [];
+    let left = 0;
+    for (let d = 0; d <= deepest; d++) { let w = 120; for (const [id, dd] of depth) if (dd === d) w = Math.max(w, widths.get(id)); cols.push({ left, width: w, name: levelName(d) }); left += w + COLGAP; }
+    const span = new Map();
+    const extent = (id) => { const ks = kidsOf(id); const s = ks.length ? Math.max(ROWH, ks.reduce((a, c) => a + extent(c), 0)) : ROWH; span.set(id, s); return s; };
+    extent("ROOT");
+    const Y = new Map();
+    const lay = (id, top) => {
+      const ks = kidsOf(id), s = span.get(id);
+      if (!ks.length) { Y.set(id, top + s / 2); return; }
+      let y = top + (s - ks.reduce((a, c) => a + span.get(c), 0)) / 2;
+      for (const c of ks) { lay(c, y); y += span.get(c); }
+      Y.set(id, (Y.get(ks[0]) + Y.get(ks[ks.length - 1])) / 2);
+    };
+    lay("ROOT", 0);
+    const seps = [];
+    for (let d = 1; d <= deepest; d++) {
+      const parents = order.filter((id) => depth.get(id) === d - 1 && kidsOf(id).length).sort((a, b) => Y.get(a) - Y.get(b));
+      for (let i = 1; i < parents.length; i++) { const prev = kidsOf(parents[i - 1]), next = kidsOf(parents[i]); const a = prev[prev.length - 1], b = next[0]; seps.push({ x: cols[d].left, y: (Y.get(a) + span.get(a) / 2 + Y.get(b) - span.get(b) / 2) / 2, w: cols[d].width }); }
+    }
+    const P = new Map(cy.nodes().map((n) => { const id = n.id(), d = depth.get(id) ?? 0; return [id, { x: cols[d].left + widths.get(id) / 2, y: Y.get(id) ?? 0 }]; }));
+    sim.dendro = { cols, seps, top: -ROWH, height: span.get("ROOT") + 2 * ROWH };
+    cy.batch(() => {
+      for (const n of cy.nodes()) n.addClass("dendro").data("dw", widths.get(n.id()));
+      for (const e of cy.edges(".contains")) {
+        const s = e.source().id(), t = e.target().id(), S = P.get(s), T = P.get(t);
+        if (!S || !T) continue;
+        const fx = cols[depth.get(t)].left - 26;
+        fork(e, S, T, [{ x: S.x + widths.get(s) / 2 + 18, y: S.y }, { x: fx, y: S.y }, { x: fx, y: T.y }, { x: T.x - widths.get(t) / 2 - 18, y: T.y }]);
+      }
+      cy.nodes().ungrabify();
+      for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out", queue: false }); else n.position(p); }
+    });
+    // every box is a row here, so the overlays are rebuilt, not just moved
+    makeOverlays();
+    if (animated) follow(380);
+  };
+  // Which computed arrangement the view uses; the lanes use the simulation instead.
+  const relayout = (animated) => (adoptState.mode === "radial" ? layoutRadial : layoutDendro)(animated);
   // Overlap is never allowed to stand. Boxes in the same lane separate sideways, since the lane clamp would undo
   // a vertical push; others separate along the axis of least overlap. A bright or just-dropped box has right of way.
   const separate = (arr, strength, iterations) => {
@@ -1102,10 +1168,10 @@ function buildAdoptCanvas() {
   };
   // On the rings a settle is one fresh arrangement; several asked for in the same breath (a box and its
   // ancestors naming themselves) become one. In the lanes it is the simulation.
-  const settle = (strength = 1) => { if (adoptState.radial) { if (!sim.relayout) sim.relayout = setTimeout(() => { sim.relayout = 0; layoutRadial(true); }, 0); return; } sim.alpha = Math.max(sim.alpha, strength); run(); };
+  const settle = (strength = 1) => { if (adoptState.mode !== "lanes") { if (!sim.relayout) sim.relayout = setTimeout(() => { sim.relayout = 0; relayout(true); }, 0); return; } sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
   window.__sim = { tick, settle, state: sim, hardSeparate, orderLanes };
-  if (!adoptState.radial) seed();
+  if (adoptState.mode === "lanes") seed();
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
     const z = cy.zoom(), p = cy.pan();
@@ -1150,7 +1216,13 @@ function buildAdoptCanvas() {
         b.addEventListener("click", (ev) => { ev.stopPropagation(); toggleExpand(id); });
         overlay.appendChild(b);
       }
-      if (n.hasClass("labelled")) {
+      if (n.hasClass("dendro")) {
+        const card = document.createElement("div");
+        card.className = "ov-card row"; card.dataset.id = id; card.dataset.kind = "card"; card.style.width = n.data("dw") + "px";
+        const tag = id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id;
+        card.innerHTML = `<span class="tag">${esc(tag)}</span><span class="ttl">${esc(info(id).title)}</span>`;
+        overlay.appendChild(card);
+      } else if (n.hasClass("labelled")) {
         const card = document.createElement("div");
         card.className = "ov-card" + (id.startsWith("PRN-") ? " small" : ""); card.dataset.id = id; card.dataset.kind = "card";
         const tag = id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id;
@@ -1170,16 +1242,25 @@ function buildAdoptCanvas() {
     laneLines();
     place();
   };
+  const levelName = (d) => (d === 0 ? "premise" : d === 1 ? "domains" : d === 2 ? "capabilities" : d === 3 ? "requirements" : "level " + d);
   const laneLines = () => {
     for (const old of overlay.querySelectorAll(".lane")) old.remove();
-    if (!adoptState.bands && !adoptState.radial) return;
-    const deepest = Math.max(0, ...cy.nodes().map((n) => (adoptState.radial ? ringOf(n) : depthOf(n))));
-    for (let d = 0; d <= deepest; d++) { const line = document.createElement("div"); line.className = adoptState.radial ? "lane ring" : "lane"; line.dataset.depth = String(d); line.textContent = d === 0 ? "premise" : d === 1 ? "domains" : d === 2 ? "capabilities" : d === 3 ? "requirements" : "level " + d; overlay.appendChild(line); }
+    if (adoptState.mode === "dendro") {
+      const g = sim.dendro; if (!g) return;
+      g.cols.forEach((c, d) => { const line = document.createElement("div"); line.className = "lane col"; line.dataset.depth = String(d); line.textContent = c.name; overlay.appendChild(line); });
+      g.seps.forEach((_, i) => { const line = document.createElement("div"); line.className = "lane sep"; line.dataset.sep = String(i); overlay.appendChild(line); });
+      return;
+    }
+    if (!adoptState.bands && adoptState.mode === "lanes") return;
+    const radial = adoptState.mode === "radial";
+    const deepest = Math.max(0, ...cy.nodes().map((n) => (radial ? ringOf(n) : depthOf(n))));
+    for (let d = 0; d <= deepest; d++) { const line = document.createElement("div"); line.className = radial ? "lane ring" : "lane"; line.dataset.depth = String(d); line.textContent = levelName(d); overlay.appendChild(line); }
   };
   const place = () => {
     const r = el.getBoundingClientRect();
     const z = cy.zoom(), pan = cy.pan();
-    if (adoptState.radial) { const rings = sim.rings ?? ringGeom(), cx = sim.centre.x * z + pan.x, cy0 = sim.centre.y * z + pan.y; for (const line of overlay.querySelectorAll(".lane")) { const g = rings[Number(line.dataset.depth)]; if (!g) continue; const d = 2 * g.outer * z; line.style.left = (cx - d / 2) + "px"; line.style.top = (cy0 - d / 2) + "px"; line.style.width = d + "px"; line.style.height = d + "px"; } }
+    if (adoptState.mode === "dendro") { const g = sim.dendro; if (g) { for (const line of overlay.querySelectorAll(".lane.col")) { const c = g.cols[Number(line.dataset.depth)]; if (!c) continue; line.style.left = (c.left - 12) * z + pan.x + "px"; line.style.top = g.top * z + pan.y + "px"; line.style.height = g.height * z + "px"; } for (const line of overlay.querySelectorAll(".lane.sep")) { const sp = g.seps[Number(line.dataset.sep)]; if (!sp) continue; line.style.left = (sp.x - 12) * z + pan.x + "px"; line.style.top = sp.y * z + pan.y + "px"; line.style.width = (sp.w + 24) * z + "px"; } } }
+    else if (adoptState.mode === "radial") { const rings = sim.rings ?? ringGeom(), cx = sim.centre.x * z + pan.x, cy0 = sim.centre.y * z + pan.y; for (const line of overlay.querySelectorAll(".lane")) { const g = rings[Number(line.dataset.depth)]; if (!g) continue; const d = 2 * g.outer * z; line.style.left = (cx - d / 2) + "px"; line.style.top = (cy0 - d / 2) + "px"; line.style.width = d + "px"; line.style.height = d + "px"; } }
     else { const lanes = adoptState.bands ? (sim.lanes ?? laneGeom()) : []; for (const line of overlay.querySelectorAll(".lane")) { const l = lanes[Number(line.dataset.depth)]; if (l) line.style.top = (l.top * z + pan.y) + "px"; } }
     for (const h of overlay.children) {
       if (h.classList.contains("lane")) continue;
@@ -1190,7 +1271,7 @@ function buildAdoptCanvas() {
       h.style.display = inside ? "" : "none";
       h.style.opacity = n.hasClass("dim") ? "0.4" : "";
       const z = cy.zoom();
-      if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
+      if (h.dataset.kind === "handle") { if (adoptState.mode === "dendro") { h.style.left = `${p.x + w / 2 + 16 * z}px`; h.style.top = `${p.y}px`; } else { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; } h.style.transform = `translate(-50%, -50%) scale(${z})`; }
       else if (h.dataset.kind === "card") { const [bw, bh] = cardSize(n); h.style.left = `${p.x}px`; h.style.top = `${p.y}px`; h.style.transform = `translate(-50%, -50%) scale(${(z * n.width()) / bw}, ${(z * n.height()) / bh})`; }
       else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 14 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
       else { h.style.left = `${p.x + w / 2 - 38 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
@@ -1214,19 +1295,35 @@ function buildAdoptCanvas() {
     if (bb.y1 < m) dy = m - bb.y1; else if (bb.y2 > r.height - m) dy = r.height - m - bb.y2;
     if (dx || dy) panBy(dx, dy);
   };
-  // The view switch in the canvas's top right corner: levels as lanes, or as rings around the premise. The
-  // boxes glide to the other arrangement; in the lanes the simulation then takes over.
-  const modeBox = document.createElement("div");
-  modeBox.className = "mode";
-  modeBox.innerHTML = `<button class="btn small ${adoptState.radial ? "" : "on"}" data-mode="lanes" title="Levels as horizontal lanes">Lanes</button><button class="btn small ${adoptState.radial ? "on" : ""}" data-mode="radial" title="Levels as rings around the premise">Radial</button>`;
-  el.appendChild(modeBox);
-  const setMode = (radial) => {
-    if (adoptState.radial === radial) return;
-    adoptState.radial = radial;
-    for (const b of modeBox.querySelectorAll("button")) b.classList.toggle("on", (b.dataset.mode === "radial") === radial);
+  // The floating menu in the canvas's top right corner, folded or unfolded with its caret: the view switch
+  // at its head (levels as lanes, or as rings around the premise), the view's options below. The rings
+  // show only what applies to them; the lanes-only options hide there.
+  const menu = document.createElement("div");
+  menu.className = "menu" + (adoptState.menu ? "" : " closed");
+  menu.dataset.mode = adoptState.mode;
+  const modeBtn = (m, label, title) => `<button class="btn small ${adoptState.mode === m ? "on" : ""}" data-mode="${m}" title="${title}">${label}</button>`;
+  menu.innerHTML = `<div class="menu-head"><span class="mode">${modeBtn("lanes", "Lanes", "Levels as horizontal lanes")}${modeBtn("radial", "Radial", "Levels as rings around the premise")}${modeBtn("dendro", "Tree", "Levels as columns, left to right")}</span><button class="btn small caret" data-collapse="1" title="Fold or unfold the menu">▾</button></div>
+    <div class="menu-body">
+      <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" data-views="lanes radial" title="Show or hide every name">${adoptState.labels ? "Collapse" : "Expand"}</button>
+      <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" data-views="lanes radial dendro" title="Show or hide the requires and conflicts links">Dependencies</button>
+      <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" data-views="lanes" title="Show or hide every line">Edges</button>
+      <button class="btn small ${adoptState.bands ? "on" : ""}" data-bands="1" data-views="lanes" title="Keep every level in its own lane">Levels</button>
+      <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" data-views="lanes" title="Sort each lane to untangle the lines">Order</button>
+      <button class="btn small" data-fit="1" data-views="lanes radial dendro" title="Bring everything into view">Fit</button>
+      <button class="btn small" data-expand-all="1" data-views="lanes dendro" title="Open every box down to the leaves">Show all</button>
+    </div>`;
+  el.appendChild(menu);
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) menu.addEventListener(ev, (e) => e.stopPropagation());
+  menu.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.menu = !adoptState.menu; menu.classList.toggle("closed", !adoptState.menu); });
+  const labelButton = () => { const b = menu.querySelector("[data-labels]"); b.classList.toggle("on", adoptState.labels); b.textContent = adoptState.labels ? "Collapse" : "Expand"; };
+  const setMode = (mode) => {
+    if (adoptState.mode === mode) return;
+    adoptState.mode = mode;
+    menu.dataset.mode = mode;
+    for (const b of menu.querySelectorAll(".mode button")) b.classList.toggle("on", b.dataset.mode === mode);
     cancelAnimationFrame(sim.raf); sim.alpha = 0; sim.heavy.clear();
-    if (radial) { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; layoutRadial(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
     unfork();
+    if (mode !== "lanes") { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; relayout(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
     const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     seed();
     const target = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
@@ -1235,14 +1332,14 @@ function buildAdoptCanvas() {
     follow(440);
     setTimeout(() => { cy.fit(undefined, 40); settle(0.8); }, 440);
   };
-  for (const b of modeBox.querySelectorAll("button")) { b.addEventListener("click", (ev) => { ev.stopPropagation(); setMode(b.dataset.mode === "radial"); }); for (const ev of ["pointerdown", "mousedown", "touchstart"]) b.addEventListener(ev, (e) => e.stopPropagation()); }
-  window.__sim.layoutRadial = layoutRadial;
+  for (const b of menu.querySelectorAll(".mode button")) b.addEventListener("click", () => setMode(b.dataset.mode));
+  window.__sim.layoutRadial = layoutRadial; window.__sim.layoutDendro = layoutDendro;
   // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
   const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); keepInView(id); };
   cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
   // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
-  const cardSize = (n) => (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
+  const cardSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
   const showLabel = (id) => {
     const n = cy.getElementById(id);
     if (!n.length || n.hasClass("labelled")) return;
@@ -1255,7 +1352,7 @@ function buildAdoptCanvas() {
   };
   const hideLabel = (id) => {
     adoptState.labelled.delete(id);
-    if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const o of cy.nodes()) if (!adoptState.labelled.has(o.id()) && o.id() !== id) o.removeClass("labelled"); }
+    if (adoptState.labels) { adoptState.labels = false; labelButton(); for (const o of cy.nodes()) if (!adoptState.labelled.has(o.id()) && o.id() !== id) o.removeClass("labelled"); }
     const n = cy.getElementById(id);
     const [w0, h0] = [n.width(), n.height()];
     n.removeClass("labelled").style({ width: w0, height: h0 });
@@ -1286,6 +1383,7 @@ function buildAdoptCanvas() {
     if (lastTap.id === id && now - lastTap.at < 400) { lastTap = { id: null, at: 0 }; select(id); openPopup(id); return; }
     lastTap = { id, at: now };
     select(id);
+    if (adoptState.mode === "dendro") return;
     showLabel(id);
     // the path to the root reads along with the box: every ancestor shows its name too
     let p = parentOf(id);
@@ -1314,7 +1412,7 @@ function buildAdoptCanvas() {
   cy.on("layoutstop", place);
   cy.ready(() => {
     // The opening arrangement settles fully before it is shown.
-    if (adoptState.radial) layoutRadial(false);
+    if (adoptState.mode !== "lanes") relayout(false);
     else {
       sim.alpha = 1;
       for (let i = 0; i < 260 && sim.alpha > 0.02; i++) { tick(); sim.alpha *= 0.985; }
@@ -1327,9 +1425,9 @@ function buildAdoptCanvas() {
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
   $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 40); });
-  $main.querySelector("[data-labels]")?.addEventListener("click", (ev) => {
+  $main.querySelector("[data-labels]")?.addEventListener("click", () => {
     adoptState.labels = !adoptState.labels;
-    ev.currentTarget.classList.toggle("on", adoptState.labels);
+    labelButton();
     if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
     else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
     makeOverlays();
