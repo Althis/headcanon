@@ -180,13 +180,22 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: min(424px, 
 .quote-chip { display: flex; align-items: center; gap: 6px; padding: 4px 8px; margin-bottom: 6px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 12px; background: var(--bg); }
 .quote-chip q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quote-chip .btn { padding: 0 6px; }
-.chat li.message .q { display: block; font-size: 11px; opacity: .85; margin-bottom: 3px; }
 ::highlight(quote) { background: rgba(96,165,250,.35); color: inherit; }
-.chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.chat li { padding: 6px 10px; border-radius: 10px; max-width: 92%; font-size: 13px; }
-.chat li.say { background: var(--bg); align-self: flex-start; border: 1px solid var(--line); }
-.chat li.message { background: var(--accent); color: #fff; align-self: flex-end; }
-.chat li.sys { color: var(--muted); font-size: 12px; align-self: stretch; }
+/* The chat: the session's lines on the left, the human's on the right, the page's own doings as quiet centred
+   notes. Every line carries its time; a line about a box carries the box as a chip, and ids in the text are links. */
+.chat { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--text); }
+.chat li { padding: 8px 11px; border-radius: 12px; max-width: 94%; line-height: 1.45; overflow-wrap: anywhere; }
+.chat li.say { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); border-top-left-radius: 4px; }
+.chat li.message { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.chat li.message .q { display: block; margin-bottom: 5px; padding-left: 7px; border-left: 2px solid rgba(255,255,255,.55); font-size: 11.5px; font-style: italic; opacity: .92; }
+.chat li.sys { align-self: center; max-width: 100%; padding: 0 8px; font-size: 11.5px; color: var(--muted); text-align: center; }
+.chat .meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; opacity: .78; }
+.chat .meta time { margin-left: auto; white-space: nowrap; }
+.chat .ref, .chat a.id { font-family: var(--mono); font-size: 11.5px; text-decoration: none; }
+.chat .ref { padding: 1px 7px; border-radius: 6px; background: rgba(127,127,127,.16); color: inherit; }
+.chat .ref:hover, .chat a.id:hover { text-decoration: underline; }
+.chat li.message a { color: #fff; }
+.chat li.sys a.id { color: var(--muted); }
 .graph { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: calc(100vh - 150px); overflow: auto; }
 .graph #cy { height: calc(100vh - 210px); min-height: 360px; border-radius: 8px; background-color: var(--bg); }
 .graph svg { max-width: 100%; height: auto; }
@@ -294,7 +303,6 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .ov-card.row { display: flex; flex-direction: row; align-items: center; gap: 6px; height: 30px; padding: 0 8px; white-space: nowrap; overflow: hidden; }
 .ov-card.row .tag { position: static; }
 .ov-card.row .ttl { margin-top: 0; text-align: left; }
-.ov-card.row .needs { font-family: var(--mono); font-size: 9px; color: #60a5fa; white-space: nowrap; }
 .menu.principles { left: 10px; right: auto; max-width: 340px; }
 .menu.principles .menu-head b { font-size: 12px; padding-left: 4px; }
 .prn-row { display: flex; align-items: center; gap: 6px; text-align: left; white-space: normal; }

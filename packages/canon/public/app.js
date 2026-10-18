@@ -541,7 +541,7 @@ async function pollSession() {
     if (s.focus && s.focus.seq !== lastFocusSeq) {
       lastFocusSeq = s.focus.seq;
       if (s.focus.id) {
-        if (route().view === "adopt") { adoptState.selected = s.focus.id; if (s.focus.id !== "ROOT") expandTo(s.focus.id); location.hash = `#/adopt/${s.focus.id}`; render(); if (s.focus.open) openPopup(s.focus.id); }
+        if (route().view === "adopt") focusOnCanvas(s.focus.id, !!s.focus.open);
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
     }
@@ -680,7 +680,8 @@ function colorOf(id) {
   const n = node(id);
   if (!n) return "yellow";
   if (n.state === "open" || n.state === "contested") return "red";
-  if (findingsFor(id).some((f) => f.level !== "info")) return "red";
+  // a finding about the branch under a box (branch-unconfirmed) is the normal state of a draft and never paints the box itself
+  if (findingsFor(id).some((f) => f.level !== "info" && f.code !== "branch-unconfirmed")) return "red";
   return n.state === "stated" || n.state === "resolved" ? "green" : "yellow";
 }
 function ensureExpanded() {
@@ -940,19 +941,16 @@ function buildAdoptCanvas() {
   // outright like the rings, with the same forks: out of the parent's right side, down the gutter before
   // the children's column, into each child's left side. Nothing is collapsed here and nothing is dragged.
   const ROWH = 44, COLGAP = 72;
-  // what a row says about its dependencies, when the Dependencies switch is on
-  const needsOf = (id) => { if (!adoptState.deps) return ""; const n = info(id), parts = []; if (n.requires.length) parts.push("needs " + n.requires.map(shortOf).join(", ")); if (n.conflicts.length) parts.push("clashes " + n.conflicts.map(shortOf).join(", ")); return parts.join(" · "); };
   const rowWidth = (() => {
     const ctx = document.createElement("canvas").getContext("2d"), cache = new Map();
     return (id) => {
-      const title = info(id).title, needs = needsOf(id), key = id + "\n" + title + "\n" + needs;
+      const title = info(id).title, key = id + "\n" + title;
       if (cache.has(key)) return cache.get(key);
       ctx.font = `600 11px ${getComputedStyle(document.body).fontFamily}`;
       const tw = ctx.measureText(title).width;
       ctx.font = `9px ${getComputedStyle(document.documentElement).getPropertyValue("--mono") || "ui-monospace, monospace"}`;
       const gw = ctx.measureText(id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id).width;
-      const nw = needs ? 8 + ctx.measureText(needs).width : 0;
-      const w = Math.ceil(8 + gw + 10 + 6 + tw + nw + 8 + 6);
+      const w = Math.ceil(8 + gw + 10 + 6 + tw + 8 + 6);
       cache.set(key, w);
       return w;
     };
@@ -1180,8 +1178,7 @@ function buildAdoptCanvas() {
         const card = document.createElement("div");
         card.className = "ov-card row"; card.dataset.id = id; card.dataset.kind = "card"; card.style.width = n.data("dw") + "px";
         const tag = id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id;
-        const needs = needsOf(id);
-        card.innerHTML = `<span class="tag">${esc(tag)}</span><span class="ttl">${esc(info(id).title)}</span>${needs ? `<span class="needs">${esc(needs)}</span>` : ""}`;
+        card.innerHTML = `<span class="tag">${esc(tag)}</span><span class="ttl">${esc(info(id).title)}</span>`;
         overlay.appendChild(card);
       } else if (n.hasClass("labelled")) {
         const card = document.createElement("div");
@@ -1415,7 +1412,7 @@ function buildAdoptCanvas() {
     makeOverlays();
     settle(0.8);
   });
-  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); applyDeps(); if (adoptState.mode === "dendro") settle(0.5); });
+  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); applyDeps(); });
   $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); applyDeps(); });
   $main.querySelector("[data-bands]")?.addEventListener("click", (ev) => { adoptState.bands = !adoptState.bands; ev.currentTarget.classList.toggle("on", adoptState.bands); laneLines(); settle(0.6); });
   $main.querySelector("[data-order]")?.addEventListener("click", (ev) => { adoptState.order = !adoptState.order; ev.currentTarget.classList.toggle("on", adoptState.order); settle(0.5); });
@@ -1423,6 +1420,8 @@ function buildAdoptCanvas() {
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
+// The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
+function focusOnCanvas(id, open) { adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id); }
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
@@ -1563,18 +1562,33 @@ document.addEventListener("mouseup", () => {
 
 // The chat: what the session says and what the human sends, with the actions between them as quiet lines.
 let chatCursor = 0;
+// Ids named in a chat line are links; a line about a box carries the box as a chip; every line has its time.
+const ID_RE = /\b(REQ-\d+(?:\.\d+)*|PRN-\d+|DEC-\d+)\b/g;
+const linkIds = (text) => esc(text).replace(ID_RE, (id) => `<a class="id" data-id="${id}" href="#/node/${id}">${id}</a>`);
+const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
 function appendChat(entries) {
   const list = document.getElementById("activity");
   for (const e of entries) {
     const li = document.createElement("li");
-    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${esc(e.text ?? "")}${e.id ? ` ${idLink(e.id)}` : ""}`; }
-    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? esc(e.id) + " › " : ""}“${esc(e.quote)}”</span>` : ""}${esc(e.text ?? "")}`; }
-    else { li.className = "sys"; li.textContent = e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind; }
+    const t = timeOf(e.at);
+    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; }
+    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; }
+    else { li.className = "sys"; li.title = `${t} · ${e.text ?? e.kind}`; li.innerHTML = linkIds(e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind); }
     list.appendChild(li);
   }
   while (list.children.length > 60) list.firstChild.remove();
   list.lastElementChild?.scrollIntoView({ block: "nearest" });
 }
+// While the canvas is up, a box named in the chat is focused there rather than opened as a page; a principle opens its card.
+document.getElementById("activity").addEventListener("click", (ev) => {
+  const a = ev.target.closest("a[data-id]");
+  if (!a || !document.body.classList.contains("adopt-mode")) return;
+  const id = a.dataset.id;
+  if (id.startsWith("PRN-")) { ev.preventDefault(); openPopup(id); return; }
+  if (!snap?.canon.nodes[id]) return;
+  ev.preventDefault();
+  focusOnCanvas(id, false);
+});
 function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
 
 load().then(render).catch(showError).finally(pollSession);
