@@ -760,8 +760,8 @@ function buildAdoptCanvas() {
       { selector: "node.green", style: { "background-color": "#dcfce7", "border-color": "#16a34a" } },
       { selector: "node.yellow", style: { "background-color": "#fef3c7", "border-color": "#d97706" } },
       { selector: "node.red", style: { "background-color": "#fee2e2", "border-color": "#dc2626" } },
-      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "data(label)", "text-wrap": "wrap", "text-max-width": 172, "font-size": 11, "text-valign": "center", "text-halign": "center", color: "#1f2937", "border-width": 1.5 } },
-      { selector: "node.selected", style: { "border-width": 4 } },
+      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "", "border-width": 1 } },
+      { selector: "node.selected", style: { "border-width": 2.5 } },
       { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
@@ -769,7 +769,7 @@ function buildAdoptCanvas() {
       { selector: "node.principles", style: { shape: "octagon", width: 40, height: 40 } },
       { selector: "node.prn", style: { shape: "diamond", width: 22, height: 22 } },
       { selector: "node.premise.labelled, node.principles.labelled", style: { shape: "round-rectangle", width: 200, height: 60 } },
-      { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48, "font-size": 10 } },
+      { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
     layout: layout(),
@@ -801,6 +801,11 @@ function buildAdoptCanvas() {
         overlay.appendChild(b);
       }
       if (cy.getElementById(id).hasClass("labelled")) {
+        const card = document.createElement("div");
+        card.className = "ov-card" + (id.startsWith("PRN-") ? " small" : ""); card.dataset.id = id; card.dataset.kind = "card";
+        const tag = id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id;
+        card.innerHTML = `<span class="tag">${esc(tag)}</span><span class="ttl">${esc(info(id).title)}</span>`;
+        overlay.appendChild(card);
         const eye = document.createElement("button");
         eye.className = "ov eye"; eye.dataset.id = id; eye.dataset.kind = "eye"; eye.textContent = "👁"; eye.title = "Hide the name";
         eye.addEventListener("click", (ev) => { ev.stopPropagation(); hideLabel(id); });
@@ -811,6 +816,7 @@ function buildAdoptCanvas() {
         overlay.appendChild(go);
       }
     }
+    for (const b of overlay.querySelectorAll("button")) for (const ev of ["pointerdown", "mousedown", "touchstart"]) b.addEventListener(ev, (e) => e.stopPropagation());
     place();
   };
   const place = () => {
@@ -821,14 +827,17 @@ function buildAdoptCanvas() {
       const p = n.renderedPosition(), w = n.renderedWidth(), hh = n.renderedHeight();
       const inside = p.x > -40 && p.y > -40 && p.x < r.width + 40 && p.y < r.height + 40;
       h.style.display = inside ? "" : "none";
+      const z = cy.zoom();
       if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; }
-      else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 12}px`; h.style.top = `${p.y - hh / 2}px`; }
-      else { h.style.left = `${p.x + w / 2 - 36}px`; h.style.top = `${p.y - hh / 2}px`; }
+      else if (h.dataset.kind === "card") { h.style.left = `${p.x}px`; h.style.top = `${p.y}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
+      else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 14 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; }
+      else { h.style.left = `${p.x + w / 2 - 38 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; }
     }
   };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
-  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); };
-  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); };
+  const relax = () => cy.layout({ name: "cose", randomize: false, animate: true, animationDuration: 350, fit: false, padding: 30, nodeOverlap: 40, nodeRepulsion: () => 60000, idealEdgeLength: () => 70, edgeElasticity: () => 60, gravity: 0.02, numIter: 150, initialTemp: 60, coolingFactor: 0.9, minTemp: 1, nestingFactor: 1 }).run();
+  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); relax(); };
+  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); relax(); };
   let lastTap = { id: null, at: 0 };
   cy.on("tap", "node", (e) => {
     const id = e.target.id(), now = Date.now();

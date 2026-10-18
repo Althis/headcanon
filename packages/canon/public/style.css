@@ -148,7 +148,12 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: min(424px, 
 .progress-bar span { display: block; height: 100%; background: var(--accent); transition: width .6s ease; }
 .progress-label { white-space: nowrap; }
 .cy-full { position: relative; flex: 1; min-height: 320px; overflow: hidden; border-radius: var(--radius); background-color: var(--bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 19v10M19 24h10' stroke='%236b7280' stroke-opacity='.45' stroke-width='1'/%3E%3C/svg%3E"); background-size: 48px 48px; }
-.overlays { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.overlays { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+/* An expanded box's text: the reference tag in its own small frame at the top left, the title beside and below it. */
+.ov-card { position: absolute; width: 190px; height: 58px; box-sizing: border-box; padding: 5px 8px 6px; pointer-events: none; display: flex; flex-direction: column; justify-content: center; color: #1f2937; font-size: 11px; line-height: 1.25; transform-origin: center; }
+.ov-card .tag { position: absolute; top: 4px; left: 6px; font-family: var(--mono); font-size: 9px; padding: 1px 4px; border: 1px solid rgba(31,41,55,.45); border-radius: 4px; background: rgba(255,255,255,.55); }
+.ov-card .ttl { display: block; margin-top: 12px; text-align: center; font-weight: 600; overflow: hidden; }
+.ov-card.small { width: 170px; height: 48px; font-size: 10px; }
 .ov { position: absolute; pointer-events: auto; transform: translate(-50%, -50%); font: 600 11px/1 inherit; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
 .ov:hover { border-color: var(--accent); color: var(--accent); }
 .ov.eye, .ov.go { width: 22px; height: 22px; padding: 0; border-radius: 50%; font-size: 12px; line-height: 20px; text-align: center; }
