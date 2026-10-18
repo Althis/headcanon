@@ -817,7 +817,7 @@ function buildAdoptCanvas() {
       if (!a || !b) continue;
       if (e.hasClass("contains")) {
         // the child wants to sit a rank under its parent; the parent is pulled back only a little
-        const tx = a.x, ty = a.y + 110 + (a.h + b.h) / 4, kx = 0.02, ky = 0.09;
+        const tx = a.x, ty = a.y + 110 + (a.h + b.h) / 4, kx = 0.02, ky = adoptState.bands ? 0.006 : 0.09;
         const dx = tx - b.x, dy = ty - b.y;
         b.fx += kx * dx; b.fy += ky * dy; a.fx -= kx * dx * 0.25; a.fy -= ky * dy * 0.25;
       } else if (!e.hasClass("hidden")) {
@@ -827,6 +827,10 @@ function buildAdoptCanvas() {
       }
     }
     const arr = [...P.values()];
+    // siblings stick together: each child is drawn toward the centre of its parent's group
+    const groups = new Map();
+    for (const e of cy.edges(".contains")) { const c = P.get(e.target().id()); if (!c) continue; const k = e.source().id(); (groups.get(k) ?? groups.set(k, []).get(k)).push(c); }
+    for (const g of groups.values()) { if (g.length < 2) continue; let cx = 0, cy0 = 0; for (const m of g) { cx += m.x; cy0 += m.y; } cx /= g.length; cy0 /= g.length; for (const m of g) { m.fx += 0.03 * (cx - m.x); m.fy += (adoptState.bands ? 0.008 : 0.02) * (cy0 - m.y); } }
     if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const l = laneOf(p.n); const target = l.c + (deg ? -Math.min(l.h / 2 - 24, 10 + 14 * deg) : 12); p.fy += 0.05 * (target - p.y); }
     // Lines push boxes off them: a box near a line it is not an end of is nudged away, perpendicular to it.
     const segs = [];
@@ -852,11 +856,13 @@ function buildAdoptCanvas() {
         const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1;
         const ha = sim.heavy.has(a.n.id()) || sim.pinned.has(a.n.id()), hb = sim.heavy.has(b.n.id()) || sim.pinned.has(b.n.id());
         const wa = ha && !hb ? 0 : hb && !ha ? 1 : a.bright && !b.bright ? 0 : b.bright && !a.bright ? 1 : 0.5, wb = 1 - wa;
-        if (ox < oy) { a.x -= sx * ox * wa; b.x += sx * ox * wb; } else { a.y -= sy * oy * wa; b.y += sy * oy * wb; }
+        const g = sim.pinned.size ? 0.3 : 0.7;
+        if (ox < oy) { a.x -= sx * ox * wa * g; b.x += sx * ox * wb * g; } else { a.y -= sy * oy * wa * g; b.y += sy * oy * wb * g; }
       }
     }
     // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
-    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: adoptState.bands ? inLane(p.n, p.y + p.fy * sim.alpha) : p.y + p.fy * sim.alpha }); } });
+    const gain = sim.alpha * (sim.pinned.size ? 0.35 : 1);
+    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * gain, y: adoptState.bands ? inLane(p.n, p.y + p.fy * gain) : p.y + p.fy * gain }); } });
     place();
   };
   const run = () => {
@@ -994,10 +1000,15 @@ function buildAdoptCanvas() {
     const p = e.target.position();
     cy.batch(() => { for (const [k, o] of sim.offsets) cy.getElementById(k).position({ x: p.x + o.x, y: p.y + o.y }); });
     place();
-    if (sim.alpha < 0.25) settle(0.3);
+    if (sim.alpha < 0.15) settle(0.18);
   });
   cy.on("free", "node", () => { if (adoptState.bands) cy.batch(() => { for (const id of sim.pinned) { const n = cy.getElementById(id); n.position({ x: n.position().x, y: inLane(n, n.position().y) }); } }); sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
-  cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
+  let labelZoom = 0;
+  cy.on("viewport", () => {
+    grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() };
+    const z = cy.zoom();
+    if (Math.abs(z - labelZoom) > 0.05) { labelZoom = z; cy.style().selector("edge").style("font-size", Math.max(3, Math.min(9, 9 / z))).update(); }
+  });
   cy.on("layoutstop", place);
   cy.ready(() => {
     // The opening arrangement settles fully before it is shown.
