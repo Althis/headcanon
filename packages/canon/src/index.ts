@@ -17,5 +17,5 @@ export { initCanon, rootReadme, type InitOptions, type InitResult } from "./init
 export { sessionContext } from "./context.js";
 export { RULES } from "./rules.js";
 export { buildSnapshot, type Snapshot } from "./snapshot.js";
-export { refinementOrder, requiresCycles, describeNext, isRefined, isUnrefined, type RefinementOrder, type NextPick, type Blocked } from "./next.js";
+export { refinementOrder, requiresCycles, describeNext, isRefined, isUnrefined, type RefinementOrder, type NextPick, type Blocked, LOOKAHEAD, reachOf, withinReach } from "./next.js";
 export { serveUi } from "./ui/server.js";

@@ -14,7 +14,7 @@ Colours on the canvas: green is approved by the human, yellow is your guess, red
 
 Until the human presses Finish with nothing red, or, once they have, until nothing is left to cut; or the human says stop:
 
-1. **Launch.** `HC next --json`: every `ready` node whose parent is not red gets a refiner, green parents before yellow, several at once in the background, each briefed with the repository, the node, the layer its children get, and the thread file. A node a refiner already holds is not launched twice.
+1. **Launch.** `HC next --json`: every `ready` node whose parent is not red gets a refiner, green parents before yellow, several at once in the background, each briefed with the repository, the node, the layer its children get, and the thread file. A node a refiner already holds is not launched twice. The command's `waiting` nodes lie more than two levels below the deepest approved box on their path; they are left alone until the human approves, and named when the human asks what is next.
 2. **Wait** for the next event: `headcanon_changes` with the last cursor and `waitSeconds` 600, or a refiner's return, whichever comes first.
 3. **A refiner's return.** Apply its set-asides (link, lift, merge) and its moved edges; `HC check` and fix every error; read the new set's parent, siblings and `requires` neighbours for a contradiction or a duplicate and mark it as the adopt skill's Consistency rules say; say in one line what landed; launch what became ready. A branch with nothing left to cut gets the verifier (adopt, Consistency) and then a say that names it as a key point: how many leaves carry a check, how many boxes are red. A refiner that reports blocked waits for its blocker: a red box is the human's, a prerequisite is in the next wave.
 4. **The human's entries**, in order, by kind:
@@ -35,7 +35,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
 
 - Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`, your questions `open`.
 - The human gives this about a quarter of an hour, for the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
-- A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks.
+- A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
 - Write only files under `canon/`; `HC check` after every write; never commit from here.
 
 <example>

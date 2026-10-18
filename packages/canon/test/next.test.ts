@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
-import { checkCanon, describeNext, loadCanon, refinementOrder } from "../src/index.js";
+import { checkCanon, describeNext, loadCanon, reachOf, refinementOrder } from "../src/index.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 
@@ -42,6 +42,35 @@ describe("refinement order [REQ-3.15]", () => {
     expect(order.ready.map((p) => p.id)).toEqual(["REQ-2", "REQ-1"]);
     expect(order.blocked.map((b) => `${b.id}<${b.waitingOn.join("+")}`)).toEqual(["REQ-3<REQ-2", "REQ-4<REQ-2"]);
     expect(checkCanon(canon).some((f) => f.code === "requires-cycle" || f.code === "refine-deadlock")).toBe(false);
+  });
+
+  it("drafts no deeper than two levels below the deepest approved box, and says what would release the rest [REQ-3.4, DEC-018]", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-reach-"));
+    dirs.push(dir);
+    const file = (rel: string, text: string) => { mkdirSync(join(dir, rel, ".."), { recursive: true }); writeFileSync(join(dir, rel), text); };
+    const fm = (id: string, state: string, parent?: string) => `---\nid: ${id}\n${parent ? `parent: ${parent}\n` : ""}title: "${id}"\nstate: ${state}\n---\n\n# ${id}\n`;
+    const readme = (state: string) => file("README.md", `---\nid: ROOT\ntitle: "Reach canon"\nstate: ${state}\n---\n\n# Reach canon\n`);
+    readme("assumed");
+    file("REQ-1-a/README.md", fm("REQ-1", "assumed"));
+    file("REQ-1-a/REQ-1.1-b.md", fm("REQ-1.1", "assumed", "REQ-1"));
+    file("REQ-2-c.md", fm("REQ-2", "assumed"));
+    // the premise is a guess: the domains stand and nothing under them is cut
+    let order = refinementOrder(loadCanon(dir));
+    expect(order.ready).toEqual([]);
+    expect(order.deadlock).toBe(false);
+    expect(order.waiting.map((w) => `${w.id}:${w.level}>${w.reach}:${w.approveOneOf.join("|")}`)).toEqual(["REQ-1.1:2>1:REQ-1|REQ-1.1", "REQ-2:1>1:ROOT|REQ-2"]);
+    expect(describeNext(order, loadCanon(dir))).toContain("REQ-2 once ROOT or REQ-2 is approved");
+    // the premise approved: the domains are cut into capabilities; the capability under a guessed domain still waits
+    readme("resolved");
+    order = refinementOrder(loadCanon(dir));
+    expect(order.ready.map((p) => p.id)).toEqual(["REQ-2"]);
+    expect(order.waiting.map((w) => w.id)).toEqual(["REQ-1.1"]);
+    // the domain approved: its capability is within reach; approving the capability itself would do as much
+    file("REQ-1-a/README.md", fm("REQ-1", "stated"));
+    order = refinementOrder(loadCanon(dir));
+    expect(order.ready.map((p) => p.id)).toEqual(["REQ-2", "REQ-1.1"]);
+    expect(order.waiting).toEqual([]);
+    expect(reachOf(loadCanon(dir), loadCanon(dir).nodes["REQ-1.1"]!)).toEqual({ level: 2, anchor: "REQ-1", reach: 3 });
   });
 
   it("reports a cycle as an error and a deadlock as a warning", () => {
