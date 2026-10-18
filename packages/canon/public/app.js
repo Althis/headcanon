@@ -773,7 +773,8 @@ function buildAdoptCanvas() {
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#60a5fa", "target-arrow-color": "#60a5fa" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#ef4444", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#ef4444", "target-arrow-color": "#ef4444" } },
       { selector: "edge.fork", style: { "curve-style": "round-segments", "segment-radii": 14, "edge-distances": "node-position", "target-arrow-shape": "none" } },
-      { selector: "edge.route", style: { "curve-style": "round-segments", "segment-radii": 10, "edge-distances": "node-position", label: "" } },
+      { selector: "edge.straight", style: { "curve-style": "straight", width: 2 } },
+      { selector: "edge.faded", style: { opacity: 0.12 } },
       { selector: "edge.dim", style: { opacity: 0.18 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
@@ -905,7 +906,7 @@ function buildAdoptCanvas() {
     place();
     if (animated) follow(380);
   };
-  const unfork = () => { cy.edges(".fork, .route").removeClass("fork route").removeStyle("segment-weights segment-distances"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
+  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); cy.edges(".straight").removeClass("straight"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
   // A fork as a segment line: the points are given relative to the straight line from parent to child.
   const fork = (e, S, T, pts, cls = "fork") => {
     const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
@@ -945,13 +946,9 @@ function buildAdoptCanvas() {
     walk("ROOT", 0);
     const widths = new Map(cy.nodes().map((n) => [n.id(), rowWidth(n.id())]));
     const deepest = Math.max(0, ...depth.values());
-    // every dependency line gets its own track in the gutter beside its column: to the right of the
-    // column it leaves, or, when it points back to an earlier column, to the left; a gutter widens to hold them
-    const tracks = [], trackOf = new Map();
-    for (const e of cy.edges(".dep")) { const ds = depth.get(e.source().id()), dt = depth.get(e.target().id()); if (ds === undefined || dt === undefined) continue; const g = dt < ds ? ds - 1 : ds; const k = tracks[g] ?? 0; tracks[g] = k + 1; trackOf.set(e.id(), { g, k }); }
     const cols = [];
     let left = 0;
-    for (let d = 0; d <= deepest; d++) { let w = 120; for (const [id, dd] of depth) if (dd === d) w = Math.max(w, widths.get(id)); cols.push({ left, width: w, name: levelName(d) }); left += w + Math.max(COLGAP, 76 + 6 * (tracks[d] ?? 0)); }
+    for (let d = 0; d <= deepest; d++) { let w = 120; for (const [id, dd] of depth) if (dd === d) w = Math.max(w, widths.get(id)); cols.push({ left, width: w, name: levelName(d) }); left += w + COLGAP; }
     const span = new Map();
     const extent = (id) => { const ks = kidsOf(id); const s = ks.length ? Math.max(ROWH, ks.reduce((a, c) => a + extent(c), 0)) : ROWH; span.set(id, s); return s; };
     extent("ROOT");
@@ -979,14 +976,9 @@ function buildAdoptCanvas() {
         const fx = cols[depth.get(t)].left - 26;
         fork(e, S, T, [{ x: S.x + widths.get(s) / 2 + 18, y: S.y }, { x: fx, y: S.y }, { x: fx, y: T.y }, { x: T.x - widths.get(t) / 2 - 18, y: T.y }]);
       }
-      // a dependency line runs out of the box's side, along its track, and into its target's side
-      for (const e of cy.edges(".dep")) {
-        const s = e.source().id(), t = e.target().id(), S = P.get(s), T = P.get(t), tr = trackOf.get(e.id());
-        if (!S || !T || !tr) continue;
-        const ds = depth.get(s), dt = depth.get(t), ws = widths.get(s), wt = widths.get(t), g = cols[tr.g];
-        const back = dt < ds, bus = g.left + g.width + 20 + 6 * tr.k;
-        fork(e, S, T, [{ x: back ? S.x - ws / 2 - 8 : S.x + ws / 2 + 8, y: S.y }, { x: bus, y: S.y }, { x: bus, y: T.y }, { x: dt > ds ? T.x - wt / 2 - 8 : T.x + wt / 2 + 8, y: T.y }], "route");
-      }
+      // in the tree a dependency is a straight line, drawn only while one of its ends is selected
+      cy.edges(".dep").addClass("straight");
+      applyDeps();
       cy.nodes().ungrabify();
       for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out", queue: false }); else n.position(p); }
     });
@@ -1296,10 +1288,10 @@ function buildAdoptCanvas() {
   window.__sim.layoutRadial = layoutRadial; window.__sim.layoutDendro = layoutDendro;
   // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
   const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
-  // The dependency lines follow the Dependencies and Edges switches.
-  const applyDeps = () => cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges));
-  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); keepInView(id); };
-  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
+  // The dependency lines follow the Dependencies and Edges switches; in the tree only the selected row's show.
+  const applyDeps = () => { const on = adoptState.deps && adoptState.edges, sel = adoptState.selected; for (const e of cy.edges(".dep")) e.toggleClass("hidden", !on || (adoptState.mode === "dendro" && e.source().id() !== sel && e.target().id() !== sel)); };
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); applyDeps(); place(); keepInView(id); };
+  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); applyDeps(); place(); } });
   // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
   const cardSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
   const showLabel = (id) => {
@@ -1340,6 +1332,15 @@ function buildAdoptCanvas() {
   };
   adoptState.sync = sync;
   let lastTap = { id: null, at: 0 };
+  cy.on("mouseover", "edge.dep", (e) => cy.edges(".dep").not(e.target).addClass("faded"));
+  cy.on("mouseout", "edge.dep", () => cy.edges(".dep").removeClass("faded"));
+  cy.on("tap", "edge.dep", (e) => {
+    const s = e.target.source().id(), t = e.target.target().id();
+    const other = s === adoptState.selected ? t : t === adoptState.selected ? s : t;
+    cy.edges(".dep").removeClass("faded");
+    select(other);
+    if (adoptState.mode !== "dendro") showLabel(other);
+  });
   cy.on("tap", "node", (e) => {
     const id = e.target.id(), now = Date.now();
     if (lastTap.id === id && now - lastTap.at < 400) { lastTap = { id: null, at: 0 }; select(id); openPopup(id); return; }
