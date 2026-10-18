@@ -903,7 +903,8 @@ function buildAdoptCanvas() {
         e.addClass("fork").style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
       }
       cy.nodes().ungrabify();
-      for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out" }); else n.position(p); }
+      // the glide runs alongside a card that is still growing, not after it, so the overlays can keep up
+      for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out", queue: false }); else n.position(p); }
     });
     laneLines();
     place();
@@ -1029,7 +1030,9 @@ function buildAdoptCanvas() {
     const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; orderLanes(true); setTimeout(() => { hardSeparate(); keepInView(adoptState.selected); }, 340); sim.heavy.clear(); } };
     sim.raf = requestAnimationFrame(step);
   };
-  const settle = (strength = 1) => { if (adoptState.radial) { layoutRadial(true); return; } sim.alpha = Math.max(sim.alpha, strength); run(); };
+  // On the rings a settle is one fresh arrangement; several asked for in the same breath (a box and its
+  // ancestors naming themselves) become one. In the lanes it is the simulation.
+  const settle = (strength = 1) => { if (adoptState.radial) { if (!sim.relayout) sim.relayout = setTimeout(() => { sim.relayout = 0; layoutRadial(true); }, 0); return; } sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
   window.__sim = { tick, settle, state: sim, hardSeparate, orderLanes };
   if (!adoptState.radial) seed();
@@ -1157,7 +1160,7 @@ function buildAdoptCanvas() {
     const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     seed();
     const target = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
-    cy.batch(() => { for (const [id, p] of before) cy.getElementById(id).position(p); for (const [id, p] of target) cy.getElementById(id).animate({ position: p }, { duration: 420, easing: "ease-in-out" }); });
+    cy.batch(() => { for (const [id, p] of before) cy.getElementById(id).position(p); for (const [id, p] of target) cy.getElementById(id).animate({ position: p }, { duration: 420, easing: "ease-in-out", queue: false }); });
     laneLines();
     follow(440);
     setTimeout(() => { cy.fit(undefined, 40); settle(0.8); }, 440);
@@ -1176,7 +1179,7 @@ function buildAdoptCanvas() {
     adoptState.labelled.add(id);
     const [w0, h0] = [n.width(), n.height()], [w, h] = cardSize(n);
     n.addClass("labelled").style({ width: w0, height: h0 });
-    n.animate({ style: { width: w, height: h } }, { duration: 320, easing: "ease-out", complete: () => { n.removeStyle("width height"); place(); if (id === adoptState.selected) keepInView(id); } });
+    n.animate({ style: { width: w, height: h } }, { duration: 320, easing: "ease-out", queue: false, complete: () => { n.removeStyle("width height"); place(); if (id === adoptState.selected) keepInView(id); } });
     makeOverlays();
     settle(0.7);
   };
@@ -1187,7 +1190,7 @@ function buildAdoptCanvas() {
     const [w0, h0] = [n.width(), n.height()];
     n.removeClass("labelled").style({ width: w0, height: h0 });
     const [w, h] = closedSize(n);
-    n.animate({ style: { width: w, height: h } }, { duration: 260, easing: "ease-in", complete: () => { n.removeStyle("width height"); place(); } });
+    n.animate({ style: { width: w, height: h } }, { duration: 260, easing: "ease-in", queue: false, complete: () => { n.removeStyle("width height"); place(); } });
     makeOverlays();
     settle(0.4);
   };
