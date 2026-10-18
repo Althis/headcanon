@@ -656,7 +656,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, radial: false, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, radial: false, menu: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -689,13 +689,6 @@ function adopt(selectedId) {
     <div class="toolbar adopt-bar">
       <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
       <span class="muted">click a circle for its name; double-click or ↗ opens it; the handle below shows its children; drag to pan, wheel to zoom</span>
-      <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" title="Show or hide every name">Names</button>
-      <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
-      <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
-      <button class="btn small ${adoptState.bands ? "on" : ""}" data-bands="1" title="Keep every level in its own lane">Levels</button>
-      <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" title="Sort each lane to untangle the lines">Order</button>
-      <button class="btn small" data-fit="1">Fit</button>
-      <button class="btn small" data-expand-all="1">Show all</button>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
     </div>
     ${progressStrip()}
@@ -1148,16 +1141,31 @@ function buildAdoptCanvas() {
     if (bb.y1 < m) dy = m - bb.y1; else if (bb.y2 > r.height - m) dy = r.height - m - bb.y2;
     if (dx || dy) panBy(dx, dy);
   };
-  // The view switch in the canvas's top right corner: levels as lanes, or as rings around the premise. The
-  // boxes glide to the other arrangement; in the lanes the simulation then takes over.
-  const modeBox = document.createElement("div");
-  modeBox.className = "mode";
-  modeBox.innerHTML = `<button class="btn small ${adoptState.radial ? "" : "on"}" data-mode="lanes" title="Levels as horizontal lanes">Lanes</button><button class="btn small ${adoptState.radial ? "on" : ""}" data-mode="radial" title="Levels as rings around the premise">Radial</button>`;
-  el.appendChild(modeBox);
+  // The floating menu in the canvas's top right corner, folded or unfolded with its caret: the view switch
+  // at its head (levels as lanes, or as rings around the premise), the view's options below. The rings
+  // show only what applies to them; the lanes-only options hide there.
+  const menu = document.createElement("div");
+  menu.className = "menu" + (adoptState.menu ? "" : " closed");
+  menu.dataset.mode = adoptState.radial ? "radial" : "lanes";
+  menu.innerHTML = `<div class="menu-head"><span class="mode"><button class="btn small ${adoptState.radial ? "" : "on"}" data-mode="lanes" title="Levels as horizontal lanes">Lanes</button><button class="btn small ${adoptState.radial ? "on" : ""}" data-mode="radial" title="Levels as rings around the premise">Radial</button></span><button class="btn small caret" data-collapse="1" title="Fold or unfold the menu">▾</button></div>
+    <div class="menu-body">
+      <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" title="Show or hide every name">${adoptState.labels ? "Collapse" : "Expand"}</button>
+      <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
+      <button class="btn small lanes-only ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
+      <button class="btn small lanes-only ${adoptState.bands ? "on" : ""}" data-bands="1" title="Keep every level in its own lane">Levels</button>
+      <button class="btn small lanes-only ${adoptState.order ? "on" : ""}" data-order="1" title="Sort each lane to untangle the lines">Order</button>
+      <button class="btn small" data-fit="1" title="Bring everything into view">Fit</button>
+      <button class="btn small lanes-only" data-expand-all="1" title="Open every box down to the leaves">Show all</button>
+    </div>`;
+  el.appendChild(menu);
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) menu.addEventListener(ev, (e) => e.stopPropagation());
+  menu.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.menu = !adoptState.menu; menu.classList.toggle("closed", !adoptState.menu); });
+  const labelButton = () => { const b = menu.querySelector("[data-labels]"); b.classList.toggle("on", adoptState.labels); b.textContent = adoptState.labels ? "Collapse" : "Expand"; };
   const setMode = (radial) => {
     if (adoptState.radial === radial) return;
     adoptState.radial = radial;
-    for (const b of modeBox.querySelectorAll("button")) b.classList.toggle("on", (b.dataset.mode === "radial") === radial);
+    menu.dataset.mode = radial ? "radial" : "lanes";
+    for (const b of menu.querySelectorAll(".mode button")) b.classList.toggle("on", (b.dataset.mode === "radial") === radial);
     cancelAnimationFrame(sim.raf); sim.alpha = 0; sim.heavy.clear();
     if (radial) { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; layoutRadial(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
     unfork();
@@ -1169,7 +1177,7 @@ function buildAdoptCanvas() {
     follow(440);
     setTimeout(() => { cy.fit(undefined, 40); settle(0.8); }, 440);
   };
-  for (const b of modeBox.querySelectorAll("button")) { b.addEventListener("click", (ev) => { ev.stopPropagation(); setMode(b.dataset.mode === "radial"); }); for (const ev of ["pointerdown", "mousedown", "touchstart"]) b.addEventListener(ev, (e) => e.stopPropagation()); }
+  for (const b of menu.querySelectorAll(".mode button")) b.addEventListener("click", () => setMode(b.dataset.mode === "radial"));
   window.__sim.layoutRadial = layoutRadial;
   // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
   const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
@@ -1189,7 +1197,7 @@ function buildAdoptCanvas() {
   };
   const hideLabel = (id) => {
     adoptState.labelled.delete(id);
-    if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const o of cy.nodes()) if (!adoptState.labelled.has(o.id()) && o.id() !== id) o.removeClass("labelled"); }
+    if (adoptState.labels) { adoptState.labels = false; labelButton(); for (const o of cy.nodes()) if (!adoptState.labelled.has(o.id()) && o.id() !== id) o.removeClass("labelled"); }
     const n = cy.getElementById(id);
     const [w0, h0] = [n.width(), n.height()];
     n.removeClass("labelled").style({ width: w0, height: h0 });
@@ -1261,9 +1269,9 @@ function buildAdoptCanvas() {
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
   $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 40); });
-  $main.querySelector("[data-labels]")?.addEventListener("click", (ev) => {
+  $main.querySelector("[data-labels]")?.addEventListener("click", () => {
     adoptState.labels = !adoptState.labels;
-    ev.currentTarget.classList.toggle("on", adoptState.labels);
+    labelButton();
     if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
     else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
     makeOverlays();
