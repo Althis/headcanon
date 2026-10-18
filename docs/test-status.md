@@ -20,6 +20,7 @@ Pushed earlier by the sixth run's flow (they now happen during drafting and the 
 - The attend loop: reworking children after an approval, a rewrite or a deletion; answering a ? question; a refine request from the card; the working indicator; the Finish check.
 - Resuming an unfinished adoption in a new session.
 - The "enough to guess" rule: whether it guesses too much or too little.
+- The canvas on a canon of real size: the lanes simulation, the radial view (rings per dot, dendrogram forks, the sibling swaps that pull dependency lines apart), and the view keeping a selected or dropped box on screen. Checked only on the six-node fixture.
 
 Still at the end of the pipeline, untouched until a run finishes:
 

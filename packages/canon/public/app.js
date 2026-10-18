@@ -656,7 +656,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, radial: false, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -779,6 +779,7 @@ function buildAdoptCanvas() {
       { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": "#6b7280", "target-arrow-shape": "triangle", "target-arrow-color": "#6b7280", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: "#cbd5e1", "text-background-color": "#0f1216", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#60a5fa", "target-arrow-color": "#60a5fa" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#ef4444", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#ef4444", "target-arrow-color": "#ef4444" } },
+      { selector: "edge.fork", style: { "curve-style": "round-segments", "segment-radii": 14, "edge-distances": "node-position", "target-arrow-shape": "none" } },
       { selector: "edge.dim", style: { opacity: 0.18 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
@@ -790,7 +791,7 @@ function buildAdoptCanvas() {
   // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
   // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
   const dimsOf = (n) => [n.width(), n.height()];
-  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), top0: 0, lanes: null };
+  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), top0: 0, lanes: null, rings: null, centre: { x: 0, y: 0 } };
   // Lanes: every level of the tree has its own horizontal band. A lane grows with the number of boxes in it
   // that carry dependency lines, so crowded levels get room; a box moves freely inside its lane.
   const LANE = 150;
@@ -809,6 +810,99 @@ function buildAdoptCanvas() {
   const laneY = (n) => laneOf(n).c;
   // Inside its lane a box moves freely up and down; it only never leaves the band.
   const inLane = (n, y) => { const l = laneOf(n), half = l.h / 2 - 22; return Math.max(l.c - half, Math.min(l.c + half, y)); };
+  // Radial: every dot in a number is a ring. The premise sits at the centre, the domains on the first ring,
+  // their capabilities on the second, and so on; a ring is as thick as a lane and moves outward until its
+  // circumference holds every box on it. The arrangement is computed outright, not simulated: every branch
+  // owns a slice of its parent's slice, sized by how many boxes it shows, so siblings stand together; with
+  // Order on, siblings are swapped around while that pulls the dependency lines apart; then the boxes on
+  // each ring are spaced so none overlap. The containment lines fork like a dendrogram: out from the parent
+  // to just inside the children's ring, around, and out to each child. Boxes cannot be dragged here.
+  const ringOf = (n) => (n.id() === "ROOT" ? 0 : n.id() === "PRINCIPLES" ? 1 : n.hasClass("prn") ? 2 : n.id().replace(/^REQ-/, "").split(".").length);
+  const closedSize = (n) => (n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30]);
+  const finalSize = (n) => (n.hasClass("labelled") ? cardSize(n) : closedSize(n));
+  const ringGeom = () => {
+    const deepest = Math.max(0, ...cy.nodes().map((n) => ringOf(n)));
+    const carriers = new Array(deepest + 1).fill(0), need = new Array(deepest + 1).fill(0);
+    for (const n of cy.nodes()) { const r = ringOf(n), [w, h] = finalSize(n); need[r] += Math.max(w, h) + 30; if (n.connectedEdges(".dep").some((e) => !e.hasClass("hidden"))) carriers[r]++; }
+    const root = cy.getElementById("ROOT");
+    const r0 = root.length ? Math.max(...finalSize(root)) / 2 + 30 : 60;
+    const rings = [{ inner: 0, outer: r0, c: 0, h: 2 * r0 }];
+    for (let r = 1; r <= deepest; r++) { const h = LANE + 34 * Math.min(8, carriers[r]); const inner = Math.max(rings[r - 1].outer, need[r] / (2 * Math.PI) - h / 2); rings.push({ inner, outer: inner + h, c: inner + h / 2, h }); }
+    sim.rings = rings;
+    return rings;
+  };
+  const cart = (r, a) => ({ x: sim.centre.x + r * Math.cos(a), y: sim.centre.y + r * Math.sin(a) });
+  const angleDiff = (to, from) => { let d = to - from; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+  const layoutRadial = (animated) => {
+    const rings = ringGeom();
+    const radius = (id) => rings[ringOf(cy.getElementById(id))]?.c ?? 0;
+    const kids = new Map();
+    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, (id === "ROOT" ? ["PRINCIPLES", ...info("ROOT").children] : info(id).children).filter((c) => cy.getElementById(c).length)); return kids.get(id); };
+    const size = new Map();
+    const count = (id) => { let s = 1; for (const c of kidsOf(id)) s += count(c); size.set(id, s); return s; };
+    count("ROOT");
+    // every box's direction, from the slices, given the order of every box's children
+    const lay = () => {
+      const A = new Map([["ROOT", 0]]);
+      const walk = (id, a0, a1) => { const ks = kidsOf(id), total = ks.reduce((s, c) => s + size.get(c), 0) || 1; let a = a0; for (const c of ks) { const span = ((a1 - a0) * size.get(c)) / total; A.set(c, a + span / 2); walk(c, a, a + span); a += span; } };
+      walk("ROOT", -Math.PI / 2, (3 * Math.PI) / 2);
+      return A;
+    };
+    // the dependency lines: a long one costs, and two whose middles are close cost more, so swaps pull them apart
+    const deps = cy.edges(".dep").filter((e) => !e.hasClass("hidden")).map((e) => [e.source().id(), e.target().id()]);
+    const cost = (A) => {
+      const mids = deps.map(([s, t]) => { const p = cart(radius(s), A.get(s)), q = cart(radius(t), A.get(t)); return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, len: Math.hypot(p.x - q.x, p.y - q.y) }; });
+      let c = 0;
+      for (let i = 0; i < mids.length; i++) { c += mids[i].len * 0.2; for (let j = i + 1; j < mids.length; j++) { const d = Math.hypot(mids[i].x - mids[j].x, mids[i].y - mids[j].y); if (d < 260) c += (260 - d) * 2; } }
+      return c;
+    };
+    let A = lay();
+    if (adoptState.order && deps.length) {
+      let best = cost(A);
+      for (let sweep = 0; sweep < 3; sweep++) {
+        let improved = false;
+        for (const ks of kids.values()) for (let i = 0; i + 1 < ks.length; i++) {
+          [ks[i], ks[i + 1]] = [ks[i + 1], ks[i]];
+          const B = lay(), c = cost(B);
+          if (c < best - 1e-6) { best = c; A = B; improved = true; } else [ks[i], ks[i + 1]] = [ks[i + 1], ks[i]];
+        }
+        if (!improved) break;
+      }
+    }
+    // on each ring the boxes keep their order and move apart until none overlap along the ring; a box's extent
+    // along the ring depends on where it stands: wide at the top and bottom, tall at the sides
+    const byRing = new Map();
+    for (const n of cy.nodes()) { if (n.id() === "ROOT") continue; const r = ringOf(n); (byRing.get(r) ?? byRing.set(r, []).get(r)).push(n); }
+    for (const [r, group] of byRing) {
+      const R = rings[r].c;
+      const run = [...group].sort((a, b) => A.get(a.id()) - A.get(b.id()));
+      const span = run.map((n) => { const a = A.get(n.id()), [w, h] = finalSize(n); return (Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a)) + 26) / R; });
+      const want = run.map((n) => A.get(n.id())), as = [];
+      for (let i = 0; i < run.length; i++) { const min = i ? as[i - 1] + (span[i - 1] + span[i]) / 2 : -Infinity; as.push(Math.max(want[i], min)); }
+      for (let i = run.length - 2; i >= 0; i--) { const max = as[i + 1] - (span[i] + span[i + 1]) / 2; if (as[i] > max) as[i] = max; }
+      run.forEach((n, i) => A.set(n.id(), as[i]));
+    }
+    const P = new Map(cy.nodes().map((n) => [n.id(), n.id() === "ROOT" ? { ...sim.centre } : cart(radius(n.id()), A.get(n.id()))]));
+    // the forks, as segment lines: the points are given relative to the straight line from parent to child
+    cy.batch(() => {
+      for (const e of cy.edges(".contains")) {
+        const s = e.source().id(), t = e.target().id(), S = P.get(s), T = P.get(t);
+        if (!S || !T) continue;
+        const rf = rings[ringOf(e.target())].inner + 10, at = A.get(t), pts = [];
+        if (s === "ROOT") pts.push(cart(rf, at));
+        else { const as0 = A.get(s), da = angleDiff(at, as0), steps = Math.max(1, Math.ceil(Math.abs(da) / (Math.PI / 18))); for (let k = 0; k <= steps; k++) pts.push(cart(rf, as0 + (da * k) / steps)); }
+        const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
+        const ws = [], ds = [];
+        for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
+        e.addClass("fork").style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
+      }
+      cy.nodes().ungrabify();
+      for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out" }); else n.position(p); }
+    });
+    laneLines();
+    place();
+  };
+  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); cy.nodes().grabify(); };
   // Overlap is never allowed to stand. Boxes in the same lane separate sideways, since the lane clamp would undo
   // a vertical push; others separate along the axis of least overlap. A bright or just-dropped box has right of way.
   const separate = (arr, strength, iterations) => {
@@ -925,13 +1019,13 @@ function buildAdoptCanvas() {
   };
   const run = () => {
     cancelAnimationFrame(sim.raf);
-    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; orderLanes(true); setTimeout(hardSeparate, 340); sim.heavy.clear(); } };
+    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; orderLanes(true); setTimeout(() => { hardSeparate(); keepInView(adoptState.selected); }, 340); sim.heavy.clear(); } };
     sim.raf = requestAnimationFrame(step);
   };
-  const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
+  const settle = (strength = 1) => { if (adoptState.radial) { layoutRadial(true); return; } sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
   window.__sim = { tick, settle, state: sim, hardSeparate, orderLanes };
-  seed();
+  if (!adoptState.radial) seed();
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
     const z = cy.zoom(), p = cy.pan();
@@ -998,15 +1092,15 @@ function buildAdoptCanvas() {
   };
   const laneLines = () => {
     for (const old of overlay.querySelectorAll(".lane")) old.remove();
-    if (!adoptState.bands) return;
-    const deepest = Math.max(0, ...cy.nodes().map((n) => depthOf(n)));
-    for (let d = 0; d <= deepest; d++) { const line = document.createElement("div"); line.className = "lane"; line.dataset.depth = String(d); line.textContent = d === 0 ? "premise" : d === 1 ? "domains" : d === 2 ? "capabilities" : d === 3 ? "requirements" : "level " + d; overlay.appendChild(line); }
+    if (!adoptState.bands && !adoptState.radial) return;
+    const deepest = Math.max(0, ...cy.nodes().map((n) => (adoptState.radial ? ringOf(n) : depthOf(n))));
+    for (let d = 0; d <= deepest; d++) { const line = document.createElement("div"); line.className = adoptState.radial ? "lane ring" : "lane"; line.dataset.depth = String(d); line.textContent = d === 0 ? "premise" : d === 1 ? "domains" : d === 2 ? "capabilities" : d === 3 ? "requirements" : "level " + d; overlay.appendChild(line); }
   };
   const place = () => {
     const r = el.getBoundingClientRect();
     const z = cy.zoom(), pan = cy.pan();
-    const lanes = adoptState.bands ? (sim.lanes ?? laneGeom()) : [];
-    for (const line of overlay.querySelectorAll(".lane")) { const l = lanes[Number(line.dataset.depth)]; if (l) line.style.top = (l.top * z + pan.y) + "px"; }
+    if (adoptState.radial) { const rings = sim.rings ?? ringGeom(), cx = sim.centre.x * z + pan.x, cy0 = sim.centre.y * z + pan.y; for (const line of overlay.querySelectorAll(".lane")) { const g = rings[Number(line.dataset.depth)]; if (!g) continue; const d = 2 * g.outer * z; line.style.left = (cx - d / 2) + "px"; line.style.top = (cy0 - d / 2) + "px"; line.style.width = d + "px"; line.style.height = d + "px"; } }
+    else { const lanes = adoptState.bands ? (sim.lanes ?? laneGeom()) : []; for (const line of overlay.querySelectorAll(".lane")) { const l = lanes[Number(line.dataset.depth)]; if (l) line.style.top = (l.top * z + pan.y) + "px"; } }
     for (const h of overlay.children) {
       if (h.classList.contains("lane")) continue;
       const n = cy.getElementById(h.dataset.id);
@@ -1022,7 +1116,47 @@ function buildAdoptCanvas() {
       else { h.style.left = `${p.x + w / 2 - 38 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
     }
   };
-  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); };
+  // A short glide of the view, driven by the same frame loop as the simulation; a second call while one runs
+  // adds to the distance still to go.
+  const panBy = (dx, dy) => {
+    sim.panLeft = { x: (sim.panLeft?.x ?? 0) + dx, y: (sim.panLeft?.y ?? 0) + dy };
+    if (sim.panRaf) return;
+    const step = () => { const l = sim.panLeft; if (!l) { sim.panRaf = 0; return; } const kx = l.x * 0.25, ky = l.y * 0.25; cy.panBy({ x: kx, y: ky }); l.x -= kx; l.y -= ky; if (Math.abs(l.x) > 0.5 || Math.abs(l.y) > 0.5) sim.panRaf = requestAnimationFrame(step); else { cy.panBy({ x: l.x, y: l.y }); sim.panLeft = null; sim.panRaf = 0; } };
+    sim.panRaf = requestAnimationFrame((sim.panStep = step));
+  };
+  // The selected or just-moved box stays on screen: the view pans just enough to show it whole.
+  const keepInView = (id) => {
+    const n = id ? cy.getElementById(id) : null;
+    if (!n || !n.length) return;
+    const r = el.getBoundingClientRect(), bb = n.renderedBoundingBox({ includeLabels: false, includeOverlays: false }), m = 24;
+    let dx = 0, dy = 0;
+    if (bb.x1 < m) dx = m - bb.x1; else if (bb.x2 > r.width - m) dx = r.width - m - bb.x2;
+    if (bb.y1 < m) dy = m - bb.y1; else if (bb.y2 > r.height - m) dy = r.height - m - bb.y2;
+    if (dx || dy) panBy(dx, dy);
+  };
+  // The view switch in the canvas's top right corner: levels as lanes, or as rings around the premise. The
+  // boxes glide to the other arrangement; in the lanes the simulation then takes over.
+  const modeBox = document.createElement("div");
+  modeBox.className = "mode";
+  modeBox.innerHTML = `<button class="btn small ${adoptState.radial ? "" : "on"}" data-mode="lanes" title="Levels as horizontal lanes">Lanes</button><button class="btn small ${adoptState.radial ? "on" : ""}" data-mode="radial" title="Levels as rings around the premise">Radial</button>`;
+  el.appendChild(modeBox);
+  const setMode = (radial) => {
+    if (adoptState.radial === radial) return;
+    adoptState.radial = radial;
+    for (const b of modeBox.querySelectorAll("button")) b.classList.toggle("on", (b.dataset.mode === "radial") === radial);
+    cancelAnimationFrame(sim.raf); sim.alpha = 0; sim.heavy.clear();
+    if (radial) { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; layoutRadial(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
+    unfork();
+    const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
+    seed();
+    const target = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
+    cy.batch(() => { for (const [id, p] of before) cy.getElementById(id).position(p); for (const [id, p] of target) cy.getElementById(id).animate({ position: p }, { duration: 420, easing: "ease-in-out" }); });
+    laneLines();
+    setTimeout(() => { cy.fit(undefined, 40); settle(0.8); }, 440);
+  };
+  for (const b of modeBox.querySelectorAll("button")) { b.addEventListener("click", (ev) => { ev.stopPropagation(); setMode(b.dataset.mode === "radial"); }); for (const ev of ["pointerdown", "mousedown", "touchstart"]) b.addEventListener(ev, (e) => e.stopPropagation()); }
+  window.__sim.layoutRadial = layoutRadial;
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); keepInView(id); };
   cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
   // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
   const cardSize = (n) => (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
@@ -1032,7 +1166,7 @@ function buildAdoptCanvas() {
     adoptState.labelled.add(id);
     const [w0, h0] = [n.width(), n.height()], [w, h] = cardSize(n);
     n.addClass("labelled").style({ width: w0, height: h0 });
-    n.animate({ style: { width: w, height: h } }, { duration: 320, easing: "ease-out", complete: () => { n.removeStyle("width height"); place(); } });
+    n.animate({ style: { width: w, height: h } }, { duration: 320, easing: "ease-out", complete: () => { n.removeStyle("width height"); place(); if (id === adoptState.selected) keepInView(id); } });
     makeOverlays();
     settle(0.7);
   };
@@ -1042,7 +1176,7 @@ function buildAdoptCanvas() {
     const n = cy.getElementById(id);
     const [w0, h0] = [n.width(), n.height()];
     n.removeClass("labelled").style({ width: w0, height: h0 });
-    const [w, h] = n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
+    const [w, h] = closedSize(n);
     n.animate({ style: { width: w, height: h } }, { duration: 260, easing: "ease-in", complete: () => { n.removeStyle("width height"); place(); } });
     makeOverlays();
     settle(0.4);
@@ -1087,7 +1221,7 @@ function buildAdoptCanvas() {
     place();
     if (sim.alpha < 0.15) settle(0.18);
   });
-  cy.on("free", "node", () => { if (adoptState.bands) cy.batch(() => { for (const id of sim.pinned) { const n = cy.getElementById(id); n.position({ x: n.position().x, y: inLane(n, n.position().y) }); } }); sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
+  cy.on("free", "node", (e) => { if (adoptState.bands) cy.batch(() => { for (const id of sim.pinned) { const n = cy.getElementById(id); n.position({ x: n.position().x, y: inLane(n, n.position().y) }); } }); sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); keepInView(e.target.id()); });
   let labelZoom = 0;
   cy.on("viewport", () => {
     grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() };
@@ -1097,11 +1231,14 @@ function buildAdoptCanvas() {
   cy.on("layoutstop", place);
   cy.ready(() => {
     // The opening arrangement settles fully before it is shown.
-    sim.alpha = 1;
-    for (let i = 0; i < 260 && sim.alpha > 0.02; i++) { tick(); sim.alpha *= 0.985; }
-    sim.alpha = 0;
-    orderLanes(false);
-    hardSeparate();
+    if (adoptState.radial) layoutRadial(false);
+    else {
+      sim.alpha = 1;
+      for (let i = 0; i < 260 && sim.alpha > 0.02; i++) { tick(); sim.alpha *= 0.985; }
+      sim.alpha = 0;
+      orderLanes(false);
+      hardSeparate();
+    }
     if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
     grid(); applyFocus(); makeOverlays();
   });
