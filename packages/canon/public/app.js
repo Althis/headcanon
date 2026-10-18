@@ -762,7 +762,7 @@ function buildAdoptCanvas() {
   const cy = window.cytoscape({
     container: el, elements: elementsFor(adoptScope()), minZoom: 0.05, maxZoom: 4,
     style: [
-      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "data(short)", "font-size": "data(fs)", "font-family": "ui-monospace, Consolas, monospace", color: "#e6e8ec", "text-valign": "center", "text-halign": "center", "border-width": 1.5, "background-color": "#f59e0b", "background-opacity": 0.22, "border-color": "#f59e0b" } },
+      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "data(short)", "font-size": 8, "font-family": "ui-monospace, Consolas, monospace", color: "#e6e8ec", "text-valign": "center", "text-halign": "center", "border-width": 1.5, "background-color": "#f59e0b", "background-opacity": 0.22, "border-color": "#f59e0b" } },
       { selector: "node.green", style: { "background-color": "#22c55e", "border-color": "#22c55e" } },
       { selector: "node.yellow", style: { "background-color": "#f59e0b", "border-color": "#f59e0b" } },
       { selector: "node.red", style: { "background-color": "#ef4444", "border-color": "#ef4444" } },
@@ -780,9 +780,12 @@ function buildAdoptCanvas() {
       { selector: "edge.dim", style: { opacity: 0.35 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
-    layout: layout(),
+    layout: { name: "preset" },
   });
   window.__cy = cy;
+  // The layered layout ranks by containment only: a dependency link must never pull a box toward what it needs.
+  const runLayout = (animated) => cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: animated, animationDuration: 420, animationEasing: "ease-in-out" }).run();
+  runLayout(false);
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
     const z = cy.zoom(), p = cy.pan();
@@ -910,7 +913,7 @@ function buildAdoptCanvas() {
     for (const e of fresh) if (!e.data.source) { const parent = parentOf(e.data.id); const pp = parent && cy.getElementById(parent).length ? cy.getElementById(parent).position() : { x: 0, y: 0 }; e.position = { x: pp.x, y: pp.y }; }
     cy.add(fresh);
     applyFocus();
-    cy.layout({ ...layout(), animate: true, animationDuration: 420, animationEasing: "ease-in-out" }).run();
+    runLayout(true);
     makeOverlays();
   };
   adoptState.sync = sync;
@@ -937,7 +940,7 @@ function buildAdoptCanvas() {
     ev.currentTarget.classList.toggle("on", adoptState.labels);
     if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
     else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
-    cy.layout({ ...layout(), animate: true, animationDuration: 400 }).run();
+    runLayout(true);
     makeOverlays();
   });
   $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
