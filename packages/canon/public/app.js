@@ -656,7 +656,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -692,6 +692,7 @@ function adopt(selectedId) {
       <button class="btn small ${adoptState.labels ? "on" : ""}" data-labels="1" title="Show or hide every name">Names</button>
       <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
       <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
+      <button class="btn small ${adoptState.bands ? "on" : ""}" data-bands="1" title="Keep every level in its own lane">Levels</button>
       <button class="btn small" data-fit="1">Fit</button>
       <button class="btn small" data-expand-all="1">Show all</button>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
@@ -788,7 +789,11 @@ function buildAdoptCanvas() {
   // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
   // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
   const dimsOf = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
-  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map() };
+  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), y0: 0 };
+  // Lanes: every level of the tree has its own horizontal band; with lanes on, a box only moves sideways in its band.
+  const LANE = 150;
+  const depthOf = (n) => (n.id() === "ROOT" || n.id() === "PRINCIPLES" ? 0 : n.hasClass("prn") ? 1 : (node(n.id())?.depth ?? 0) + 1);
+  const laneY = (n) => sim.y0 + depthOf(n) * LANE;
   const tick = () => {
     const P = new Map();
     for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); P.set(n.id(), { n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); }
@@ -820,7 +825,7 @@ function buildAdoptCanvas() {
       }
     }
     // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
-    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: p.y + p.fy * sim.alpha }); } });
+    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: adoptState.bands ? laneY(p.n) : p.y + p.fy * sim.alpha }); } });
     place();
   };
   const run = () => {
@@ -829,7 +834,7 @@ function buildAdoptCanvas() {
     sim.raf = requestAnimationFrame(step);
   };
   const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
-  const seed = () => cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run();
+  const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.y0 = cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0; };
   window.__sim = { tick, settle, state: sim };
   seed();
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
@@ -891,11 +896,21 @@ function buildAdoptCanvas() {
       }
     }
     for (const b of overlay.querySelectorAll("button")) for (const ev of ["pointerdown", "mousedown", "touchstart"]) b.addEventListener(ev, (e) => e.stopPropagation());
+    laneLines();
     place();
+  };
+  const laneLines = () => {
+    for (const old of overlay.querySelectorAll(".lane")) old.remove();
+    if (!adoptState.bands) return;
+    const deepest = Math.max(0, ...cy.nodes().map((n) => depthOf(n)));
+    for (let d = 0; d <= deepest; d++) { const line = document.createElement("div"); line.className = "lane"; line.dataset.depth = String(d); line.textContent = d === 0 ? "premise" : d === 1 ? "domains" : d === 2 ? "capabilities" : d === 3 ? "requirements" : "level " + d; overlay.appendChild(line); }
   };
   const place = () => {
     const r = el.getBoundingClientRect();
+    const z = cy.zoom(), pan = cy.pan();
+    for (const line of overlay.querySelectorAll(".lane")) line.style.top = ((sim.y0 + (Number(line.dataset.depth) - 0.5) * LANE) * z + pan.y) + "px";
     for (const h of overlay.children) {
+      if (h.classList.contains("lane")) continue;
       const n = cy.getElementById(h.dataset.id);
       if (!n.length) { h.style.display = "none"; continue; }
       const p = n.renderedPosition(), w = n.renderedWidth(), hh = n.renderedHeight();
@@ -949,7 +964,7 @@ function buildAdoptCanvas() {
     place();
     if (sim.alpha < 0.25) settle(0.3);
   });
-  cy.on("free", "node", () => { sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
+  cy.on("free", "node", () => { if (adoptState.bands) cy.batch(() => { for (const id of sim.pinned) { const n = cy.getElementById(id); n.position({ x: n.position().x, y: laneY(n) }); } }); sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
   cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
   cy.on("layoutstop", place);
   cy.ready(() => {
@@ -972,6 +987,7 @@ function buildAdoptCanvas() {
   });
   $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
   $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
+  $main.querySelector("[data-bands]")?.addEventListener("click", (ev) => { adoptState.bands = !adoptState.bands; ev.currentTarget.classList.toggle("on", adoptState.bands); laneLines(); settle(0.6); });
   $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); adoptState.focus.clear(); sync(); });
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
