@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: "Reviews a staged canon change for contradictions, reiterations, drift and uptake before it is committed. Read-only: it reports findings as JSON and changes nothing. Run by /headcanon:commit whenever canon files are staged, and by /headcanon:adopt on a freshly drafted canon, where every file is new."
+description: "Reviews a staged canon change for contradictions, reiterations, drift and uptake before it is committed. Read-only: it reports findings as JSON and changes nothing. Run by /headcanon:commit whenever canon files are staged, and by /headcanon:attend on a branch when nothing in it is left to cut, and at Finish on what changed since."
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---

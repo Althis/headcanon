@@ -20,11 +20,18 @@ describe("init [REQ-8.5, REQ-11.1]", () => {
     expect(r.hookInstalled).toBe(true);
     const hook = readFileSync(r.hookPath!, "utf8");
     expect(hook).toContain("# headcanon-commit-msg");
-    expect(hook).toContain('node "C:/some where/bin/headcanon.js" commit-msg "$1"');
+    expect(hook).toContain('node "C:/some where/bin/headcanon.js" commit-msg "$1" --canon "$TOP/canon"');
+    expect(hook).toContain('TOP="$(git rev-parse --show-toplevel)"');
     const canon = loadCanon(r.canonDir);
     expect(canon.root?.title).toBe("valley-app canon");
     expect(canon.root?.state).toBe("open");
     expect(existsSync(join(r.canonDir, "journeys"))).toBe(true);
+  });
+
+  it("addresses a launcher inside the repository through the repository root, so a worktree's commit runs its own copy", () => {
+    const r = initCanon({ repoDir: repo, cliPath: join(repo, "packages/canon/bin/headcanon.js"), force: true });
+    const hook = readFileSync(r.hookPath!, "utf8");
+    expect(hook).toContain('node "$TOP/packages/canon/bin/headcanon.js" commit-msg "$1" --canon "$TOP/canon"');
   });
 
   it("is idempotent and refuses to replace a foreign hook without --force", () => {

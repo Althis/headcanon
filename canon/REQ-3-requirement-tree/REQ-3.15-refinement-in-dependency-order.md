@@ -16,11 +16,13 @@ files: [packages/canon/src/next.ts, skills/refine/SKILL.md]
 
 > I just wanted to say that maybe requirements relate to stuff on other parts of the acyclic graph. As to your question I'd create it when the new dependency is noticed, but we also need to watch out for dependency cycles and dead-lock, and we need a way both avoid them(hopefully CONSOLIDATED into some extant procedure, remember CONSOLIDATION BEFORE ADDITION) and deal with them when they happen(probably using human in the loop)
 
-Source: Claude Code session, 2026-10-11, during the fifth adopt run.
+> It seems like right now dependencies tend to favour the parent. That is correct as long as the correct leaf you depend from is not specified. As soon as that leaf is defined, the dependency should move down. This helps with the isolation so that we don't consider an entire branch from the top, but rather only the specific part of the branch that actually concerns the current implementation.
+
+Source: Claude Code session, 2026-10-11, during the fifth adopt run; the last quote on 2026-10-18, after the sixth.
 
 ## Intent [assumed]
 
-A node requires every node whose concepts its definition uses, sibling or cousin, recorded as a `requires` link on the node when the dependency is noticed. The refine skill derives the links from the children's lines and deferred rungs, orders a new set with prerequisites first so that the IDs read as build order, and checks that a node's own prerequisites are refined before cutting it.
+A node requires every node whose concepts its definition uses, sibling or cousin, recorded as a `requires` link on the node when the dependency is noticed. The link points at the most specific node that holds the concept: while only a parent holds it, the link rests on the parent, and when that parent is cut, every link that reaches it moves down to the child that holds what the dependent uses, so that a branch under implementation reads one leaf of another branch, not the branch. The refine skill derives the links from the children's lines and deferred rungs, orders a new set with prerequisites first so that the IDs read as build order, and checks that a node's own prerequisites are refined before cutting it.
 
 The next node to refine is the first in the topological order of the `requires` links among the unrefined nodes whose prerequisites are all refined: the shallowest first, so that no branch is drilled while a sibling above it waits, then the one most other nodes require, then the lowest ID. The `next` command computes it, and the session context states it. A request from the human to define a branch takes precedence, after the agent has said which prerequisites are unrefined.
 

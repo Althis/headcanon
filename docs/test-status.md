@@ -17,8 +17,10 @@ Status as of 2026-10-18, after six adopt runs on the test project. The fifth run
 
 Pushed earlier by the sixth run's flow (they now happen during drafting and the review loop, before any commit):
 
-- Refine in draft, one branch per call (`draft to requirement`), written after run 6 skipped refine; the requirement layer is where the ladder has to go deepest into artifacts.
-- `HC next` order between branches, cycles as lifts, deadlock handling: run 6 drafted everything at once, so nothing was ever ordered.
+- The continuous draft written after run 6 (DEC-017): the canvas opening after the domains; refiner agents cutting the ready nodes from `HC next --json` in the background, several at once, while the human reviews; the attend loop integrating their returns beside the human's clicks; the verifier per finished branch; the cutting going on after Finish with branches committed as assumed. Nothing of this has run yet.
+- Leaf contracts: `kind` plus a `## Check` sentence on every leaf, the `leaves to cut` count in the check summary, the session context and the overview tiles, and the `check-missing` and `kind-missing` findings; covered by unit tests only.
+- Dependency descent: a `requires` edge moving down to the child that holds the concept when its target is cut.
+- The requirement layer of refine, where the ladder has to go deepest into artifacts and the code counts as a thread; `HC next` order, cycles as lifts, deadlock handling: run 6 drafted everything at once, so nothing was ever ordered.
 - The attend loop: reworking children after an approval, a rewrite or a deletion; answering a ? question; a refine request from the card; the working indicator; the Finish check.
 - Resuming an unfinished adoption in a new session.
 - The "enough to guess" rule: whether it guesses too much or too little.
