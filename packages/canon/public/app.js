@@ -758,7 +758,7 @@ function buildAdoptCanvas() {
     }
     return out;
   };
-  const layout = () => (window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 18, rankSep: 70, padding: 40, fit: false } : { name: "breadthfirst", directed: true, padding: 40, fit: false });
+  const layout = () => (window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 18, rankSep: 100, padding: 40, fit: false } : { name: "breadthfirst", directed: true, padding: 40, fit: false });
   const cy = window.cytoscape({
     container: el, elements: elementsFor(adoptScope()), minZoom: 0.05, maxZoom: 4,
     style: [
@@ -784,7 +784,26 @@ function buildAdoptCanvas() {
   });
   window.__cy = cy;
   // The layered layout ranks by containment only: a dependency link must never pull a box toward what it needs.
-  const runLayout = (animated) => cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: animated, animationDuration: 420, animationEasing: "ease-in-out" }).run();
+  // Then, within each rank, boxes that carry dependency lines are lifted by a step each, the most connected
+  // highest, so lines between siblings run at different heights instead of over one another. One motion.
+  const runLayout = (animated) => {
+    const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
+    cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run();
+    const ranks = new Map();
+    for (const n of cy.nodes()) { const y = Math.round(n.position().y); (ranks.get(y) ?? ranks.set(y, []).get(y)).push(n); }
+    const degree = (n) => n.connectedEdges(".dep").length;
+    for (const group of ranks.values()) {
+      const dep = group.filter((n) => degree(n) > 0).sort((a, b) => degree(b) - degree(a) || a.position().x - b.position().x);
+      dep.forEach((n, i) => n.position({ x: n.position().x, y: n.position().y - 16 * (dep.length - i) }));
+    }
+    if (!animated) return;
+    for (const n of cy.nodes()) {
+      const target = { ...n.position() }, from = before.get(n.id());
+      if (!from) continue;
+      n.position(from);
+      n.animate({ position: target }, { duration: 420, easing: "ease-in-out" });
+    }
+  };
   runLayout(false);
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
