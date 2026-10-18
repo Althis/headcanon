@@ -67,6 +67,10 @@ Terms as the agent understands them from the brief and the session. Each is assu
 
 **step** (`TERM-step`): One node of a journey graph, written `JRN-1/S3`.
 
+**mock** (`TERM-mock`): A picture of one thing a person will see, kept in the canon as an SVG with a table that binds each of its elements to the requirements it carries. An intent record.
+
+**mock element** (`TERM-mock-element`): One named part of a mock, written `MOCK-1#finish`, that a requirement is bound to.
+
 **certainty state** (`TERM-certainty-state`): One of stated, assumed, open, contested or resolved, carried by every requirement node and journey step.
 
 **stated** (`TERM-stated`): The human's own words, quoted verbatim.

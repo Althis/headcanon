@@ -28,3 +28,7 @@ Datasets: `DS-1`, Writ-side, later.
 
 Approving the ID scheme as proposed. Resolved 2026-10-11.
 
+## Mocks [assumed]
+
+Mocks: `MOCK-1`, sequential. An element of a mock is written `MOCK-1#finish`, the part after `#` being the element's `id` in the picture (REQ-6.8).
+

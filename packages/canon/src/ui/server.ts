@@ -181,6 +181,18 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     return json(200, { ...r, feed: session.push("node-created", { id: r.id, path: r.path, text: `${body.title.trim()} (created in the page)` }) });
   }
 
+  // ---- mocks (REQ-12.1.9): the picture of a mock the canon names, read from the canon folder ----
+  const mockMatch = /^\/api\/mock\/([A-Za-z0-9.-]+)$/.exec(p);
+  if (mockMatch && method === "GET") {
+    const m = loadCanon(canonDir).mocks.find((x) => x.id === mockMatch[1]);
+    const abs = m ? resolve(canonDir, m.image) : undefined;
+    if (!m || !abs || !abs.startsWith(resolve(canonDir)) || !existsSync(abs)) return send(res, 404, "text/plain; charset=utf-8", `No picture for ${mockMatch[1]}`);
+    const ext = extname(abs).toLowerCase();
+    if (ext === ".svg") return send(res, 200, TYPES[ext]!, cleanSvg(readFileSync(abs, "utf8")));
+    res.writeHead(200, { "content-type": TYPES[ext] ?? "application/octet-stream", "cache-control": "no-store" });
+    return void createReadStream(abs).pipe(res);
+  }
+
   // ---- static ----
   const rel = p === "/" ? "index.html" : p.replace(/^\/+/, "");
   const file = normalize(join(PUBLIC, rel));
@@ -223,7 +235,16 @@ function presentQuestion(q: PendingQuestion) {
   };
   // An option's description is the item's draft; it gets the same tooltips and jargon marks as the body.
   const options = q.options.map((o) => ({ ...o, html: o.description ? decorate(marked.parseInline(o.description, { async: false }) as string) : "" }));
-  return { ...q, options, html: decorate(marked.parse(q.question, { async: false }) as string) };
+  return { ...q, options, draft: q.draft ? cleanSvg(q.draft) : undefined, html: decorate(marked.parse(q.question, { async: false }) as string) };
+}
+
+/** A picture is placed inline on the page, so scripts, event handlers and script links are stripped from it first. */
+export function cleanSvg(svg: string): string {
+  return svg
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<script[^>]*\/>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(\s(?:xlink:)?href\s*=\s*["']?)\s*javascript:[^"'\s>]*/gi, "$1#");
 }
 
 function escapeAttr(s: string): string {
@@ -232,7 +253,7 @@ function escapeAttr(s: string): string {
 
 function fileOf(canonDir: string, id: string): { abs: string; rel: string } | undefined {
   const canon = loadCanon(canonDir);
-  const rel = id === "ROOT" ? canon.root?.file : canon.nodes[id]?.file ?? canon.journeys.find((j) => j.id === id)?.file ?? canon.decisions.find((d) => d.id === id)?.file;
+  const rel = id === "ROOT" ? canon.root?.file : canon.nodes[id]?.file ?? canon.journeys.find((j) => j.id === id)?.file ?? canon.decisions.find((d) => d.id === id)?.file ?? canon.mocks.find((m) => m.id === id)?.file;
   if (!rel) return undefined;
   const abs = resolve(canonDir, rel);
   if (!abs.startsWith(resolve(canonDir))) return undefined;

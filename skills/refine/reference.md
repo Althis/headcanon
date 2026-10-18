@@ -8,6 +8,7 @@ Formats the refine skill writes and the shape of its question, then one worked e
 2. The set question
 3. Chains and origins
 4. Worked example
+5. Visual nodes: the mock
 
 ## 1. Child file
 
@@ -22,6 +23,7 @@ state: resolved
 layer: capability
 source: "REQ-1 (consequence of 'become transactions'); docs/formats.md:8"
 relates: [REQ-3.2]      # only when the child cuts across other children
+mocks: [MOCK-3#finish]  # only when the child is bound to an element of a mock
 ---
 
 # A statement in a known format becomes transactions
@@ -98,3 +100,77 @@ Node REQ-1 Statement import, approved: "Bank statements in any common format bec
 **7 Ask.** The question in section 2. Approved as ticked; REQ-1.3 left unticked comes back as "Does Statement import need duplicate detection?" with Yes, add it and No.
 
 **8 Report.** Created REQ-1.1 to REQ-1.4; partition "stage of an import"; no set-asides; no leftover threads; no open nodes.
+
+## 5. Visual nodes: the mock
+
+A node is visual when its text names something a person sees or operates. Its mock is agreed before its children (REQ-3.16); the files follow REQ-6.8. Use the Write tool for both files.
+
+### The files
+
+`canon/mocks/MOCK-3-node-card.md`, the record. Its table binds elements to requirements and is read like a journey's step table; an element's id is the `id` of a group in the picture.
+
+```markdown
+---
+id: MOCK-3
+title: "The node card"
+state: assumed
+source: "REQ-12.1 (archetype of a review card); docs/ui.md:40-52"
+image: MOCK-3-node-card.svg
+---
+
+# The node card
+
+![The node card](MOCK-3-node-card.svg)
+
+| Element | State | Linked requirements |
+| --- | --- | --- |
+| #title Title and reference tag | assumed | REQ-12.1.8 |
+| #approve Approve button | stated | REQ-11.6.1, REQ-12.1.8 |
+| #empty Empty state frame | open | |
+```
+
+`canon/mocks/MOCK-3-node-card.svg`, the picture. Drawn by you, it is plain SVG from this kit: grey strokes on white, one `<g>` with an `id` per element the table names, text in a system font, and a second frame beside the first for a state that changes what is seen.
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" font-family="system-ui, sans-serif" font-size="14">
+  <style>.box{fill:#fff;stroke:#555;stroke-width:1.5}.ghost{fill:#f3f3f3;stroke:#999;stroke-dasharray:4 3}.btn{fill:#e8e8e8;stroke:#555}.label{fill:#222}.muted{fill:#777;font-size:12px}</style>
+  <g id="card"><rect class="box" x="20" y="20" width="420" height="300" rx="10"/></g>
+  <g id="title"><rect class="ghost" x="36" y="36" width="64" height="20"/><text class="muted" x="40" y="50">REQ-1.2</text><text class="label" x="110" y="51" font-weight="700">Title of the node</text></g>
+  <g id="body"><rect class="ghost" x="36" y="72" width="388" height="150"/><text class="muted" x="44" y="92">the node's text</text></g>
+  <g id="approve"><rect class="btn" x="36" y="240" width="90" height="30" rx="6"/><text class="label" x="56" y="260">Approve</text></g>
+  <g id="empty"><rect class="ghost" x="470" y="20" width="150" height="300" rx="10"/><text class="muted" x="486" y="50">empty state?</text></g>
+</svg>
+```
+
+A picture the human brings, an SVG exported from Figma with "include id attribute" on, from Penpot or from any other tool, is used as it is: its layer names are the element ids, and it enters `stated`. A tool's own file (`.excalidraw`, `.drawio`, `.penpot`, `.pen`) may travel inside the SVG or beside it under the same stem; only the SVG and the table are read.
+
+### The mock question
+
+Asked with the node's text through `headcanon_ask`, with `mock` naming the record once it is written or `draft` carrying the SVG inline before it is; options **Approve as drawn** and **Drop**. Typed text is a correction: redraw exactly what it names and ask again. A file the human drops into `canon/mocks/` is their picture: take it as stated and move on. In draft mode the mock is written `assumed` and nothing is asked.
+
+```json
+{"header":"Mock: REQ-12.1","question":"Mock: REQ-12.1 The node card.\n\n\"A card opens on a box and shows its text, why it has its colour, and the actions on it. [1]\"\n\nIs this the card? Each named part becomes a candidate for its requirements.\n\nSources: [1] REQ-12.1 (archetype of a review card); docs/ui.md:40-52","nodeId":"REQ-12.1","draft":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 400\">…</svg>","options":[{"label":"Approve as drawn","description":"Enters as assumed; the parts become candidates."},{"label":"Drop","description":"No mock; the node is refined as an ordinary one."}]}
+```
+
+### Reading the children off the mock
+
+Each element the human kept is a candidate with origin `MOCK-3#approve`. The four prompts, asked of an element: **prerequisite**, what must hold for it to show at all; **consequence**, what it does; **failure**, what it does when it cannot, and what the person sees then; **archetype**, what every control of its kind does: a button has a disabled state and a result, a list has an empty state and an order, a field has a format and an error. A behaviour the human types for an element is a stated child bound to it. Everything else follows the moves: ladder, top rungs, axis, close, needs, name, ask. A bound child's `source` names the element, `MOCK-3#approve (consequence of 'approve')`, its `mocks` field names it too, and the child's ID joins the element's row in the table.
+
+### The walk of states
+
+The archetype of an interface, asked as one multi-select, "Which of these does <node> meet?", pre-ticked where a thread speaks to a state and otherwise left to the human; an unticked state comes back only when asked for. A kept state is a requirement bound to the element it concerns, or a second frame in the picture when it changes what is seen; a state nothing in the project covers is asked as "Does <node> need <state>?" with **Yes, add it** and **No**.
+
+- empty: nothing to show yet
+- loading: the data is not there yet
+- failed: the data or the action failed
+- partial: some of it is missing or stale
+- overflow: long text, many items, a small window
+- first visit: nothing has been set up
+- keyboard: focus order, shortcuts, escape
+- destructive: an action that cannot be undone
+- concurrent: a change arrives while the screen is open
+- language: text twice as long, or right to left
+
+### Revising an agreed mock
+
+Never redraw an agreed mock in place (REQ-8.8). Draw the proposal as a `draft`, show it beside the current picture (`mock` and `draft` in one question) with the added, removed, moved and renamed elements as a multi-select, and rewrite the picture with the accepted changes only. Then re-read the requirements bound to the changed elements as the attend skill says: element gone, requirement `open`; element changed, requirement `assumed`; element new, a candidate here.

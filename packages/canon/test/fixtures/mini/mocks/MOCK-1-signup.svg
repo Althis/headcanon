@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" font-family="system-ui, sans-serif" font-size="14">
+  <style>.box{fill:#fff;stroke:#555;stroke-width:1.5}.ghost{fill:#f3f3f3;stroke:#999;stroke-dasharray:4 3}.btn{fill:#e8e8e8;stroke:#555}.label{fill:#222}.muted{fill:#777;font-size:12px}</style>
+  <g id="form"><rect class="box" x="10" y="10" width="300" height="180" rx="10"/></g>
+  <g id="email"><rect class="ghost" x="30" y="40" width="260" height="30" rx="4"/><text class="muted" x="40" y="60">email</text></g>
+  <g id="go"><rect class="btn" x="30" y="90" width="110" height="30" rx="6"/><text class="label" x="52" y="110">Sign up</text></g>
+  <g id="skip"><text class="muted" x="30" y="160" text-decoration="underline">Skip team setup</text></g>
+</svg>

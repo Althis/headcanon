@@ -46,6 +46,8 @@ export interface ReqNode {
   conflicts: string[];
   requires: string[];
   steps: string[];
+  /** Mock elements this node is seen in, written `MOCK-1#finish` (REQ-6.8). */
+  mocks: string[];
   files: string[];
   baseline: string | undefined;
   /** Path relative to the canon directory. */
@@ -72,6 +74,27 @@ export interface Journey {
   body: string;
   mermaid: string | undefined;
   steps: JourneyStep[];
+}
+
+/** One named part of a mock's picture (REQ-6.8): the `id` of a group in the SVG and the requirements it carries. */
+export interface MockElement {
+  id: string;
+  label: string;
+  state: State;
+  requirements: string[];
+}
+
+/** A mock: a picture of one thing a person will see, and the table that binds its elements to requirements (REQ-6.8). */
+export interface Mock {
+  id: string;
+  title: string;
+  state: State;
+  source: string | undefined;
+  /** The picture, relative to the canon directory; the record's stem with `.svg` unless `image` says otherwise. */
+  image: string;
+  file: string;
+  body: string;
+  elements: MockElement[];
 }
 
 export interface Decision {
@@ -108,6 +131,7 @@ export interface Canon {
   /** Top-level requirement IDs in order. */
   roots: string[];
   journeys: Journey[];
+  mocks: Mock[];
   decisions: Decision[];
   terms: Term[];
   principles: Principle[];

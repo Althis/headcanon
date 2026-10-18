@@ -16,7 +16,7 @@ Input: one node (`ROOT` for the premise), the layer its children get, and option
 Write this list to your scratch file and tick items as you go.
 
 - [ ] 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
-- [ ] 1 Gather candidates, each with its origin.
+- [ ] 1 Gather candidates, each with its origin; a visual node's mock comes first.
 - [ ] 2 Ladder every candidate up to the node.
 - [ ] 3 Take the top rungs; merge rungs that name one thing; defer the rest.
 - [ ] 4 Read the axis off the set; make facet children; place strays.
@@ -30,7 +30,7 @@ Step 0 stops when `HC next` lists the node as blocked or reports a deadlock: ask
 
 ## Sources
 
-The node's approved text, read with the glossary, is the primary source; the layers above it rank next. Artifact threads (one thing a document says, with `path:lines`) are **hints**: a thread shows that something belongs in this scope, usually several rungs down, and the ladder in step 2 finds the child it points at. A thread never becomes a child in its own words. Precedence when sources differ: the human's approval in this run, their typed words, the newest artifact, older artifacts. Two threads that disagree on a candidate: offer both readings; neither chosen, the child is `contested` with both positions. A thread that contradicts the node itself goes through the inconsistency procedure first (adopt skill, Sources).
+The node's approved text, read with the glossary, is the primary source; the layers above it rank next. Artifact threads (one thing a document says, with `path:lines`) are **hints**: a thread shows that something belongs in this scope, usually several rungs down, and the ladder in step 2 finds the child it points at. A thread never becomes a child in its own words. Precedence when sources differ: the human's approval in this run, a mock they agreed included, their typed words, the newest artifact, older artifacts. Two threads that disagree on a candidate: offer both readings; neither chosen, the child is `contested` with both positions. A thread that contradicts the node itself goes through the inconsistency procedure first (adopt skill, Sources).
 
 ## The moves
 
@@ -44,6 +44,8 @@ Four prompts on the node's meaning, answered in the project's vocabulary; each a
 - **archetype**: what every system of this kind has at this point.
 
 Then the hints: threads in the node's scope, assumptions recorded earlier under it, its `## Deferred` list, and candidates the caller passed in. An answer you cannot trace to the node's text or to a hint is not a candidate, because untraced is how invented needs enter.
+
+**Visual nodes.** A node whose text names something a person sees or operates (a screen, a panel, a card, a control, a message) is refined from its mock (reference.md section 5): draw it from the threads in scope and the archetype of its kind, show it with the node's text, and gather only once it is agreed. Each element the human kept is a candidate whose origin is the element, `MOCK-3#finish`; the four prompts are asked of each element, and the walk of states in section 5 is the archetype. A behaviour the human types for an element is stated. A mock the human drops makes the node an ordinary one.
 
 ### 2 Ladder
 
@@ -78,9 +80,9 @@ Each child is named by its rung, never by the artifact's wording: domains and ca
 
 ### 8 Ask
 
-One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires` and `## Deferred`; the node's front-matter gains `partition`. Entries carry no footnote markers.
+One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires`, `mocks` when it is bound to an element, and `## Deferred`; the node's front-matter gains `partition`, and a bound child joins its element's row in the mock's table. Entries carry no footnote markers.
 
-**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files and the partition, and report.
+**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files and the partition, and report. A visual node's mock is drawn and written `assumed` without asking; its elements are hints like threads.
 
 ### 9 Report
 

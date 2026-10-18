@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
-import { parseFrontMatter, parseGlossary, parseMermaid, parsePrinciples, parseSections, parseStepTable, str, strList } from "./parse.js";
+import { parseElementTable, parseFrontMatter, parseGlossary, parseMermaid, parsePrinciples, parseSections, parseStepTable, str, strList } from "./parse.js";
 import { isLayer, isState, type Canon, type Decision, type Journey, type Layer, type ReqNode, type State } from "./types.js";
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -42,6 +42,7 @@ export function loadCanon(dirInput: string): Canon {
     nodes: {},
     roots: [],
     journeys: [],
+    mocks: [],
     decisions: [],
     terms: [],
     principles: [],
@@ -91,6 +92,7 @@ export function loadCanon(dirInput: string): Canon {
         conflicts: strList(data["conflicts"]),
         requires: strList(data["requires"]),
         steps: strList(data["steps"]),
+        mocks: strList(data["mocks"]),
         files: strList(data["files"]),
         baseline: str(data["baseline"]),
         file,
@@ -112,6 +114,12 @@ export function loadCanon(dirInput: string): Canon {
         steps: parseStepTable(body),
       };
       canon.journeys.push(j);
+    } else if (id.startsWith("MOCK-")) {
+      // The picture sits beside the record under the same stem unless `image` names another file in the folder.
+      const folder = file.includes("/") ? file.slice(0, file.lastIndexOf("/") + 1) : "";
+      const stem = file.slice(folder.length).replace(/\.md$/i, "");
+      const image = folder + (str(data["image"])?.trim() || `${stem}.svg`);
+      canon.mocks.push({ id, title, state: stateOf(data["state"]), source: str(data["source"]), image, file, body, elements: parseElementTable(body) });
     } else if (id.startsWith("DEC-")) {
       const d: Decision = {
         id,
@@ -150,6 +158,7 @@ export function loadCanon(dirInput: string): Canon {
   for (const r of canon.roots) setDepth(r, 0);
 
   canon.journeys.sort((a, b) => compareIds(a.id, b.id));
+  canon.mocks.sort((a, b) => compareIds(a.id, b.id));
   canon.decisions.sort((a, b) => compareIds(a.id, b.id));
   return canon;
 }

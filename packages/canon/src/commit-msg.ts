@@ -65,8 +65,8 @@ export function gitAppendOnlyFiles(repoDir: string, watch: RegExp[] = APPEND_WAT
 
 const HEADER = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<bang>!)?: (?<subject>\S.*)$/;
 const TRAILER = /^(?<key>[A-Za-z][A-Za-z0-9-]*): (?<value>.*)$/;
-const INTENT_ID = /^(?:(?:REQ|JRN|DEC)-[0-9][0-9.]*(?:\/S[0-9]+)?|PRN-[0-9]+)$/;
-const CHANGE = /^(?<op>create|update|delete) (?<id>ROOT|PRN-\d+|(?:REQ|JRN|DEC|TERM)-\S+)$/;
+const INTENT_ID = /^(?:(?:REQ|JRN|DEC)-[0-9][0-9.]*(?:\/S[0-9]+)?|MOCK-[0-9]+(?:#[A-Za-z][\w-]*)?|PRN-[0-9]+)$/;
+const CHANGE = /^(?<op>create|update|delete) (?<id>ROOT|PRN-\d+|(?:REQ|JRN|DEC|TERM|MOCK)-\S+)$/;
 
 /** Strip git's comment lines and anything after a scissors line. */
 export function cleanMessage(raw: string): string {
@@ -128,6 +128,11 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
       if (!j) return false;
       const step = id.split("/")[1];
       return !step || j.steps.some((s) => s.id === step);
+    }
+    if (base.startsWith("MOCK-")) {
+      const [mid, el] = base.split("#");
+      const m = canon.mocks.find((x) => x.id === mid);
+      return m !== undefined && (!el || m.elements.some((e) => e.id === el));
     }
     if (base.startsWith("DEC-")) return canon.decisions.some((d) => d.id === base);
     if (base.startsWith("TERM-")) return canon.terms.some((t) => t.id === base);
