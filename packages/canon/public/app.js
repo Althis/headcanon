@@ -763,22 +763,22 @@ function buildAdoptCanvas() {
   const cy = window.cytoscape({
     container: el, elements: elementsFor(adoptScope()), minZoom: 0.05, maxZoom: 4,
     style: [
-      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "data(short)", "font-size": 8, "font-family": "ui-monospace, Consolas, monospace", color: "#e6e8ec", "text-valign": "center", "text-halign": "center", "border-width": 1.5, "background-color": "#f59e0b", "background-opacity": 0.22, "border-color": "#f59e0b" } },
-      { selector: "node.green", style: { "background-color": "#22c55e", "border-color": "#22c55e" } },
-      { selector: "node.yellow", style: { "background-color": "#f59e0b", "border-color": "#f59e0b" } },
-      { selector: "node.red", style: { "background-color": "#ef4444", "border-color": "#ef4444" } },
+      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "data(short)", "font-size": 8, "font-family": "ui-monospace, Consolas, monospace", color: "#e6e8ec", "text-valign": "center", "text-halign": "center", "border-width": 1.5, "background-color": "#4a3306", "background-opacity": 0.85, "border-color": "#f59e0b" } },
+      { selector: "node.green", style: { "background-color": "#0f3d22", "border-color": "#22c55e" } },
+      { selector: "node.yellow", style: { "background-color": "#4a3306", "border-color": "#f59e0b" } },
+      { selector: "node.red", style: { "background-color": "#4c1414", "border-color": "#ef4444" } },
       { selector: "node.premise", style: { shape: "hexagon", width: 44, height: 40 } },
       { selector: "node.principles", style: { shape: "octagon", width: 40, height: 40 } },
       { selector: "node.prn", style: { shape: "diamond", width: 22, height: 22 } },
-      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "", "border-width": 1, "background-opacity": 0.14 } },
+      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "", "border-width": 1, "background-opacity": 0.7 } },
       { selector: "node.premise.labelled, node.principles.labelled", style: { shape: "round-rectangle", width: 200, height: 60 } },
       { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48 } },
-      { selector: "node.selected", style: { "border-width": 2.5, "background-opacity": 0.3 } },
-      { selector: "node.dim", style: { opacity: 0.65 } },
+      { selector: "node.selected", style: { "border-width": 2.5 } },
+      { selector: "node.dim", style: { opacity: 0.4 } },
       { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": "#6b7280", "target-arrow-shape": "triangle", "target-arrow-color": "#6b7280", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: "#cbd5e1", "text-background-color": "#0f1216", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#60a5fa", "target-arrow-color": "#60a5fa" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#ef4444", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#ef4444", "target-arrow-color": "#ef4444" } },
-      { selector: "edge.dim", style: { opacity: 0.35 } },
+      { selector: "edge.dim", style: { opacity: 0.18 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
     layout: { name: "preset" },
@@ -788,7 +788,7 @@ function buildAdoptCanvas() {
   // holds a child under its parent, a dependency edge a weaker spring that draws a box toward what it needs,
   // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
   // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
-  const dimsOf = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
+  const dimsOf = (n) => [n.width(), n.height()];
   const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), top0: 0, lanes: null };
   // Lanes: every level of the tree has its own horizontal band. A lane grows with the number of boxes in it
   // that carry dependency lines, so crowded levels get room; a box moves freely inside its lane.
@@ -832,19 +832,23 @@ function buildAdoptCanvas() {
     for (const e of cy.edges(".contains")) { const c = P.get(e.target().id()); if (!c) continue; const k = e.source().id(); (groups.get(k) ?? groups.set(k, []).get(k)).push(c); }
     for (const g of groups.values()) { if (g.length < 2) continue; let cx = 0, cy0 = 0; for (const m of g) { cx += m.x; cy0 += m.y; } cx /= g.length; cy0 /= g.length; for (const m of g) { m.fx += 0.03 * (cx - m.x); m.fy += (adoptState.bands ? 0.008 : 0.02) * (cy0 - m.y); } }
     if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const l = laneOf(p.n); const target = l.c + (deg ? -Math.min(l.h / 2 - 24, 10 + 14 * deg) : 12); p.fy += 0.05 * (target - p.y); }
-    // Lines push boxes off them: a box near a line it is not an end of is nudged away, perpendicular to it.
+    // Lines push boxes off them, and are pushed off boxes: a box near a line it is not an end of is nudged away,
+    // perpendicular to the line, measured against the box's real rectangle; the line's ends get the opposite nudge.
     const segs = [];
     for (const e of cy.edges()) { if (e.hasClass("hidden")) continue; const a = P.get(e.source().id()), b = P.get(e.target().id()); if (a && b) segs.push({ a, b }); }
     for (const p of arr) for (const sg of segs) {
       if (sg.a === p || sg.b === p) continue;
       const ax = sg.a.x, ay = sg.a.y, vx = sg.b.x - ax, vy = sg.b.y - ay, len2 = vx * vx + vy * vy || 1;
-      const t = Math.max(0.08, Math.min(0.92, ((p.x - ax) * vx + (p.y - ay) * vy) / len2));
-      let dx = p.x - (ax + t * vx), dy = p.y - (ay + t * vy), d = Math.hypot(dx, dy);
-      const R = Math.max(p.w, p.h) / 2 + 30;
-      if (d >= R) continue;
+      const t = Math.max(0.06, Math.min(0.94, ((p.x - ax) * vx + (p.y - ay) * vy) / len2));
+      let dx = p.x - (ax + t * vx), dy = p.y - (ay + t * vy);
+      const rx = p.w / 2 + 28, ry = p.h / 2 + 28;
+      const dn = Math.hypot(dx / rx, dy / ry);
+      if (dn >= 1) continue;
+      let d = Math.hypot(dx, dy);
       if (d < 0.5) { dx = -vy; dy = vx; d = Math.hypot(dx, dy) || 1; }
-      const f = (6 * (R - d)) / R;
+      const f = 7 * (1 - dn);
       p.fx += (f * dx) / d; p.fy += (f * dy) / d;
+      sg.a.fx -= (0.35 * f * dx) / d; sg.a.fy -= (0.35 * f * dy) / d; sg.b.fx -= (0.35 * f * dx) / d; sg.b.fy -= (0.35 * f * dy) / d;
     }
     for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
       const a = arr[i], b = arr[j];
@@ -889,8 +893,10 @@ function buildAdoptCanvas() {
     const shown = cy.nodes().map((n) => n.id());
     const active = new Set();
     for (const f of [...adoptState.focus]) if (!adoptState.expanded.has(f)) adoptState.focus.delete(f);
-    if (adoptState.focus.size === 0) for (const id of shown) active.add(id);
-    else for (const e of adoptState.focus) {
+    const roots = new Set(adoptState.focus);
+    if (adoptState.selected && cy.getElementById(adoptState.selected).length) roots.add(adoptState.selected);
+    if (roots.size === 0) for (const id of shown) active.add(id);
+    else for (const e of roots) {
       if (!cy.getElementById(e).length) continue;
       let p = e; while (p) { active.add(p); p = parentOf(p); }
       const walk = (id) => { for (const c of info(id).children) if (cy.getElementById(c).length) { active.add(c); walk(c); } };
@@ -954,17 +960,39 @@ function buildAdoptCanvas() {
       const p = n.renderedPosition(), w = n.renderedWidth(), hh = n.renderedHeight();
       const inside = p.x > -40 && p.y > -40 && p.x < r.width + 40 && p.y < r.height + 40;
       h.style.display = inside ? "" : "none";
-      h.style.opacity = n.hasClass("dim") ? "0.65" : "";
+      h.style.opacity = n.hasClass("dim") ? "0.4" : "";
       const z = cy.zoom();
       if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; }
-      else if (h.dataset.kind === "card") { h.style.left = `${p.x}px`; h.style.top = `${p.y}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
+      else if (h.dataset.kind === "card") { const [bw, bh] = cardSize(n); h.style.left = `${p.x}px`; h.style.top = `${p.y}px`; h.style.transform = `translate(-50%, -50%) scale(${(z * n.width()) / bw}, ${(z * n.height()) / bh})`; }
       else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 14 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; }
       else { h.style.left = `${p.x + w / 2 - 38 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; }
     }
   };
-  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
-  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); settle(0.5); };
-  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); settle(0.3); };
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); };
+  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
+  // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
+  const cardSize = (n) => (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
+  const showLabel = (id) => {
+    const n = cy.getElementById(id);
+    if (!n.length || n.hasClass("labelled")) return;
+    adoptState.labelled.add(id);
+    const [w0, h0] = [n.width(), n.height()], [w, h] = cardSize(n);
+    n.addClass("labelled").style({ width: w0, height: h0 });
+    n.animate({ style: { width: w, height: h } }, { duration: 320, easing: "ease-out", complete: () => { n.removeStyle("width height"); place(); } });
+    makeOverlays();
+    settle(0.7);
+  };
+  const hideLabel = (id) => {
+    adoptState.labelled.delete(id);
+    if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const o of cy.nodes()) if (!adoptState.labelled.has(o.id()) && o.id() !== id) o.removeClass("labelled"); }
+    const n = cy.getElementById(id);
+    const [w0, h0] = [n.width(), n.height()];
+    n.removeClass("labelled").style({ width: w0, height: h0 });
+    const [w, h] = n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
+    n.animate({ style: { width: w, height: h } }, { duration: 260, easing: "ease-in", complete: () => { n.removeStyle("width height"); place(); } });
+    makeOverlays();
+    settle(0.4);
+  };
   // Expanding or collapsing changes the graph in place: new boxes grow out of their parent and everything
   // glides to the new layered layout.
   const sync = () => {
