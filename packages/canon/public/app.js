@@ -90,9 +90,9 @@ function render() {
 function overview() {
   const { stats, health } = snap;
   if (stats.nodes === 0 && !snap.canon.root) return `
-    <div class="alert none"><span class="alert-icon">·</span><b>No canon yet.</b><span class="muted">The session creates it as you approve the premise; the first files appear here after init.</span></div>
+    <div class="alert none"><span class="alert-icon">·</span><b>No canon yet.</b><span class="muted">The session is reading your documents and drafting it; the Adopt tab shows the boxes as they appear.</span></div>
     <h1>Canon</h1>
-    <p class="lede">Nothing to show until the first node exists. Questions from the session arrive in the panel at the bottom right.</p>`;
+    <p class="lede">Nothing to show until the first node exists. The session speaks in the panel at the bottom right.</p>`;
   const att = attentionItems();
   const tile = (n, label, cls = "", href = "") => `<div class="tile ${cls}"><div class="n">${href ? `<a href="${href}">${n}</a>` : n}</div><div class="l">${label}</div></div>`;
   const groups = [
@@ -531,6 +531,12 @@ async function pollSession() {
     if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
+    // While a draft is being written there is no feed entry per file; on the Adopt view, re-read the canon
+    // every few seconds and redraw when nodes appeared, so the progress strip and the canvas grow with it.
+    if (route().view === "adopt" && !s.question && (pollSession.tick = (pollSession.tick ?? 0) + 1) % 3 === 0) {
+      const fresh = await fetch("/api/snapshot", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      if (fresh && (fresh.stats.nodes !== snap.stats.nodes || fresh.canon.decisions.length !== snap.canon.decisions.length || Boolean(fresh.canon.root) !== Boolean(snap.canon.root))) { snap = fresh; for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; } if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
+    }
     if (s.cursor !== lastCursor) {
       lastCursor = s.cursor;
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
@@ -689,8 +695,36 @@ function adopt(selectedId) {
       <button class="btn small" data-expand-all="1">Show all</button>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
     </div>
+    ${progressStrip()}
     <div id="cy" class="cy-full"></div>
   </div>`;
+}
+// Progress of a draft: the agent writes one file per node in dependency order, so the canon on disk says
+// how far it is. Phases: premise, domains, capabilities, requirements, consistency pass, review, finished.
+function adoptProgress() {
+  const nodes = Object.values(snap.canon.nodes);
+  const finished = snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
+  if (finished) return { phase: "Adoption finished", fraction: 1, detail: `${nodes.length} nodes committed` };
+  if (!snap.canon.root && nodes.length === 0) return { phase: "Reading the repository", fraction: 0.03, detail: "the premise comes first" };
+  const roots = snap.canon.roots.map(node);
+  if (roots.length === 0) return { phase: "Drafting the premise and principles", fraction: 0.1, detail: "then the domains" };
+  const cut = (n) => n.children.length > 0 || n.state === "open";
+  const domains = roots.filter((n) => n.layer === "domain");
+  const caps = nodes.filter((n) => n.layer === "capability");
+  if (domains.length && !domains.some(cut)) return { phase: "Drafting the domains", fraction: 0.2, detail: `${domains.length} so far` };
+  const domainsCut = domains.filter(cut).length;
+  if (domains.length && domainsCut < domains.length) return { phase: "Drafting the capabilities", fraction: 0.25 + 0.3 * (domainsCut / domains.length), detail: `${domainsCut} of ${domains.length} domains cut · ${nodes.length} nodes` };
+  const capsCut = caps.filter(cut).length;
+  if (caps.length && capsCut < caps.length) return { phase: "Drafting the requirements", fraction: 0.55 + 0.35 * (capsCut / caps.length), detail: `${capsCut} of ${caps.length} capabilities cut · ${nodes.length} nodes` };
+  const spoke = chatCursor > 0 && [...document.querySelectorAll("#activity li.say")].length > 0;
+  if (!spoke) return { phase: "Consistency pass, then the canvas opens", fraction: 0.93, detail: `${nodes.length} nodes drafted` };
+  const c = adoptCounts();
+  const total = c.green + c.yellow + c.red || 1;
+  return { phase: "Reviewing", fraction: 0.93 + 0.07 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you` };
+}
+function progressStrip() {
+  const p = adoptProgress();
+  return `<div class="progress" title="${esc(p.detail)}"><div class="progress-bar"><span style="width:${Math.round(p.fraction * 100)}%"></span></div><span class="progress-label"><b>${esc(p.phase)}</b> <span class="muted">${esc(p.detail)}</span></span></div>`;
 }
 function buildAdoptCanvas() {
   const el = $main.querySelector(".adopt #cy");
@@ -946,4 +980,9 @@ function appendChat(entries) {
 }
 function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
 
-load().then(render).catch(showError).finally(pollSession);
+load().then(() => {
+  // An adoption in progress belongs to the Adopt view: the root address goes there until the scope decision exists.
+  const unfinished = !snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
+  if (unfinished && (location.hash === "" || location.hash === "#/" || location.hash === "#")) location.hash = "#/adopt";
+  render();
+}).catch(showError).finally(pollSession);

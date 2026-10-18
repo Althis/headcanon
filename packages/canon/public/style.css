@@ -140,6 +140,10 @@ body.adopt-mode .session.collapsed { bottom: auto; width: auto; border-width: 0 
 .adopt { margin-right: min(436px, 46vw); }
 .adopt-bar { align-items: center; }
 .adopt-bar .legend { gap: 12px; }
+.progress { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; font-size: 12.5px; }
+.progress-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.progress-bar span { display: block; height: 100%; background: var(--accent); transition: width .6s ease; }
+.progress-label { white-space: nowrap; }
 .cy-full { position: relative; height: calc(100vh - 150px); min-height: 420px; overflow: hidden; border-radius: var(--radius); background-color: var(--bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 19v10M19 24h10' stroke='%236b7280' stroke-opacity='.45' stroke-width='1'/%3E%3C/svg%3E"); background-size: 48px 48px; }
 .overlays { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .ov { position: absolute; pointer-events: auto; transform: translate(-50%, -50%); font: 600 11px/1 inherit; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
