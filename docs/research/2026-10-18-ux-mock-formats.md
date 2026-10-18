@@ -57,8 +57,45 @@ No open design-file format is shared across the design platforms. Figma's is clo
 
 What follows for the canon is a picture in SVG with its binding kept beside it in Markdown, in the shape a journey already uses, so that the design tool's file is welcome inside or beside the picture but never has to be read. An agent draws its own mocks as plain SVG from a small kit of shapes, which needs no tool and keeps every element addressable; a designer's export enters as it is, with layer names as ids where the tool offers that. Recorded as DEC-016.
 
+## Who holds the files
+
+Added 2026-10-18 after the first review, which asked whether the comparison above weighed who actually makes the designs.
+
+- UX Tools' 2024 Design Tools Survey (2,220 responses, November 2024 to January 2025): Figma is used by 82.3% of UI designers, 93.1% in corporate settings, and leads Sketch by roughly 46 to 1 (https://blog.logrocket.com/ux-design/surprises-trends-from-this-years-design-tools-survey-results/; https://www.uxtools.co/survey/interface-design/trends).
+- Ramp's spend data, October 2025: 94% of organizations with a vendor in the software-design category pay for Figma (https://ramp.com/vendors/figma).
+- Figma's S-1: more than 13 million monthly active users in the quarter ended March 2025, two thirds of them non-designers; 95% of the Fortune 500 used Figma in March 2025 (https://www.sec.gov/Archives/edgar/data/1579878/000162828025033742/figma-sx1.htm).
+- Penpot reports 1.5 million users, self-reported (https://community.penpot.app/t/celebrating-5-years-of-penpot/10417); Excalidraw has between 108k and 131k GitHub stars depending on the snapshot and publishes no active-user figure (https://ossinsight.io/analyze/excalidraw/excalidraw); no user figure was found for draw.io.
+
+The prior for any visual node is therefore that it is, or will be, made in Figma, often by a non-designer. The format must take what Figma yields without asking anyone to change tools, and the decision is about the path from Figma into the canon, not about which open tool to prefer. That reading, and the layout gap in SVG (absolute geometry, no constraints or breakpoints), moved the foundation from SVG to HTML and CSS; the section below records what Figma's own output looks like.
+
+## Figma's code output, and what recurs in it
+
+What Figma itself produces:
+
+- **Dev Mode code snippets**: CSS in px or rem, SwiftUI or UIKit, Compose or XML; no HTML; the variables assigned to a layer appear in the snippet; Tailwind only through community codegen plugins, of which about eighty exist (https://help.figma.com/hc/en-us/articles/15023202277399).
+- **The Figma MCP server**, desktop and remote: `get_design_context` returns design context whose "default output is React and Tailwind, but you can ask for a different framework in your prompt", plain HTML and CSS among the examples; `download_assets` exports up to twenty nodes as PNG, JPG, SVG or PDF at temporary URLs; `get_variable_defs` returns the colours, spacing and typography a selection uses; `get_metadata` gives an XML outline with layer ids, names, positions and sizes; `get_screenshot` a picture. In the other direction `html_to_figma` "converts an HTML document into plain design layers" and `generate_figma_design` sends live web UI to Figma, so an HTML mock can travel back into Figma for a designer (https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/; https://developers.figma.com/docs/figma-mcp-server/server-returning-web-code).
+- **Figma Make**: React-based applications; the code downloads as a zip from the Code tab, per Figma staff on the forum; whether shadcn/ui and Lucide are part of its scaffold could not be confirmed at the source (https://forum.figma.com/ask-the-community-7/exporting-react-files-after-creating-figma-make-site-40961).
+- **Figma Sites**: "It's not currently possible to export your site's code for external publishing" (https://help.figma.com/hc/en-us/articles/31242845959703).
+
+The plugins people use for HTML:
+
+- **Anima**: a zip with one HTML and one CSS file per screen, screens with breakpoints sharing a pair, plus images and fonts; auto layout becomes flexbox or grid; Figma variables become CSS custom properties; newer flows produce React with Tailwind (https://docs.animaapp.com/docs/starting-from-figma; https://support.animaapp.com/en/articles/6132960-how-to-convert-figma-design-to-html-react-or-vue-js).
+- **FigmaToCode**, open source under GPL-3.0, about 4.9k stars: HTML, Tailwind with a v4 option, React, Svelte, Flutter and SwiftUI; options to embed images as base64 and vectors as inline SVG and to carry layer names into classes; "responsive breakpoints still need human review" (https://github.com/bernaferrari/FigmaToCode).
+- **Builder.io Visual Copilot**: HTML or React, Vue, Svelte, Angular and others, with styling by choice: plain CSS, Tailwind, Emotion, styled-components, CSS modules (https://www.builder.io/blog/figma-to-code).
+- **Locofy**: HTML and CSS with Tailwind, MUI, Bootstrap, Chakra and Ant Design variants (https://www.locofy.ai/blog/turn-figma-to-code-using-locofyai).
+
+What recurs, and is therefore what a mock format built on HTML must take in:
+
+- Tailwind utility classes, in Figma's own MCP output and as the first option of every plugin; the browser build serves them without a build step: `<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>`, "designed for development purposes only", which a mock is (https://tailwindcss.com/docs/installation/play-cdn).
+- React as the wrapper around the markup in Figma's own tools, so JSX that must be flattened to HTML before it is a page.
+- Figma variables as CSS custom properties, with the fallback value beside them.
+- Auto layout as flexbox, grid in Anima, and free-positioned frames as absolute positioning.
+- Fonts by the name Figma shows, Inter being Figma's default, served from Google Fonts or shipped as files.
+- Icons and images as exported assets, PNG or SVG, inline SVG or base64, and from the MCP server at temporary URLs that must be downloaded.
+- With shadcn-style output, Radix primitives, Lucide icons and a sheet of theme tokens the classes depend on.
+
 ## What the research did not settle
 
 - Whether draw.io's or Penpot's SVG exports can be made to name their elements; both would otherwise need the ids added by hand or read from the embedded source.
-- Whether designers accept a plain SVG kit drawn by the agent as a starting point, or always bring their own export. The first adoption run with a visual node decides.
+- Whether designers accept a plain HTML kit drawn by the agent as a starting point, or always bring their own export. The first adoption run with a visual node decides.
 - How much of a design system's vocabulary (tokens, components) the binding needs; the DTCG format is the candidate when it does.
