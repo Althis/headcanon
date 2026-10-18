@@ -658,7 +658,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
 const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, view: null };
 function colorOf(id) {
-  if (id === "ROOT") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
   if (!n) return "yellow";
   if (n.state === "open" || n.state === "contested") return "red";
@@ -671,7 +671,8 @@ function ensureExpanded() {
 }
 function adoptScope() {
   ensureExpanded();
-  const show = ["ROOT", ...snap.canon.roots];
+  const show = ["ROOT", "PRINCIPLES", ...snap.canon.roots];
+  if (adoptState.expanded.has("PRINCIPLES")) for (const p of snap.canon.principles) show.push(p.id);
   const visit = (id) => { if (!adoptState.expanded.has(id)) return; for (const c of node(id).children) { show.push(c); visit(c); } };
   for (const r of snap.canon.roots) visit(r);
   return show;
@@ -732,13 +733,20 @@ function buildAdoptCanvas() {
   if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
   const show = adoptScope();
   const shown = new Set(show);
-  const info = (id) => (id === "ROOT" ? { title: snap.canon.root?.title ?? "Premise", children: snap.canon.roots, parent: undefined, requires: [], conflicts: [] } : node(id));
+  const blank = { requires: [], conflicts: [], parent: undefined };
+  const info = (id) =>
+    id === "ROOT" ? { ...blank, title: snap.canon.root?.title ?? "Premise", children: snap.canon.roots }
+    : id === "PRINCIPLES" ? { ...blank, title: "Principles", children: snap.canon.principles.map((p) => p.id) }
+    : id.startsWith("PRN-") ? { ...blank, title: snap.canon.principles.find((p) => p.id === id)?.title ?? id, children: [], parent: "PRINCIPLES" }
+    : node(id);
+  const kindOf = (id) => (id === "ROOT" ? "premise" : id === "PRINCIPLES" ? "principles" : id.startsWith("PRN-") ? "prn" : "");
   const labelled = (id) => adoptState.labels || adoptState.labelled.has(id);
   const elements = [];
   for (const id of show) {
     const n = info(id);
-    elements.push({ data: { id, label: `${id === "ROOT" ? "" : id + "\n"}${n.title}` }, classes: `${colorOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}` });
-    const parent = id === "ROOT" ? undefined : n.parent ?? "ROOT";
+    const label = id === "ROOT" ? `Premise\n${n.title}` : id === "PRINCIPLES" ? `Principles (${n.children.length})` : `${id}\n${n.title}`;
+    elements.push({ data: { id, label }, classes: `${colorOf(id)} ${kindOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}` });
+    const parent = id === "ROOT" || id === "PRINCIPLES" ? undefined : n.parent ?? "ROOT";
     if (parent && shown.has(parent)) elements.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: `contains ${adoptState.edges ? "" : "hidden"}` });
     for (const t of n.requires) if (shown.has(t)) elements.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: `requires dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
     for (const t of n.conflicts) if (shown.has(t)) elements.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: `conflicts dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
@@ -757,6 +765,11 @@ function buildAdoptCanvas() {
       { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+      { selector: "node.premise", style: { shape: "hexagon", width: 44, height: 40 } },
+      { selector: "node.principles", style: { shape: "octagon", width: 40, height: 40 } },
+      { selector: "node.prn", style: { shape: "diamond", width: 22, height: 22 } },
+      { selector: "node.premise.labelled, node.principles.labelled", style: { shape: "round-rectangle", width: 200, height: 60 } },
+      { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48, "font-size": 10 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
     layout: layout(),
@@ -846,15 +859,20 @@ function buildAdoptCanvas() {
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
 function toggleExpand(id) { ensureExpanded(); adoptState.expanded.has(id) ? adoptState.expanded.delete(id) : adoptState.expanded.add(id); render(); }
-function expandTo(id) { ensureExpanded(); let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
+function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
 const $popup = document.getElementById("popup");
 const $why = document.getElementById("ask-why");
 function openPopup(id) {
   const isRoot = id === "ROOT";
-  const n = isRoot ? null : node(id);
-  if (!isRoot && !n) return;
+  const isPrinciples = id === "PRINCIPLES";
+  const prn = id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id) : null;
+  const n = isRoot || isPrinciples || prn ? null : node(id);
+  if (!n && !isRoot && !isPrinciples && !prn) return;
+  if (isPrinciples || prn) { openTextCard(id, isPrinciples ? "Principles" : prn.title, isPrinciples
+    ? snap.canon.principles.map((p) => `<p><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")
+    : `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}`); return; }
   const color = colorOf(id);
   const state = isRoot ? snap.canon.root?.state : n.state;
   const because = color === "red"
@@ -862,10 +880,11 @@ function openPopup(id) {
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
+  const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : snap.html[id];
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
-    <div class="popup-body body" id="pp-body">${markSections(snap.html[id] ?? "<p class='muted'>No text yet.</p>")}</div>
+    <div class="popup-body body" id="pp-body">${markSections(bodyHtml || "<p class='muted'>No text yet.</p>")}</div>
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
       ${color !== "green" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
@@ -908,6 +927,26 @@ function openPopup(id) {
   });
 }
 function closePopup() { $popup.hidden = true; $why.hidden = true; delete $popup.dataset.id; }
+/** Remove one rendered `<h2>` section from a node's HTML. */
+function stripHtmlSection(html, heading) {
+  const re = new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
+  return html.replace(re, "");
+}
+/** A read-only card: the principles, or one principle, which live in the root README and are edited there. */
+function openTextCard(id, title, html) {
+  const wasHidden = $popup.hidden;
+  $popup.innerHTML = `
+    <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(snap.canon.root?.state ?? "assumed")} <span><i class="sw ${colorOf(id)}"></i><span class="muted">Direction the whole canon is judged against; rewrite it in the premise card.</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
+    <h2>${esc(title)}</h2>
+    <div class="popup-body body" id="pp-body">${html}</div>
+    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
+  $popup.hidden = false;
+  $popup.dataset.id = id;
+  if (wasHidden) centerPopup();
+  wirePopupMoves();
+  $popup.querySelector("#pp-close").addEventListener("click", closePopup);
+}
 // The card opens in the middle of the canvas, moves by its header and resizes from any corner.
 function centerPopup() {
   const area = $main.querySelector(".adopt #cy")?.getBoundingClientRect() ?? $main.getBoundingClientRect();
