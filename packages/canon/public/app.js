@@ -889,14 +889,18 @@ function buildAdoptCanvas() {
       run.forEach((n, i) => A.set(n.id(), as[i]));
     }
     const P = new Map(cy.nodes().map((n) => [n.id(), n.id() === "ROOT" ? { ...sim.centre } : cart(radius(n.id()), A.get(n.id()))]));
-    // the forks, as segment lines: the points are given relative to the straight line from parent to child
+    // the forks, as segment lines: a line leaves a box from the middle of the side that faces the way it
+    // goes, and arrives at the middle of the side that faces it, so it visibly meets the box instead of
+    // slipping under a corner; the points are given relative to the straight line from parent to child
+    const door = (n, p, dx, dy) => { const [w, h] = finalSize(n); if (Math.abs(dx) * h >= Math.abs(dy) * w) { const sx = Math.sign(dx) || 1; return { x: p.x + sx * (w / 2 + 18), y: p.y }; } const sy = Math.sign(dy) || 1; return { x: p.x, y: p.y + sy * (h / 2 + 18) }; };
     cy.batch(() => {
       for (const e of cy.edges(".contains")) {
         const s = e.source().id(), t = e.target().id(), S = P.get(s), T = P.get(t);
         if (!S || !T) continue;
         const rf = rings[ringOf(e.target())].inner + 10, at = A.get(t), pts = [];
-        if (s === "ROOT") pts.push(cart(rf, at));
-        else { const as0 = A.get(s), da = angleDiff(at, as0), steps = Math.max(1, Math.ceil(Math.abs(da) / (Math.PI / 18))); for (let k = 0; k <= steps; k++) pts.push(cart(rf, as0 + (da * k) / steps)); }
+        if (s === "ROOT") { pts.push(door(e.source(), S, Math.cos(at), Math.sin(at)), cart(rf, at)); }
+        else { const as0 = A.get(s), da = angleDiff(at, as0), steps = Math.max(1, Math.ceil(Math.abs(da) / (Math.PI / 18))); pts.push(door(e.source(), S, Math.cos(as0), Math.sin(as0))); for (let k = 0; k <= steps; k++) pts.push(cart(rf, as0 + (da * k) / steps)); }
+        pts.push(door(e.target(), T, -Math.cos(at), -Math.sin(at)));
         const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
         const ws = [], ds = [];
         for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
