@@ -783,28 +783,54 @@ function buildAdoptCanvas() {
     layout: { name: "preset" },
   });
   window.__cy = cy;
-  // The layered layout ranks by containment only: a dependency link must never pull a box toward what it needs.
-  // Then, within each rank, boxes that carry dependency lines are lifted by a step each, the most connected
-  // highest, so lines between siblings run at different heights instead of over one another. One motion.
-  const runLayout = (animated) => {
-    const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
-    cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run();
-    const ranks = new Map();
-    for (const n of cy.nodes()) { const y = Math.round(n.position().y); (ranks.get(y) ?? ranks.set(y, []).get(y)).push(n); }
-    const degree = (n) => n.connectedEdges(".dep").length;
-    for (const group of ranks.values()) {
-      const dep = group.filter((n) => degree(n) > 0).sort((a, b) => degree(b) - degree(a) || a.position().x - b.position().x);
-      dep.forEach((n, i) => n.position({ x: n.position().x, y: n.position().y - 16 * (dep.length - i) }));
+  // Positions come from a force simulation, as in a node canvas: a containment edge is a strong spring that
+  // holds a child under its parent, a dependency edge a weaker spring that draws a box toward what it needs,
+  // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
+  // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
+  const dimsOf = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
+  const sim = { alpha: 0, raf: 0, pinned: null };
+  const tick = () => {
+    const P = new Map();
+    for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); P.set(n.id(), { n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); }
+    for (const e of cy.edges()) {
+      const a = P.get(e.source().id()), b = P.get(e.target().id());
+      if (!a || !b) continue;
+      if (e.hasClass("contains")) {
+        // the child wants to sit a rank under its parent; the parent is pulled back only a little
+        const tx = a.x, ty = a.y + 110 + (a.h + b.h) / 4, k = 0.07;
+        const dx = tx - b.x, dy = ty - b.y;
+        b.fx += k * dx; b.fy += k * dy; a.fx -= k * dx * 0.25; a.fy -= k * dy * 0.25;
+      } else if (!e.hasClass("hidden")) {
+        const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, L = 150, k = 0.02, f = k * (d - L);
+        a.fx += (f * dx) / d; a.fy += (f * dy) / d; b.fx -= (f * dx) / d; b.fy -= (f * dy) / d;
+      }
     }
-    if (!animated) return;
-    for (const n of cy.nodes()) {
-      const target = { ...n.position() }, from = before.get(n.id());
-      if (!from) continue;
-      n.position(from);
-      n.animate({ position: target }, { duration: 420, easing: "ease-in-out" });
+    const arr = [...P.values()];
+    for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
+      const a = arr[i], b = arr[j];
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01;
+      if (d < 320) { const f = Math.min(6, 2600 / (d * d)); a.fx -= (f * dx) / d; a.fy -= (f * dy) / d; b.fx += (f * dx) / d; b.fy += (f * dy) / d; }
+      const ox = (a.w + b.w) / 2 + 22 - Math.abs(dx), oy = (a.h + b.h) / 2 + 22 - Math.abs(dy);
+      if (ox > 0 && oy > 0) {
+        // overlapping: push apart along the axis of least overlap; a bright box has right of way over a faded one
+        const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1;
+        const wa = a.bright && !b.bright ? 0 : b.bright && !a.bright ? 1 : 0.5, wb = 1 - wa;
+        if (ox < oy) { a.x -= sx * ox * wa; b.x += sx * ox * wb; } else { a.y -= sy * oy * wa; b.y += sy * oy * wb; }
+      }
     }
+    cy.batch(() => { for (const p of arr) { if (p.n.id() === sim.pinned) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: p.y + p.fy * sim.alpha }); } });
+    place();
   };
-  runLayout(false);
+  const run = () => {
+    cancelAnimationFrame(sim.raf);
+    const step = () => { tick(); sim.alpha *= 0.94; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; place(); } };
+    sim.raf = requestAnimationFrame(step);
+  };
+  const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
+  const seed = () => cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run();
+  window.__sim = { tick, settle, state: sim };
+  seed();
+  settle(1);
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
     const z = cy.zoom(), p = cy.pan();
@@ -883,44 +909,8 @@ function buildAdoptCanvas() {
     }
   };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
-  // A box grew or moved: push only the boxes it now overlaps, just far enough to clear it, along the axis of
-  // least overlap, and let that cascade. An active box has right of way over a faded one, so a faded box that
-  // runs into an active one moves on itself instead of pushing it. Everything glides so the eye can follow.
-  const relax = (id, animate = true) => {
-    const moved = new Map();
-    const pos = (n) => moved.get(n.id()) ?? n.position();
-    const dims = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
-    const box = (n) => { const p = pos(n), [dw, dh] = dims(n), w = dw + 28, h = dh + 28; return { x1: p.x - w / 2, x2: p.x + w / 2, y1: p.y - h / 2, y2: p.y + h / 2 }; };
-    const pushAway = (mover, from) => {
-      const bm = box(mover), bf = box(from), pm = pos(mover), pf = pos(from);
-      const ox = Math.min(bm.x2, bf.x2) - Math.max(bm.x1, bf.x1), oy = Math.min(bm.y2, bf.y2) - Math.max(bm.y1, bf.y1);
-      return ox < oy ? { x: pm.x + (pm.x >= pf.x ? 1 : -1) * ox, y: pm.y } : { x: pm.x, y: pm.y + (pm.y >= pf.y ? 1 : -1) * oy };
-    };
-    const queue = [cy.getElementById(id)];
-    const done = new Set();
-    let guard = 0;
-    while (queue.length && guard++ < 300) {
-      const a = queue.shift();
-      if (!a || !a.length) continue;
-      if (done.has(a.id())) continue;
-      done.add(a.id());
-      const ba = box(a);
-      for (const b of cy.nodes()) {
-        if (b.id() === a.id() || b.id() === id) continue;
-        const bb = box(b);
-        const ox = Math.min(ba.x2, bb.x2) - Math.max(ba.x1, bb.x1), oy = Math.min(ba.y2, bb.y2) - Math.max(ba.y1, bb.y1);
-        if (ox <= 0 || oy <= 0) continue;
-        if (a.id() !== id && a.hasClass("dim") && !b.hasClass("dim")) { moved.set(a.id(), pushAway(a, b)); done.delete(a.id()); queue.push(a); break; }
-        moved.set(b.id(), pushAway(b, a));
-        queue.push(b);
-      }
-    }
-    for (const [nid, p] of moved) { if (animate) cy.getElementById(nid).animate({ position: p }, { duration: 320, easing: "ease-out" }); else cy.getElementById(nid).position(p); }
-    return moved.size;
-  };
-  window.__relax = relax;
-  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); relax(id); };
-  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); };
+  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); settle(0.5); };
+  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); settle(0.3); };
   // Expanding or collapsing changes the graph in place: new boxes grow out of their parent and everything
   // glides to the new layered layout.
   const sync = () => {
@@ -929,11 +919,12 @@ function buildAdoptCanvas() {
     cy.remove(cy.nodes().filter((n) => !shown.has(n.id())));
     const have = new Set(cy.nodes().map((n) => n.id()));
     const fresh = elementsFor(show).filter((e) => (e.data.source ? !cy.getElementById(e.data.id).length : !have.has(e.data.id)));
-    for (const e of fresh) if (!e.data.source) { const parent = parentOf(e.data.id); const pp = parent && cy.getElementById(parent).length ? cy.getElementById(parent).position() : { x: 0, y: 0 }; e.position = { x: pp.x, y: pp.y }; }
+    let k = 0;
+    for (const e of fresh) if (!e.data.source) { const parent = parentOf(e.data.id); const pp = parent && cy.getElementById(parent).length ? cy.getElementById(parent).position() : { x: 0, y: 0 }; e.position = { x: pp.x + (k++ % 7 - 3) * 12, y: pp.y + 40 }; }
     cy.add(fresh);
     applyFocus();
-    runLayout(true);
     makeOverlays();
+    settle(0.8);
   };
   adoptState.sync = sync;
   let lastTap = { id: null, at: 0 };
@@ -944,12 +935,13 @@ function buildAdoptCanvas() {
     select(id);
     showLabel(id);
   });
-  cy.on("drag", "node", (e) => relax(e.target.id(), false));
-  cy.on("dragfree", "node", (e) => relax(e.target.id(), true));
+  cy.on("grab", "node", (e) => { sim.pinned = e.target.id(); settle(0.35); });
+  cy.on("drag", "node", () => { place(); if (sim.alpha < 0.25) settle(0.3); });
+  cy.on("free", "node", () => { sim.pinned = null; settle(0.4); });
   cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
-  cy.on("position layoutstop", place);
+  cy.on("layoutstop", place);
   cy.ready(() => {
-    if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
+    if (adoptState.view) cy.viewport(adoptState.view); else setTimeout(() => cy.fit(undefined, 40), 700);
     grid(); applyFocus(); makeOverlays();
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
@@ -959,8 +951,8 @@ function buildAdoptCanvas() {
     ev.currentTarget.classList.toggle("on", adoptState.labels);
     if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
     else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
-    runLayout(true);
     makeOverlays();
+    settle(0.8);
   });
   $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
   $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
