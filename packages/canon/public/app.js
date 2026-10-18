@@ -847,9 +847,13 @@ function buildAdoptCanvas() {
     const respace = (group) => {
       const sorted = [...group].sort((a, b) => bary(a) - bary(b) || X.get(a.id()) - X.get(b.id()));
       const gap = 26;
-      const total = sorted.reduce((a, n) => a + n.width(), 0) + gap * (sorted.length - 1);
-      let x = group.reduce((a, n) => a + X.get(n.id()), 0) / group.length - total / 2;
-      for (const n of sorted) { X.set(n.id(), x + n.width() / 2); x += n.width() + gap; }
+      const want = sorted.map((n) => bary(n));
+      // left to right, each box takes its wanted place unless that overlaps the one before; then a pass back
+      // from the right pulls crowded runs toward where they wanted to be
+      const xs = [];
+      for (let i = 0; i < sorted.length; i++) { const minX = i ? xs[i - 1] + (sorted[i - 1].width() + sorted[i].width()) / 2 + gap : -Infinity; xs.push(Math.max(want[i], minX)); }
+      for (let i = sorted.length - 2; i >= 0; i--) { const maxX = xs[i + 1] - (sorted[i].width() + sorted[i + 1].width()) / 2 - gap; if (xs[i] > maxX) xs[i] = maxX; }
+      sorted.forEach((n, i) => X.set(n.id(), xs[i]));
     };
     for (let sweep = 0; sweep < 2; sweep++) {
       for (const d of depths) respace(lanes.get(d));
@@ -874,10 +878,11 @@ function buildAdoptCanvas() {
         // the child wants to sit a rank under its parent; the parent is pulled back only a little
         const tx = a.x, ty = a.y + 110 + (a.h + b.h) / 4, kx = 0.02, ky = adoptState.bands ? 0.006 : 0.09;
         const dx = tx - b.x, dy = ty - b.y;
-        b.fx += kx * dx; b.fy += ky * dy; a.fx -= kx * dx * 0.25; a.fy -= ky * dy * 0.25;
+        const stretch = Math.min(5, 1 + Math.abs(dx) / 220);
+        b.fx += kx * stretch * dx; b.fy += ky * dy; a.fx -= kx * stretch * dx * 0.25; a.fy -= ky * dy * 0.25;
       } else if (!e.hasClass("hidden")) {
         a.deg = (a.deg ?? 0) + 1; b.deg = (b.deg ?? 0) + 1;
-        const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, L = 120, k = 0.05, f = k * (d - L);
+        const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, L = 120, k = 0.05, f = k * (d - L) * Math.min(4, 1 + Math.max(0, d - L) / 250);
         a.fx += (f * dx) / d; a.fy += (f * dy) / d; b.fx -= (f * dx) / d; b.fy -= (f * dy) / d;
       }
     }
@@ -1011,10 +1016,10 @@ function buildAdoptCanvas() {
       h.style.display = inside ? "" : "none";
       h.style.opacity = n.hasClass("dim") ? "0.4" : "";
       const z = cy.zoom();
-      if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; }
+      if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
       else if (h.dataset.kind === "card") { const [bw, bh] = cardSize(n); h.style.left = `${p.x}px`; h.style.top = `${p.y}px`; h.style.transform = `translate(-50%, -50%) scale(${(z * n.width()) / bw}, ${(z * n.height()) / bh})`; }
-      else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 14 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; }
-      else { h.style.left = `${p.x + w / 2 - 38 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; }
+      else if (h.dataset.kind === "eye") { h.style.left = `${p.x + w / 2 - 14 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
+      else { h.style.left = `${p.x + w / 2 - 38 * z}px`; h.style.top = `${p.y - hh / 2 + 13 * z}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
     }
   };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); };
