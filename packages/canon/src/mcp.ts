@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -89,10 +90,17 @@ const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSO
 export async function runMcp(opts: McpOptions): Promise<void> {
   const base = await attachViewer(opts.canonDir, opts.port);
   let opened = false;
+  // Where the human lands: an adoption in progress, no canon yet or no scope decision, is the Adopt
+  // view's business; a finished canon opens on the overview.
+  const landing = () => {
+    const decisions = join(opts.canonDir, "decisions");
+    const finished = existsSync(decisions) && readdirSync(decisions).some((f) => /adoption-scope/.test(f));
+    return finished ? `${base}/` : `${base}/#/adopt`;
+  };
   const ensureOpen = () => {
     if (opened || !opts.openBrowser) return;
     opened = true;
-    openBrowser(`${base}/`);
+    openBrowser(landing());
   };
 
   const waitFor = async (questionId: string, seconds: number) => {
@@ -143,7 +151,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       if (!list.length) return text({ error: "pass `question` or `questions`" });
       const ids: string[] = [];
       for (const req of list) ids.push((await api<{ questionId: string }>(base, "/api/ask", { method: "POST", body: JSON.stringify(req) })).questionId);
-      if (ids.length === 1) return text({ questionId: ids[0], url: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
+      if (ids.length === 1) return text({ questionId: ids[0], url: landing(), base: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
       // Several: the human answers them in order, so wait for each in turn within one deadline.
       const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? WAIT_DEFAULT, 1), WAIT_MAX) * 1000;
       const answers: unknown[] = [];
@@ -154,7 +162,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
         if (r.answered) answers.push({ questionId: id, answer: (r as { answer: unknown }).answer });
         else pending.push(id);
       }
-      return text({ questionIds: ids, url: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The human has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
+      return text({ questionIds: ids, url: landing(), base: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The human has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
     },
   );
 
@@ -224,9 +232,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     async ({ view }) => {
       opened = false;
       ensureOpen();
-      const url = `${base}/${view ? `#/${view}` : ""}`;
+      const url = view ? `${base}/#/${view}` : landing();
       if (view) openBrowser(url);
-      return text({ url });
+      return text({ url, base: `${base}/` });
     },
   );
 

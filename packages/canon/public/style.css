@@ -137,14 +137,17 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 /* Adopt: the canvas for reviewing a drafted canon, with the session docked at the right */
 body.adopt-mode .session { top: 58px; bottom: 0; right: 0; width: min(420px, 45vw); max-height: none; border-radius: 0; border-width: 0 0 0 1px; box-shadow: none; }
 body.adopt-mode .session.collapsed { bottom: auto; width: auto; border-width: 0 0 1px 1px; border-radius: 0 0 0 10px; }
-.adopt { margin-right: min(436px, 46vw); }
+.adopt { display: flex; flex-direction: column; height: calc(100vh - 74px); }
+/* The Adopt view is full-bleed: the main column loses its width cap and gutters; the canvas leaves room for the chat only while it is open. */
+body.adopt-mode main { max-width: none; padding: 8px 12px 0; }
+body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: min(424px, 45vw); }
 .adopt-bar { align-items: center; }
 .adopt-bar .legend { gap: 12px; }
 .progress { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; font-size: 12.5px; }
 .progress-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
 .progress-bar span { display: block; height: 100%; background: var(--accent); transition: width .6s ease; }
 .progress-label { white-space: nowrap; }
-.cy-full { position: relative; height: calc(100vh - 150px); min-height: 420px; overflow: hidden; border-radius: var(--radius); background-color: var(--bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 19v10M19 24h10' stroke='%236b7280' stroke-opacity='.45' stroke-width='1'/%3E%3C/svg%3E"); background-size: 48px 48px; }
+.cy-full { position: relative; flex: 1; min-height: 320px; overflow: hidden; border-radius: var(--radius); background-color: var(--bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 19v10M19 24h10' stroke='%236b7280' stroke-opacity='.45' stroke-width='1'/%3E%3C/svg%3E"); background-size: 48px 48px; }
 .overlays { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .ov { position: absolute; pointer-events: auto; transform: translate(-50%, -50%); font: 600 11px/1 inherit; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
 .ov:hover { border-color: var(--accent); color: var(--accent); }

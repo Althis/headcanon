@@ -980,9 +980,4 @@ function appendChat(entries) {
 }
 function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
 
-load().then(() => {
-  // An adoption in progress belongs to the Adopt view: the root address goes there until the scope decision exists.
-  const unfinished = !snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
-  if (unfinished && (location.hash === "" || location.hash === "#/" || location.hash === "#")) location.hash = "#/adopt";
-  render();
-}).catch(showError).finally(pollSession);
+load().then(render).catch(showError).finally(pollSession);
