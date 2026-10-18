@@ -812,7 +812,8 @@ function buildAdoptCanvas() {
   const inLane = (n, y) => { const l = laneOf(n), half = l.h / 2 - 22; return Math.max(l.c - half, Math.min(l.c + half, y)); };
   // Radial: every dot in a number is a ring. The premise sits at the centre, the domains on the first ring,
   // their capabilities on the second, and so on; a ring is as thick as a lane and moves outward until its
-  // circumference holds every box on it. The arrangement is computed outright, not simulated: every branch
+  // circumference holds every box on it, and thick enough that its widest box clears the rings beside it. The
+  // arrangement is computed outright, not simulated: every branch
   // owns a slice of its parent's slice, sized by how many boxes it shows, so siblings stand together; with
   // Order on, siblings are swapped around while that pulls the dependency lines apart; then the boxes on
   // each ring are spaced so none overlap. The containment lines fork like a dendrogram: out from the parent
@@ -822,12 +823,12 @@ function buildAdoptCanvas() {
   const finalSize = (n) => (n.hasClass("labelled") ? cardSize(n) : closedSize(n));
   const ringGeom = () => {
     const deepest = Math.max(0, ...cy.nodes().map((n) => ringOf(n)));
-    const carriers = new Array(deepest + 1).fill(0), need = new Array(deepest + 1).fill(0);
-    for (const n of cy.nodes()) { const r = ringOf(n), [w, h] = finalSize(n); need[r] += Math.max(w, h) + 30; if (n.connectedEdges(".dep").some((e) => !e.hasClass("hidden"))) carriers[r]++; }
+    const carriers = new Array(deepest + 1).fill(0), need = new Array(deepest + 1).fill(0), ext = new Array(deepest + 1).fill(0);
+    for (const n of cy.nodes()) { const r = ringOf(n), [w, h] = finalSize(n); need[r] += Math.max(w, h) + 30; ext[r] = Math.max(ext[r], w, h); if (n.connectedEdges(".dep").some((e) => !e.hasClass("hidden"))) carriers[r]++; }
     const root = cy.getElementById("ROOT");
     const r0 = root.length ? Math.max(...finalSize(root)) / 2 + 30 : 60;
     const rings = [{ inner: 0, outer: r0, c: 0, h: 2 * r0 }];
-    for (let r = 1; r <= deepest; r++) { const h = LANE + 34 * Math.min(8, carriers[r]); const inner = Math.max(rings[r - 1].outer, need[r] / (2 * Math.PI) - h / 2); rings.push({ inner, outer: inner + h, c: inner + h / 2, h }); }
+    for (let r = 1; r <= deepest; r++) { const h = Math.max(LANE + 34 * Math.min(8, carriers[r]), ext[r] + 60); const inner = Math.max(rings[r - 1].outer, need[r] / (2 * Math.PI) - h / 2); rings.push({ inner, outer: inner + h, c: inner + h / 2, h }); }
     sim.rings = rings;
     return rings;
   };
@@ -877,9 +878,14 @@ function buildAdoptCanvas() {
       const R = rings[r].c;
       const run = [...group].sort((a, b) => A.get(a.id()) - A.get(b.id()));
       const span = run.map((n) => { const a = A.get(n.id()), [w, h] = finalSize(n); return (Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a)) + 26) / R; });
-      const want = run.map((n) => A.get(n.id())), as = [];
-      for (let i = 0; i < run.length; i++) { const min = i ? as[i - 1] + (span[i - 1] + span[i]) / 2 : -Infinity; as.push(Math.max(want[i], min)); }
-      for (let i = run.length - 2; i >= 0; i--) { const max = as[i + 1] - (span[i] + span[i + 1]) / 2; if (as[i] > max) as[i] = max; }
+      // the ring is a circle: the last box and the first are neighbours too, so the passes wrap around
+      const as = run.map((n) => A.get(n.id())), N = run.length, TAU = 2 * Math.PI;
+      for (let it = 0; it < 20 && N > 1; it++) {
+        let moved = false;
+        for (let i = 0; i < N; i++) { const j = (i + N - 1) % N, min = (i ? as[j] : as[j] - TAU) + (span[j] + span[i]) / 2; if (as[i] < min) { as[i] = min; moved = true; } }
+        for (let i = N - 1; i >= 0; i--) { const j = (i + 1) % N, max = (i < N - 1 ? as[j] : as[j] + TAU) - (span[i] + span[j]) / 2; if (as[i] > max) { as[i] = max; moved = true; } }
+        if (!moved) break;
+      }
       run.forEach((n, i) => A.set(n.id(), as[i]));
     }
     const P = new Map(cy.nodes().map((n) => [n.id(), n.id() === "ROOT" ? { ...sim.centre } : cart(radius(n.id()), A.get(n.id()))]));
