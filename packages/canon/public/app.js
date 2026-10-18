@@ -830,7 +830,7 @@ function buildAdoptCanvas() {
     // siblings stick together: each child is drawn toward the centre of its parent's group
     const groups = new Map();
     for (const e of cy.edges(".contains")) { const c = P.get(e.target().id()); if (!c) continue; const k = e.source().id(); (groups.get(k) ?? groups.set(k, []).get(k)).push(c); }
-    for (const g of groups.values()) { if (g.length < 2) continue; let cx = 0, cy0 = 0; for (const m of g) { cx += m.x; cy0 += m.y; } cx /= g.length; cy0 /= g.length; for (const m of g) { m.fx += 0.03 * (cx - m.x); m.fy += (adoptState.bands ? 0.008 : 0.02) * (cy0 - m.y); } }
+    for (const g of groups.values()) { if (g.length < 2) continue; let cx = 0, cy0 = 0; for (const m of g) { cx += m.x; cy0 += m.y; } cx /= g.length; cy0 /= g.length; for (const m of g) { m.fx += 0.09 * (cx - m.x); m.fy += (adoptState.bands ? 0.02 : 0.04) * (cy0 - m.y); } }
     if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const l = laneOf(p.n); const target = l.c + (deg ? -Math.min(l.h / 2 - 24, 10 + 14 * deg) : 12); p.fy += 0.05 * (target - p.y); }
     // Lines push boxes off them, and are pushed off boxes: a box near a line it is not an end of is nudged away,
     // perpendicular to the line, measured against the box's real rectangle; the line's ends get the opposite nudge.
@@ -1016,6 +1016,9 @@ function buildAdoptCanvas() {
     lastTap = { id, at: now };
     select(id);
     showLabel(id);
+    // the path to the root reads along with the box: every ancestor shows its name too
+    let p = parentOf(id);
+    while (p && cy.getElementById(p).length) { showLabel(p); p = parentOf(p); }
   });
   const block = (id) => { const out = []; const walk = (x) => { for (const c of info(x).children) if (cy.getElementById(c).length) { out.push(c); walk(c); } }; walk(id); return out; };
   cy.on("grab", "node", (e) => {
