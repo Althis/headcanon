@@ -907,6 +907,7 @@ function buildAdoptCanvas() {
     });
     laneLines();
     place();
+    if (animated) follow(380);
   };
   const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); cy.nodes().grabify(); };
   // Overlap is never allowed to stand. Boxes in the same lane separate sideways, since the lane clamp would undo
@@ -1158,10 +1159,13 @@ function buildAdoptCanvas() {
     const target = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     cy.batch(() => { for (const [id, p] of before) cy.getElementById(id).position(p); for (const [id, p] of target) cy.getElementById(id).animate({ position: p }, { duration: 420, easing: "ease-in-out" }); });
     laneLines();
+    follow(440);
     setTimeout(() => { cy.fit(undefined, 40); settle(0.8); }, 440);
   };
   for (const b of modeBox.querySelectorAll("button")) { b.addEventListener("click", (ev) => { ev.stopPropagation(); setMode(b.dataset.mode === "radial"); }); for (const ev of ["pointerdown", "mousedown", "touchstart"]) b.addEventListener(ev, (e) => e.stopPropagation()); }
   window.__sim.layoutRadial = layoutRadial;
+  // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
+  const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); keepInView(id); };
   cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
   // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
