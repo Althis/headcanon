@@ -789,14 +789,27 @@ function buildAdoptCanvas() {
   // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
   // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
   const dimsOf = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
-  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), y0: 0 };
-  // Lanes: every level of the tree has its own horizontal band; with lanes on, a box only moves sideways in its band.
+  const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), top0: 0, lanes: null };
+  // Lanes: every level of the tree has its own horizontal band. A lane grows with the number of boxes in it
+  // that carry dependency lines, so crowded levels get room; a box moves freely inside its lane.
   const LANE = 150;
   const depthOf = (n) => (n.id() === "ROOT" || n.id() === "PRINCIPLES" ? 0 : n.hasClass("prn") ? 1 : (node(n.id())?.depth ?? 0) + 1);
-  const laneY = (n) => sim.y0 + depthOf(n) * LANE;
+  const laneGeom = () => {
+    const deepest = Math.max(0, ...cy.nodes().map((n) => depthOf(n)));
+    const carriers = new Array(deepest + 1).fill(0);
+    for (const n of cy.nodes()) if (n.connectedEdges(".dep").some((e) => !e.hasClass("hidden"))) carriers[depthOf(n)]++;
+    const lanes = [];
+    let top = sim.top0;
+    for (let d = 0; d <= deepest; d++) { const h = LANE + 34 * Math.min(8, carriers[d]); lanes.push({ top, h, c: top + h / 2 }); top += h; }
+    sim.lanes = lanes;
+    return lanes;
+  };
+  const laneOf = (n) => (sim.lanes ?? laneGeom())[depthOf(n)] ?? { top: 0, h: LANE, c: 0 };
+  const laneY = (n) => laneOf(n).c;
   // Inside its lane a box moves freely up and down; it only never leaves the band.
-  const inLane = (n, y) => { const c = laneY(n), half = LANE / 2 - 22; return Math.max(c - half, Math.min(c + half, y)); };
+  const inLane = (n, y) => { const l = laneOf(n), half = l.h / 2 - 22; return Math.max(l.c - half, Math.min(l.c + half, y)); };
   const tick = () => {
+    if (adoptState.bands) laneGeom();
     const P = new Map();
     for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); P.set(n.id(), { n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); }
     for (const e of cy.edges()) {
@@ -814,7 +827,21 @@ function buildAdoptCanvas() {
       }
     }
     const arr = [...P.values()];
-    if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const target = laneY(p.n) + (deg ? -Math.min(LANE / 2 - 24, 10 + 12 * deg) : 12); p.fy += 0.05 * (target - p.y); }
+    if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const l = laneOf(p.n); const target = l.c + (deg ? -Math.min(l.h / 2 - 24, 10 + 14 * deg) : 12); p.fy += 0.05 * (target - p.y); }
+    // Lines push boxes off them: a box near a line it is not an end of is nudged away, perpendicular to it.
+    const segs = [];
+    for (const e of cy.edges()) { if (e.hasClass("hidden")) continue; const a = P.get(e.source().id()), b = P.get(e.target().id()); if (a && b) segs.push({ a, b }); }
+    for (const p of arr) for (const sg of segs) {
+      if (sg.a === p || sg.b === p) continue;
+      const ax = sg.a.x, ay = sg.a.y, vx = sg.b.x - ax, vy = sg.b.y - ay, len2 = vx * vx + vy * vy || 1;
+      const t = Math.max(0.08, Math.min(0.92, ((p.x - ax) * vx + (p.y - ay) * vy) / len2));
+      let dx = p.x - (ax + t * vx), dy = p.y - (ay + t * vy), d = Math.hypot(dx, dy);
+      const R = Math.max(p.w, p.h) / 2 + 30;
+      if (d >= R) continue;
+      if (d < 0.5) { dx = -vy; dy = vx; d = Math.hypot(dx, dy) || 1; }
+      const f = (6 * (R - d)) / R;
+      p.fx += (f * dx) / d; p.fy += (f * dy) / d;
+    }
     for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
       const a = arr[i], b = arr[j];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01;
@@ -838,7 +865,7 @@ function buildAdoptCanvas() {
     sim.raf = requestAnimationFrame(step);
   };
   const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
-  const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.y0 = cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0; };
+  const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
   window.__sim = { tick, settle, state: sim };
   seed();
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
@@ -912,7 +939,8 @@ function buildAdoptCanvas() {
   const place = () => {
     const r = el.getBoundingClientRect();
     const z = cy.zoom(), pan = cy.pan();
-    for (const line of overlay.querySelectorAll(".lane")) line.style.top = ((sim.y0 + (Number(line.dataset.depth) - 0.5) * LANE) * z + pan.y) + "px";
+    const lanes = adoptState.bands ? (sim.lanes ?? laneGeom()) : [];
+    for (const line of overlay.querySelectorAll(".lane")) { const l = lanes[Number(line.dataset.depth)]; if (l) line.style.top = (l.top * z + pan.y) + "px"; }
     for (const h of overlay.children) {
       if (h.classList.contains("lane")) continue;
       const n = cy.getElementById(h.dataset.id);
