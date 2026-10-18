@@ -808,6 +808,33 @@ function buildAdoptCanvas() {
   const laneY = (n) => laneOf(n).c;
   // Inside its lane a box moves freely up and down; it only never leaves the band.
   const inLane = (n, y) => { const l = laneOf(n), half = l.h / 2 - 22; return Math.max(l.c - half, Math.min(l.c + half, y)); };
+  // Overlap is never allowed to stand. Boxes in the same lane separate sideways, since the lane clamp would undo
+  // a vertical push; others separate along the axis of least overlap. A bright or just-dropped box has right of way.
+  const separate = (arr, strength, iterations) => {
+    for (let it = 0; it < iterations; it++) {
+      let any = false;
+      for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
+        const a = arr[i], b = arr[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const ox = (a.w + b.w) / 2 + 22 - Math.abs(dx), oy = (a.h + b.h) / 2 + 22 - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        any = true;
+        const sx = dx >= 0 ? 1 : dx < 0 ? -1 : (i % 2 ? 1 : -1), sy = dy >= 0 ? 1 : -1;
+        const ha = sim.heavy.has(a.n.id()) || sim.pinned.has(a.n.id()), hb = sim.heavy.has(b.n.id()) || sim.pinned.has(b.n.id());
+        const wa = ha && !hb ? 0 : hb && !ha ? 1 : a.bright && !b.bright ? 0 : b.bright && !a.bright ? 1 : 0.5, wb = 1 - wa;
+        const sideways = ox < oy || (adoptState.bands && depthOf(a.n) === depthOf(b.n));
+        if (sideways) { a.x -= sx * ox * wa * strength; b.x += sx * ox * wb * strength; } else { a.y -= sy * oy * wa * strength; b.y += sy * oy * wb * strength; }
+      }
+      if (!any) break;
+    }
+  };
+  const collect = () => { const arr = []; for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); arr.push({ n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); } return arr; };
+  const hardSeparate = () => {
+    const arr = collect();
+    separate(arr, 1, 12);
+    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id())) continue; p.n.position({ x: p.x, y: adoptState.bands ? inLane(p.n, p.y) : p.y }); } });
+    place();
+  };
   const tick = () => {
     if (adoptState.bands) laneGeom();
     const P = new Map();
@@ -854,16 +881,8 @@ function buildAdoptCanvas() {
       const a = arr[i], b = arr[j];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01;
       if (d < 320) { const f = Math.min(6, 2600 / (d * d)); a.fx -= (f * dx) / d; a.fy -= (f * dy) / d; b.fx += (f * dx) / d; b.fy += (f * dy) / d; }
-      const ox = (a.w + b.w) / 2 + 22 - Math.abs(dx), oy = (a.h + b.h) / 2 + 22 - Math.abs(dy);
-      if (ox > 0 && oy > 0) {
-        // overlapping: push apart along the axis of least overlap; a bright box has right of way over a faded one
-        const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1;
-        const ha = sim.heavy.has(a.n.id()) || sim.pinned.has(a.n.id()), hb = sim.heavy.has(b.n.id()) || sim.pinned.has(b.n.id());
-        const wa = ha && !hb ? 0 : hb && !ha ? 1 : a.bright && !b.bright ? 0 : b.bright && !a.bright ? 1 : 0.5, wb = 1 - wa;
-        const g = sim.pinned.size ? 0.3 : 0.7;
-        if (ox < oy) { a.x -= sx * ox * wa * g; b.x += sx * ox * wb * g; } else { a.y -= sy * oy * wa * g; b.y += sy * oy * wb * g; }
-      }
     }
+    separate(arr, sim.pinned.size ? 0.3 : 0.7, 1);
     // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
     const gain = sim.alpha * (sim.pinned.size ? 0.35 : 1);
     cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * gain, y: adoptState.bands ? inLane(p.n, p.y + p.fy * gain) : p.y + p.fy * gain }); } });
@@ -871,12 +890,12 @@ function buildAdoptCanvas() {
   };
   const run = () => {
     cancelAnimationFrame(sim.raf);
-    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; sim.heavy.clear(); place(); } };
+    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; sim.heavy.clear(); hardSeparate(); } };
     sim.raf = requestAnimationFrame(step);
   };
   const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
-  window.__sim = { tick, settle, state: sim };
+  window.__sim = { tick, settle, state: sim, hardSeparate };
   seed();
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
@@ -1046,6 +1065,7 @@ function buildAdoptCanvas() {
     sim.alpha = 1;
     for (let i = 0; i < 260 && sim.alpha > 0.02; i++) { tick(); sim.alpha *= 0.985; }
     sim.alpha = 0;
+    hardSeparate();
     if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
     grid(); applyFocus(); makeOverlays();
   });
