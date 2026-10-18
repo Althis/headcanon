@@ -794,6 +794,8 @@ function buildAdoptCanvas() {
   const LANE = 150;
   const depthOf = (n) => (n.id() === "ROOT" || n.id() === "PRINCIPLES" ? 0 : n.hasClass("prn") ? 1 : (node(n.id())?.depth ?? 0) + 1);
   const laneY = (n) => sim.y0 + depthOf(n) * LANE;
+  // Inside its lane a box moves freely up and down; it only never leaves the band.
+  const inLane = (n, y) => { const c = laneY(n), half = LANE / 2 - 22; return Math.max(c - half, Math.min(c + half, y)); };
   const tick = () => {
     const P = new Map();
     for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); P.set(n.id(), { n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); }
@@ -806,11 +808,13 @@ function buildAdoptCanvas() {
         const dx = tx - b.x, dy = ty - b.y;
         b.fx += kx * dx; b.fy += ky * dy; a.fx -= kx * dx * 0.25; a.fy -= ky * dy * 0.25;
       } else if (!e.hasClass("hidden")) {
+        a.deg = (a.deg ?? 0) + 1; b.deg = (b.deg ?? 0) + 1;
         const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, L = 120, k = 0.05, f = k * (d - L);
         a.fx += (f * dx) / d; a.fy += (f * dy) / d; b.fx -= (f * dx) / d; b.fy -= (f * dy) / d;
       }
     }
     const arr = [...P.values()];
+    if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const target = laneY(p.n) + (deg ? -Math.min(LANE / 2 - 24, 10 + 12 * deg) : 12); p.fy += 0.05 * (target - p.y); }
     for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
       const a = arr[i], b = arr[j];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01;
@@ -825,7 +829,7 @@ function buildAdoptCanvas() {
       }
     }
     // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
-    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: adoptState.bands ? laneY(p.n) : p.y + p.fy * sim.alpha }); } });
+    cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * sim.alpha, y: adoptState.bands ? inLane(p.n, p.y + p.fy * sim.alpha) : p.y + p.fy * sim.alpha }); } });
     place();
   };
   const run = () => {
@@ -964,7 +968,7 @@ function buildAdoptCanvas() {
     place();
     if (sim.alpha < 0.25) settle(0.3);
   });
-  cy.on("free", "node", () => { if (adoptState.bands) cy.batch(() => { for (const id of sim.pinned) { const n = cy.getElementById(id); n.position({ x: n.position().x, y: laneY(n) }); } }); sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
+  cy.on("free", "node", () => { if (adoptState.bands) cy.batch(() => { for (const id of sim.pinned) { const n = cy.getElementById(id); n.position({ x: n.position().x, y: inLane(n, n.position().y) }); } }); sim.heavy = new Set(sim.pinned); sim.pinned = new Set(); sim.offsets = new Map(); settle(0.7); });
   cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
   cy.on("layoutstop", place);
   cy.ready(() => {
