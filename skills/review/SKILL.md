@@ -11,14 +11,14 @@ argument-hint: "[REQ-id or branch to review, or 'all']"
 
 ## 1. Build the list
 
-Run `HC attention --json` and `HC summary`. Collect, in this order: contested items, open questions (open nodes and the `## Open` lines of the root README, where adoption parks a layer the human wanted to revisit), decisions with state assumed, then assumed requirements. If the human named a branch or ID, restrict to it. Tell the human how many items there are and ask how many they want to go through now; default to five.
+Run `HC attention --json` and `HC summary`. Collect, in this order: contested items, open questions (open nodes and the `## Open` lines of the root README, where adoption parks a layer the human wanted to revisit), decisions with state assumed, then assumed requirements and assumed mocks. If the human named a branch or ID, restrict to it. Tell the human how many items there are and ask how many they want to go through now; default to five.
 
 ## 2. One item at a time
 
 For each item:
 
 1. Show the node: ID, title, the current state, the quote it rests on (if any), your interpretation, and what depends on it (decisions, journey steps, children).
-2. Ask one question that a yes or a no, or one sentence, can answer. For an assumed item: "Is this what you mean?" For an open item: the question itself. For a contested item: restate both positions and ask which stands, or whether a third does.
+2. Ask one question that a yes or a no, or one sentence, can answer. For an assumed item: "Is this what you mean?" For a mock, shown with `headcanon_ask`'s `mock`: "Is this what you see?" For an open item: the question itself. For a contested item: restate both positions and ask which stands, or whether a third does.
 3. Wait for the answer. Do not batch several items into one question unless the human asked for speed.
 
 ## 3. Record the outcome
