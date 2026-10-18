@@ -8,21 +8,19 @@ when_to_use: "No canon/README.md exists; or a canon exists without canon/decisio
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The briefing, formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 2.
 
-The canon is drafted whole from the repository before the human judges anything: every entry the artifacts support is a guess marked `assumed`, every entry only the structure demands is an `open` question, and the human then reviews on the canvas, top-down, approving, rewriting or deleting one box at a time while you keep the rest consistent. Lay users refine the upper levels and the lower levels follow from them, so a guess that rests on a parent and a thread is worth more than a question. The `refine` skill cuts every node (`/headcanon:refine <ID> <layer> draft`); the `attend` skill runs the review loop; both return here.
+The canon is drafted whole from the repository before the human judges anything: every entry the artifacts support is a guess marked `assumed`, every entry only the structure demands is an `open` question, and the human then reviews on the canvas, top-down, approving, rewriting or deleting one box at a time while you keep the rest consistent. Lay users refine the upper levels and the lower levels follow from them, so a guess that rests on a parent and a thread is worth more than a question. The `refine` skill cuts every node, in draft one domain's branch per call (`/headcanon:refine <ID> <layer> draft to requirement`); the `attend` skill runs the review loop; both return here.
 
 ## Checklist
 
-Write this list to your scratch file and tick items as you go.
-
-- [ ] 0 Where things stand: no `canon/` is a fresh start, go to 1; a canon without `canon/decisions/DEC-001-adoption-scope.md` is an unfinished adoption, go to 6; both present, point to `/headcanon:review` and stop.
-- [ ] 1 Read the repository silently; write the thread list.
-- [ ] 2 The briefing, as its own question.
-- [ ] 3 `HC init`; draft the root README.
-- [ ] 4 Draft the tree in `HC next` order: domains, capabilities, requirements.
-- [ ] 5 Recalculate: `HC check` at 0 errors, then the consistency pass.
-- [ ] 6 Open the canvas; say what is red and where to start.
-- [ ] 7 `/headcanon:attend` until the human finishes.
-- [ ] 8 Sweep leftovers, DEC-001, `HC render`, `/headcanon:commit`, report.
+- 0 Where things stand: no `canon/` is a fresh start, go to 1; a canon without `canon/decisions/DEC-001-adoption-scope.md` is an unfinished adoption, go to 6; both present, point to `/headcanon:review` and stop.
+- 1 Read the repository silently; write the thread list.
+- 2 The briefing, as its own question.
+- 3 `HC init`; draft the root README.
+- 4 Draft the tree, one domain's branch per refine call, in `HC next` order.
+- 5 Recalculate: `HC check` at 0 errors, then the consistency pass.
+- 6 Open the canvas; say what is red and where to start.
+- 7 `/headcanon:attend` until the human finishes.
+- 8 Sweep leftovers, DEC-001, `HC render`, `/headcanon:commit`, report.
 
 ## Sources
 
@@ -66,11 +64,13 @@ The briefing block in reference.md section 0, verbatim, as a question with the s
 
 ### 4 Tree
 
-`refine ROOT domain draft`, passing documentation and verification as candidates with source `software project`; the archetype prompt reads "what distinct areas must exist for this product to operate?". Fewer than about eight areas: they are the top level with `layer: capability` and there is no domain layer. Then each domain with `capability draft` and each capability with `requirement draft`, in the order `HC next` gives, so that what others build on is defined first. Stop at the requirement layer; deeper levels wait for the human's Define further.
+`/headcanon:refine ROOT domain draft`, passing documentation and verification as candidates with source `software project`; the archetype prompt reads "what distinct areas must exist for this product to operate?". Fewer than about eight areas: they are the top level with `layer: capability` and there is no domain layer. Then one domain per call, in the order `HC next` gives, so that what others build on is defined first: `/headcanon:refine <domain> capability draft to requirement` cuts the domain and then each of its capabilities, set by set, and `HC check` passes before the next domain starts. Stop at the requirement layer; deeper levels wait for the human's Define further.
+
+A domain's branch is the largest piece ever written, never the whole tree in one output or one generator script: a dropped connection then loses one domain, and the page's progress strip moves with each one. Every child carries its chain in `source` and every cut parent its `partition`; a node missing either was not laddered and is cut again. Nodes are files edited in place; nothing regenerates `canon/`, which would erase what the human has approved.
 
 ### 5 Recalculate
 
-`HC check`; fix every error. Then the consistency pass: `git add canon`, run the verifier agent (`headcanon:verifier`) and apply its findings before `git reset -q canon`. A contradiction makes both nodes `contested`, with the two statements under `## Contested` and a `conflicts` link. A reiteration merges the newer node into the older when they say one thing, PRN-1, and otherwise writes an `open` node asking whether they are one. Drift goes under the node's `## Open`. Uptake rewrites the parent's line as `assumed`.
+`HC check`; fix every error. Then the consistency pass: `git add canon`, run the verifier agent (`headcanon:verifier`) and apply its findings before `git reset -q canon`. A contradiction between two threads makes both nodes `contested`, with the two statements under `## Contested` and a `conflicts` link; one the draft itself introduced, where the threads agree, is fixed in the draft from them. A reiteration merges the newer node into the older when they say one thing, PRN-1, and otherwise writes an `open` node asking whether they are one. Drift goes under the node's `## Open`. Uptake rewrites the parent's line as `assumed`.
 
 ### 6 Canvas
 

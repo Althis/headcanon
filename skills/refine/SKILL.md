@@ -2,29 +2,27 @@
 name: refine
 description: "Derives the children of one approved canon node and has the human approve them as a set: infers what the node implies, ladders every artifact hint up to the rung just below the node, reads the axis off the set, closes the gaps, and writes only what was approved. Use when adopt, capture or review need a node's children, or when the human asks to define, refine, decompose or expand a branch."
 when_to_use: "A node is approved and its children are needed; the human pressed Define this branch in the viewer or asks to refine, decompose or expand a node."
-argument-hint: "<ID> <domain|capability|requirement>"
+argument-hint: "<ID> <domain|capability|requirement> [draft [to <layer>]]"
 ---
 
 # Refine: cut one node into its children
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The worked example, the set question and the child file format are in [reference.md](reference.md); read it before step 1.
 
-Input: one node (`ROOT` for the premise), the layer its children get, and optionally `draft`. Output: the children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Without `draft`, nothing is written before the human approves it; with `draft`, nothing is asked: the set is written at once as guesses and questions by the adopt skill's Guessing rules, step 0 refines a blocked prerequisite first instead of asking, and the partition is written as read. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
+Input: one node (`ROOT` for the premise), the layer its children get, optionally `draft`, and in draft optionally `to <layer>`, which keeps cutting the branch: each child written here is refined the same way, in `HC next` order, until the sets reach that layer. Output: the children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Without `draft`, nothing is written before the human approves it; with `draft`, nothing is asked: the set is written at once as guesses and questions by the adopt skill's Guessing rules, step 0 refines a blocked prerequisite first instead of asking, and the partition is written as read. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
 
 ## Checklist
 
-Write this list to your scratch file and tick items as you go.
-
-- [ ] 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
-- [ ] 1 Gather candidates, each with its origin.
-- [ ] 2 Ladder every candidate up to the node.
-- [ ] 3 Take the top rungs; merge rungs that name one thing; defer the rest.
-- [ ] 4 Read the axis off the set; make facet children; place strays.
-- [ ] 5 Close the set: entailment, conservation.
-- [ ] 6 Needs: what each child requires; order the set by it.
-- [ ] 7 Name; judge drift; jargon through the gate.
-- [ ] 8 Ask: one multi-select, then one by one. Write only after approval.
-- [ ] 9 `HC check`, `HC next`; report to the caller.
+- 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
+- 1 Gather candidates, each with its origin.
+- 2 Ladder every candidate up to the node.
+- 3 Take the top rungs; merge rungs that name one thing; defer the rest.
+- 4 Read the axis off the set; make facet children; place strays.
+- 5 Close the set: entailment, conservation.
+- 6 Needs: what each child requires; order the set by it.
+- 7 Name; judge drift; jargon through the gate.
+- 8 Ask: one multi-select, then one by one. Write only after approval.
+- 9 `HC check`, `HC next`; report to the caller.
 
 Step 0 stops when `HC next` lists the node as blocked or reports a deadlock: ask "<node> needs <prerequisite>, which is not refined yet" with **Refine <prerequisite> first** and **Refine this anyway**; in a deadlock, **Refine <prerequisite> first** and **Drop the edge**; a typed lift is applied. Then continue with what was chosen.
 
@@ -80,7 +78,7 @@ Each child is named by its rung, never by the artifact's wording: domains and ca
 
 One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires` and `## Deferred`; the node's front-matter gains `partition`. Entries carry no footnote markers.
 
-**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files and the partition, and report.
+**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files and the partition in the turn the set is cut, and report. With `to <layer>`, each child written here is then refined from step 0 the same way, in `HC next` order, until the sets reach that layer: one set per turn, never the branch in one piece, and the report covers the branch.
 
 ### 9 Report
 
