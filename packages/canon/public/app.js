@@ -835,9 +835,42 @@ function buildAdoptCanvas() {
     }
   };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
-  const relax = () => cy.layout({ name: "cose", randomize: false, animate: true, animationDuration: 350, fit: false, padding: 30, nodeOverlap: 40, nodeRepulsion: () => 60000, idealEdgeLength: () => 70, edgeElasticity: () => 60, gravity: 0.02, numIter: 150, initialTemp: 60, coolingFactor: 0.9, minTemp: 1, nestingFactor: 1 }).run();
-  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); relax(); };
-  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); relax(); };
+  // A box grew: push only the boxes it now overlaps, just far enough to clear it, along the axis of least
+  // overlap, and let that cascade; everything glides to its new place so the eye can follow.
+  const relax = (id, animate = true) => {
+    const moved = new Map();
+    const pos = (n) => moved.get(n.id()) ?? n.position();
+    // Sizes by class, since the style of a box that just changed class is not recomputed until the next frame.
+    const dims = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
+    const box = (n) => { const p = pos(n), [dw, dh] = dims(n), w = dw + 28, h = dh + 28; return { x1: p.x - w / 2, x2: p.x + w / 2, y1: p.y - h / 2, y2: p.y + h / 2 }; };
+    const queue = [cy.getElementById(id)];
+    const done = new Set();
+    let guard = 0;
+    while (queue.length && guard++ < 300) {
+      const a = queue.shift();
+      if (!a || !a.length || done.has(a.id())) continue;
+      done.add(a.id());
+      const ba = box(a), pa = pos(a);
+      for (const b of cy.nodes()) {
+        if (b.id() === a.id() || b.id() === id) continue;
+        const bb = box(b);
+        const ox = Math.min(ba.x2, bb.x2) - Math.max(ba.x1, bb.x1), oy = Math.min(ba.y2, bb.y2) - Math.max(ba.y1, bb.y1);
+        if (ox <= 0 || oy <= 0) continue;
+        const pb = pos(b);
+        const next = ox < oy ? { x: pb.x + (pb.x >= pa.x ? 1 : -1) * ox, y: pb.y } : { x: pb.x, y: pb.y + (pb.y >= pa.y ? 1 : -1) * oy };
+        moved.set(b.id(), next);
+        queue.push(b);
+      }
+    }
+    for (const [nid, p] of moved) { if (animate) cy.getElementById(nid).animate({ position: p }, { duration: 320, easing: "ease-out" }); else cy.getElementById(nid).position(p); }
+    return moved.size;
+  };
+  window.__relax = relax;
+  // Dragging a box pushes its neighbours as it goes, and settles them when it is released.
+  cy.on("drag", "node", (e) => relax(e.target.id(), false));
+  cy.on("dragfree", "node", (e) => relax(e.target.id(), true));
+  const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); relax(id); };
+  const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); };
   let lastTap = { id: null, at: 0 };
   cy.on("tap", "node", (e) => {
     const id = e.target.id(), now = Date.now();
@@ -859,7 +892,7 @@ function buildAdoptCanvas() {
     ev.currentTarget.classList.toggle("on", adoptState.labels);
     if (adoptState.labels) { adoptState.labelled = new Set(cy.nodes().map((n) => n.id())); cy.nodes().addClass("labelled"); }
     else { adoptState.labelled.clear(); cy.nodes().removeClass("labelled"); }
-    cy.layout(layout()).run();
+    cy.layout({ ...layout(), animate: true, animationDuration: 400 }).run();
     makeOverlays();
   });
   $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
