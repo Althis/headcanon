@@ -656,7 +656,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, view: null };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -731,8 +731,6 @@ function buildAdoptCanvas() {
   const el = $main.querySelector(".adopt #cy");
   if (!el || !window.cytoscape) return;
   if (window.cytoscapeDagre && !buildGraph.registered) { window.cytoscape.use(window.cytoscapeDagre); buildGraph.registered = true; }
-  const show = adoptScope();
-  const shown = new Set(show);
   const blank = { requires: [], conflicts: [], parent: undefined };
   const info = (id) =>
     id === "ROOT" ? { ...blank, title: snap.canon.root?.title ?? "Premise", children: snap.canon.roots }
@@ -740,36 +738,46 @@ function buildAdoptCanvas() {
     : id.startsWith("PRN-") ? { ...blank, title: snap.canon.principles.find((p) => p.id === id)?.title ?? id, children: [], parent: "PRINCIPLES" }
     : node(id);
   const kindOf = (id) => (id === "ROOT" ? "premise" : id === "PRINCIPLES" ? "principles" : id.startsWith("PRN-") ? "prn" : "");
+  const parentOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? undefined : info(id).parent ?? "ROOT");
   const labelled = (id) => adoptState.labels || adoptState.labelled.has(id);
-  const elements = [];
-  for (const id of show) {
-    const n = info(id);
-    const label = id === "ROOT" ? `Premise\n${n.title}` : id === "PRINCIPLES" ? `Principles (${n.children.length})` : `${id}\n${n.title}`;
-    elements.push({ data: { id, label }, classes: `${colorOf(id)} ${kindOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}` });
-    const parent = id === "ROOT" || id === "PRINCIPLES" ? undefined : n.parent ?? "ROOT";
-    if (parent && shown.has(parent)) elements.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: `contains ${adoptState.edges ? "" : "hidden"}` });
-    for (const t of n.requires) if (shown.has(t)) elements.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: `requires dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
-    for (const t of n.conflicts) if (shown.has(t)) elements.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: `conflicts dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
-  }
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  // A closed circle shows its number; a long number gets a smaller font, the circle never grows.
+  const shortOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? "" : id.replace(/^(REQ|PRN)-/, ""));
+  const fsOf = (short) => (short.length <= 3 ? 10 : short.length <= 5 ? 8 : short.length <= 7 ? 6.5 : 5.5);
+  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${labelled(id) ? "labelled" : ""} ${id === adoptState.selected ? "selected" : ""}`;
+  const elementsFor = (show) => {
+    const shown = new Set(show);
+    const out = [];
+    for (const id of show) {
+      const n = info(id);
+      const short = shortOf(id);
+      out.push({ data: { id, label: `${id}\n${n.title}`, short, fs: fsOf(short) }, classes: classesOf(id) });
+      const parent = parentOf(id);
+      if (parent && shown.has(parent)) out.push({ data: { id: `c:${parent}>${id}`, source: parent, target: id, label: "" }, classes: `contains ${adoptState.edges ? "" : "hidden"}` });
+      for (const t of n.requires) if (shown.has(t)) out.push({ data: { id: `r:${id}>${t}`, source: id, target: t, label: "requires" }, classes: `requires dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
+      for (const t of n.conflicts) if (shown.has(t)) out.push({ data: { id: `x:${id}>${t}`, source: id, target: t, label: "conflicts" }, classes: `conflicts dep ${adoptState.edges && adoptState.deps ? "" : "hidden"}` });
+    }
+    return out;
+  };
   const layout = () => (window.cytoscapeDagre ? { name: "dagre", rankDir: "TB", nodeSep: 18, rankSep: 70, padding: 40, fit: false } : { name: "breadthfirst", directed: true, padding: 40, fit: false });
   const cy = window.cytoscape({
-    container: el, elements, minZoom: 0.05, maxZoom: 4,
+    container: el, elements: elementsFor(adoptScope()), minZoom: 0.05, maxZoom: 4,
     style: [
-      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "", "border-width": 2, "background-color": "#fef3c7", "border-color": "#d97706" } },
-      { selector: "node.green", style: { "background-color": "#dcfce7", "border-color": "#16a34a" } },
-      { selector: "node.yellow", style: { "background-color": "#fef3c7", "border-color": "#d97706" } },
-      { selector: "node.red", style: { "background-color": "#fee2e2", "border-color": "#dc2626" } },
-      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "", "border-width": 1 } },
-      { selector: "node.selected", style: { "border-width": 2.5 } },
-      { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
-      { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
-      { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#dc2626", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#dc2626", "target-arrow-color": "#dc2626" } },
+      { selector: "node", style: { shape: "ellipse", width: 30, height: 30, label: "data(short)", "font-size": "data(fs)", "font-family": "ui-monospace, Consolas, monospace", color: "#e6e8ec", "text-valign": "center", "text-halign": "center", "border-width": 1.5, "background-color": "#f59e0b", "background-opacity": 0.22, "border-color": "#f59e0b" } },
+      { selector: "node.green", style: { "background-color": "#22c55e", "border-color": "#22c55e" } },
+      { selector: "node.yellow", style: { "background-color": "#f59e0b", "border-color": "#f59e0b" } },
+      { selector: "node.red", style: { "background-color": "#ef4444", "border-color": "#ef4444" } },
       { selector: "node.premise", style: { shape: "hexagon", width: 44, height: 40 } },
       { selector: "node.principles", style: { shape: "octagon", width: 40, height: 40 } },
       { selector: "node.prn", style: { shape: "diamond", width: 22, height: 22 } },
+      { selector: "node.labelled", style: { shape: "round-rectangle", width: 190, height: 58, label: "", "border-width": 1, "background-opacity": 0.14 } },
       { selector: "node.premise.labelled, node.principles.labelled", style: { shape: "round-rectangle", width: 200, height: 60 } },
       { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48 } },
+      { selector: "node.selected", style: { "border-width": 2.5, "background-opacity": 0.3 } },
+      { selector: "node.dim", style: { opacity: 0.65 } },
+      { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": "#6b7280", "target-arrow-shape": "triangle", "target-arrow-color": "#6b7280", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: "#cbd5e1", "text-background-color": "#0f1216", "text-background-opacity": 1, "text-background-padding": "2px" } },
+      { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#60a5fa", "target-arrow-color": "#60a5fa" } },
+      { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#ef4444", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#ef4444", "target-arrow-color": "#ef4444" } },
+      { selector: "edge.dim", style: { opacity: 0.35 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
     layout: layout(),
@@ -778,20 +786,37 @@ function buildAdoptCanvas() {
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
     const z = cy.zoom(), p = cy.pan();
-    let step = 48 * z;
-    while (step < 24) step *= 2;
-    while (step > 96) step /= 2;
+    let step = 40 * z;
+    while (step < 20) step *= 2;
+    while (step > 80) step /= 2;
     el.style.backgroundSize = `${step}px ${step}px`;
     el.style.backgroundPosition = `${p.x}px ${p.y}px`;
   };
+  // Focus: the boxes the human expanded, their descendants and their ancestors are active; the rest fade a little.
+  // Focus follows the boxes the human expanded themselves; with none, everything is active.
+  const applyFocus = () => {
+    const shown = cy.nodes().map((n) => n.id());
+    const active = new Set();
+    for (const f of [...adoptState.focus]) if (!adoptState.expanded.has(f)) adoptState.focus.delete(f);
+    if (adoptState.focus.size === 0) for (const id of shown) active.add(id);
+    else for (const e of adoptState.focus) {
+      if (!cy.getElementById(e).length) continue;
+      let p = e; while (p) { active.add(p); p = parentOf(p); }
+      const walk = (id) => { for (const c of info(id).children) if (cy.getElementById(c).length) { active.add(c); walk(c); } };
+      walk(e);
+    }
+    for (const n of cy.nodes()) n.toggleClass("dim", !active.has(n.id()));
+    for (const e of cy.edges()) e.toggleClass("dim", e.source().hasClass("dim") && e.target().hasClass("dim"));
+  };
   // Buttons that float over the boxes: the children handle under every box that has children, and, on a
-  // named box, the eye that hides the name and the ↗ that opens the card.
+  // named box, the card with its tag and title, the eye that hides the name and the ↗ that opens the card.
   const overlay = document.createElement("div");
   overlay.className = "overlays";
   el.appendChild(overlay);
   const makeOverlays = () => {
     overlay.innerHTML = "";
-    for (const id of show) {
+    for (const n of cy.nodes()) {
+      const id = n.id();
       const kids = info(id).children.length;
       if (kids) {
         const open = adoptState.expanded.has(id);
@@ -800,7 +825,7 @@ function buildAdoptCanvas() {
         b.addEventListener("click", (ev) => { ev.stopPropagation(); toggleExpand(id); });
         overlay.appendChild(b);
       }
-      if (cy.getElementById(id).hasClass("labelled")) {
+      if (n.hasClass("labelled")) {
         const card = document.createElement("div");
         card.className = "ov-card" + (id.startsWith("PRN-") ? " small" : ""); card.dataset.id = id; card.dataset.kind = "card";
         const tag = id === "ROOT" ? "Premise" : id === "PRINCIPLES" ? "Principles" : id;
@@ -823,10 +848,11 @@ function buildAdoptCanvas() {
     const r = el.getBoundingClientRect();
     for (const h of overlay.children) {
       const n = cy.getElementById(h.dataset.id);
-      if (!n.length) continue;
+      if (!n.length) { h.style.display = "none"; continue; }
       const p = n.renderedPosition(), w = n.renderedWidth(), hh = n.renderedHeight();
       const inside = p.x > -40 && p.y > -40 && p.x < r.width + 40 && p.y < r.height + 40;
       h.style.display = inside ? "" : "none";
+      h.style.opacity = n.hasClass("dim") ? "0.65" : "";
       const z = cy.zoom();
       if (h.dataset.kind === "handle") { h.style.left = `${p.x}px`; h.style.top = `${p.y + hh / 2}px`; }
       else if (h.dataset.kind === "card") { h.style.left = `${p.x}px`; h.style.top = `${p.y}px`; h.style.transform = `translate(-50%, -50%) scale(${z})`; }
@@ -835,30 +861,35 @@ function buildAdoptCanvas() {
     }
   };
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); };
-  // A box grew: push only the boxes it now overlaps, just far enough to clear it, along the axis of least
-  // overlap, and let that cascade; everything glides to its new place so the eye can follow.
+  // A box grew or moved: push only the boxes it now overlaps, just far enough to clear it, along the axis of
+  // least overlap, and let that cascade. An active box has right of way over a faded one, so a faded box that
+  // runs into an active one moves on itself instead of pushing it. Everything glides so the eye can follow.
   const relax = (id, animate = true) => {
     const moved = new Map();
     const pos = (n) => moved.get(n.id()) ?? n.position();
-    // Sizes by class, since the style of a box that just changed class is not recomputed until the next frame.
     const dims = (n) => n.hasClass("labelled") ? (n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]) : n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30];
     const box = (n) => { const p = pos(n), [dw, dh] = dims(n), w = dw + 28, h = dh + 28; return { x1: p.x - w / 2, x2: p.x + w / 2, y1: p.y - h / 2, y2: p.y + h / 2 }; };
+    const pushAway = (mover, from) => {
+      const bm = box(mover), bf = box(from), pm = pos(mover), pf = pos(from);
+      const ox = Math.min(bm.x2, bf.x2) - Math.max(bm.x1, bf.x1), oy = Math.min(bm.y2, bf.y2) - Math.max(bm.y1, bf.y1);
+      return ox < oy ? { x: pm.x + (pm.x >= pf.x ? 1 : -1) * ox, y: pm.y } : { x: pm.x, y: pm.y + (pm.y >= pf.y ? 1 : -1) * oy };
+    };
     const queue = [cy.getElementById(id)];
     const done = new Set();
     let guard = 0;
     while (queue.length && guard++ < 300) {
       const a = queue.shift();
-      if (!a || !a.length || done.has(a.id())) continue;
+      if (!a || !a.length) continue;
+      if (done.has(a.id())) continue;
       done.add(a.id());
-      const ba = box(a), pa = pos(a);
+      const ba = box(a);
       for (const b of cy.nodes()) {
         if (b.id() === a.id() || b.id() === id) continue;
         const bb = box(b);
         const ox = Math.min(ba.x2, bb.x2) - Math.max(ba.x1, bb.x1), oy = Math.min(ba.y2, bb.y2) - Math.max(ba.y1, bb.y1);
         if (ox <= 0 || oy <= 0) continue;
-        const pb = pos(b);
-        const next = ox < oy ? { x: pb.x + (pb.x >= pa.x ? 1 : -1) * ox, y: pb.y } : { x: pb.x, y: pb.y + (pb.y >= pa.y ? 1 : -1) * oy };
-        moved.set(b.id(), next);
+        if (a.id() !== id && a.hasClass("dim") && !b.hasClass("dim")) { moved.set(a.id(), pushAway(a, b)); done.delete(a.id()); queue.push(a); break; }
+        moved.set(b.id(), pushAway(b, a));
         queue.push(b);
       }
     }
@@ -866,11 +897,23 @@ function buildAdoptCanvas() {
     return moved.size;
   };
   window.__relax = relax;
-  // Dragging a box pushes its neighbours as it goes, and settles them when it is released.
-  cy.on("drag", "node", (e) => relax(e.target.id(), false));
-  cy.on("dragfree", "node", (e) => relax(e.target.id(), true));
   const showLabel = (id) => { adoptState.labelled.add(id); cy.getElementById(id).addClass("labelled"); makeOverlays(); relax(id); };
   const hideLabel = (id) => { adoptState.labelled.delete(id); if (adoptState.labels) { adoptState.labels = false; $main.querySelector("[data-labels]")?.classList.remove("on"); for (const n of cy.nodes()) if (!adoptState.labelled.has(n.id())) n.removeClass("labelled"); } cy.getElementById(id).removeClass("labelled"); makeOverlays(); };
+  // Expanding or collapsing changes the graph in place: new boxes grow out of their parent and everything
+  // glides to the new layered layout.
+  const sync = () => {
+    const show = adoptScope();
+    const shown = new Set(show);
+    cy.remove(cy.nodes().filter((n) => !shown.has(n.id())));
+    const have = new Set(cy.nodes().map((n) => n.id()));
+    const fresh = elementsFor(show).filter((e) => (e.data.source ? !cy.getElementById(e.data.id).length : !have.has(e.data.id)));
+    for (const e of fresh) if (!e.data.source) { const parent = parentOf(e.data.id); const pp = parent && cy.getElementById(parent).length ? cy.getElementById(parent).position() : { x: 0, y: 0 }; e.position = { x: pp.x, y: pp.y }; }
+    cy.add(fresh);
+    applyFocus();
+    cy.layout({ ...layout(), animate: true, animationDuration: 420, animationEasing: "ease-in-out" }).run();
+    makeOverlays();
+  };
+  adoptState.sync = sync;
   let lastTap = { id: null, at: 0 };
   cy.on("tap", "node", (e) => {
     const id = e.target.id(), now = Date.now();
@@ -879,11 +922,13 @@ function buildAdoptCanvas() {
     select(id);
     showLabel(id);
   });
+  cy.on("drag", "node", (e) => relax(e.target.id(), false));
+  cy.on("dragfree", "node", (e) => relax(e.target.id(), true));
   cy.on("viewport", () => { grid(); place(); adoptState.view = { zoom: cy.zoom(), pan: cy.pan() }; });
   cy.on("position layoutstop", place);
   cy.ready(() => {
     if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
-    grid(); makeOverlays();
+    grid(); applyFocus(); makeOverlays();
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
   $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 40); });
@@ -897,10 +942,10 @@ function buildAdoptCanvas() {
   });
   $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
   $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
-  $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); render(); });
+  $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); adoptState.focus.clear(); sync(); });
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
-function toggleExpand(id) { ensureExpanded(); adoptState.expanded.has(id) ? adoptState.expanded.delete(id) : adoptState.expanded.add(id); render(); }
+function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
