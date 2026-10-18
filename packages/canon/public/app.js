@@ -656,7 +656,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
@@ -693,6 +693,7 @@ function adopt(selectedId) {
       <button class="btn small ${adoptState.deps ? "on" : ""}" data-deps="1" title="Show or hide the requires and conflicts links">Dependencies</button>
       <button class="btn small ${adoptState.edges ? "on" : ""}" data-edges="1" title="Show or hide every line">Edges</button>
       <button class="btn small ${adoptState.bands ? "on" : ""}" data-bands="1" title="Keep every level in its own lane">Levels</button>
+      <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" title="Sort each lane to untangle the lines">Order</button>
       <button class="btn small" data-fit="1">Fit</button>
       <button class="btn small" data-expand-all="1">Show all</button>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
@@ -829,6 +830,33 @@ function buildAdoptCanvas() {
     }
   };
   const collect = () => { const arr = []; for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); arr.push({ n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); } return arr; };
+  // Ordering: within each lane, boxes are sorted by the average x of their neighbours in the lanes above and
+  // below and of their dependency partners (the barycenter heuristic), swept down and up, then re-spaced in that
+  // order. The simulation keeps doing the spacing; this pass only decides who stands left of whom.
+  const orderLanes = (animated) => {
+    if (!adoptState.bands || !adoptState.order) return;
+    const lanes = new Map();
+    for (const n of cy.nodes()) { const d = depthOf(n); (lanes.get(d) ?? lanes.set(d, []).get(d)).push(n); }
+    const depths = [...lanes.keys()].sort((a, b) => a - b);
+    const X = new Map(cy.nodes().map((n) => [n.id(), n.position().x]));
+    const bary = (n) => {
+      const xs = [];
+      for (const e of n.connectedEdges()) { if (e.hasClass("hidden")) continue; const o = e.source().id() === n.id() ? e.target() : e.source(); xs.push(X.get(o.id())); }
+      return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : X.get(n.id());
+    };
+    const respace = (group) => {
+      const sorted = [...group].sort((a, b) => bary(a) - bary(b) || X.get(a.id()) - X.get(b.id()));
+      const gap = 26;
+      const total = sorted.reduce((a, n) => a + n.width(), 0) + gap * (sorted.length - 1);
+      let x = group.reduce((a, n) => a + X.get(n.id()), 0) / group.length - total / 2;
+      for (const n of sorted) { X.set(n.id(), x + n.width() / 2); x += n.width() + gap; }
+    };
+    for (let sweep = 0; sweep < 2; sweep++) {
+      for (const d of depths) respace(lanes.get(d));
+      for (const d of [...depths].reverse()) respace(lanes.get(d));
+    }
+    cy.batch(() => { for (const n of cy.nodes()) { if (sim.pinned.has(n.id())) continue; const p = { x: X.get(n.id()), y: n.position().y }; if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out" }); else n.position(p); } });
+  };
   const hardSeparate = () => {
     const arr = collect();
     separate(arr, 1, 80);
@@ -892,12 +920,12 @@ function buildAdoptCanvas() {
   };
   const run = () => {
     cancelAnimationFrame(sim.raf);
-    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; sim.heavy.clear(); hardSeparate(); } };
+    const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; orderLanes(true); setTimeout(hardSeparate, 340); sim.heavy.clear(); } };
     sim.raf = requestAnimationFrame(step);
   };
   const settle = (strength = 1) => { sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
-  window.__sim = { tick, settle, state: sim, hardSeparate };
+  window.__sim = { tick, settle, state: sim, hardSeparate, orderLanes };
   seed();
   // The infinite canvas: a cross grid behind the nodes that pans and zooms with them.
   const grid = () => {
@@ -1067,6 +1095,7 @@ function buildAdoptCanvas() {
     sim.alpha = 1;
     for (let i = 0; i < 260 && sim.alpha > 0.02; i++) { tick(); sim.alpha *= 0.985; }
     sim.alpha = 0;
+    orderLanes(false);
     hardSeparate();
     if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
     grid(); applyFocus(); makeOverlays();
@@ -1084,6 +1113,7 @@ function buildAdoptCanvas() {
   $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
   $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
   $main.querySelector("[data-bands]")?.addEventListener("click", (ev) => { adoptState.bands = !adoptState.bands; ev.currentTarget.classList.toggle("on", adoptState.bands); laneLines(); settle(0.6); });
+  $main.querySelector("[data-order]")?.addEventListener("click", (ev) => { adoptState.order = !adoptState.order; ev.currentTarget.classList.toggle("on", adoptState.order); settle(0.5); });
   $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); adoptState.focus.clear(); sync(); });
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
