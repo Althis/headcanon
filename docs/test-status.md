@@ -20,6 +20,7 @@ Pushed earlier by the sixth run's flow (they now happen during drafting and the 
 - The attend loop: reworking children after an approval, a rewrite or a deletion; answering a ? question; a refine request from the card; the working indicator; the Finish check.
 - Resuming an unfinished adoption in a new session.
 - The "enough to guess" rule: whether it guesses too much or too little.
+- Mocks (REQ-6.8, REQ-3.16, REQ-8.8, REQ-12.1.9), nothing of which a run has met: a visual node refined from its mock, the mock question with a draft picture, the walk of states, a designer's SVG export with ids, a revision accepted element by element, the attend loop over a changed mock, and the Mocks view with lit elements. Checked only on the fixture and on this canon's MOCK-1.
 - The canvas on a canon of real size: the lanes simulation, the radial view (rings per dot, dendrogram forks, the sibling swaps that pull dependency lines apart), and the view keeping a selected or dropped box on screen. Checked only on the six-node fixture.
 
 Still at the end of the pipeline, untouched until a run finishes:
