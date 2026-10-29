@@ -71,7 +71,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   // ---- session: what the page polls ----
   if (p === "/api/session" && method === "GET") {
     const q = session.current();
-    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), focus: session.focus(), cursor: session.changes().cursor });
+    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queued(), focus: session.focus(), cursor: session.changes().cursor });
   }
   if (p === "/api/ask" && method === "POST") {
     const body = (await readJson(req)) as AskRequest;

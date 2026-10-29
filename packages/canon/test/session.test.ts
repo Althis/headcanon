@@ -8,7 +8,8 @@ describe("session state [REQ-12.1.7]", () => {
     const q2 = s.ask({ question: "Second?", options: [{ label: "x" }], multiSelect: true });
     expect(s.current()?.id).toBe(q1.id);
     expect(s.pendingCount()).toBe(2);
-    expect(s.focus().id).toBe("REQ-1");
+    // a question no longer moves the view: the page lists it under Issues and the human opens it
+    expect(s.focus().id).toBeUndefined();
     expect(q1.options.map((o) => o.label)).toEqual(["Approve as written", "Drop"]);
     expect(q2.multiSelect).toBe(true);
 

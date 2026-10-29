@@ -519,7 +519,7 @@ const $question = document.getElementById("question");
 // A question is a card over the canvas, moved by its header; the panel's header brings it back when put away.
 const $ask = document.getElementById("ask");
 function showAsk(header) {
-  document.getElementById("ask-sub").textContent = header ?? "";
+  document.getElementById("ask-sub").textContent = header ?? $question.dataset.label ?? "";
   $ask.hidden = false;
   if ($ask.dataset.placed) return;
   const area = $main.querySelector(".adopt #cy")?.getBoundingClientRect() ?? $main.getBoundingClientRect();
@@ -583,9 +583,34 @@ async function sendMessage() {
 }
 document.getElementById("msg-send").addEventListener("click", sendMessage);
 $msg.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+// What the Issues panel shows: the session's queued questions first, then every red box. Redrawn only when
+// its content changes, so a hovered row is not pulled from under the pointer.
+let lastSession = null;
+function renderIssues(s) {
+  const body = document.getElementById("issues-body"), count = document.getElementById("issues-count");
+  if (!body || !snap) return;
+  const queue = s?.queue ?? (s?.question ? [{ id: s.question.id, header: s.question.header, nodeId: s.question.nodeId }] : []);
+  const red = [...Object.values(snap.canon.nodes).map((n) => n.id), ...snap.canon.principles.map((p) => p.id)].filter((id) => colorOf(id) === "red");
+  const key = JSON.stringify([queue.map((q) => q.id), red, s?.question?.id]);
+  if (body.dataset.key === key) return;
+  body.dataset.key = key;
+  const total = queue.length + red.length;
+  count.textContent = total; count.hidden = total === 0;
+  const title = (id) => id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id)?.title ?? id : node(id)?.title ?? id;
+  const qTitle = (q) => { const draft = q.id === s?.question?.id ? /"([^"\n]{3,90}?)\./.exec(s.question.question ?? "")?.[1] : undefined; return (q.nodeId && node(q.nodeId)?.title) || draft || q.header; };
+  body.innerHTML = (total ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
+    queue.map((q, i) => `<button class="btn small issue-row${i === 0 ? " now" : ""}" data-question="${esc(q.id)}" title="${i === 0 ? "Open this question" : "Waits behind the question above"}"><span class="tag">?</span><span>${esc(qTitle(q))}${q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? ` <span class="muted">· ${esc(q.header)}</span>` : ""}</span></button>`).join("") +
+    red.map((id) => `<button class="btn small issue-row" data-box="${esc(id)}" title="Click to show this box; double-click to open it"><i class="sw red"></i><span class="tag">${esc(id)}</span><span>${esc(title(id))}</span></button>`).join("");
+  for (const b of body.querySelectorAll("[data-question]")) b.addEventListener("click", () => { if (b.dataset.question === s?.question?.id) showAsk(); else showToast("Answer the question above it first."); });
+  for (const b of body.querySelectorAll("[data-box]")) {
+    b.addEventListener("click", () => { const id = b.dataset.box; if (id.startsWith("PRN-")) return; if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false); });
+    b.addEventListener("dblclick", () => openPopup(b.dataset.box));
+  }
+}
 async function pollSession() {
   try {
     const s = await fetch("/api/session", { cache: "no-store" }).then((r) => r.json());
+    lastSession = s;
     const pill = document.getElementById("session-pending");
     pill.textContent = s.pending; pill.hidden = s.pending === 0;
     document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
@@ -594,11 +619,12 @@ async function pollSession() {
       lastFocusSeq = s.focus.seq;
       if (s.focus.id) {
         chime();
-        if (route().view === "adopt") focusOnCanvas(s.focus.id, !!s.focus.open);
+        if (route().view === "adopt") focusOnCanvas(s.focus.id, false);
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
     }
-    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); chime(); }
+    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); chime(); }
+    renderIssues(s);
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     // While a draft is being written there is no feed entry per file; on the Adopt view, re-read the canon
@@ -613,6 +639,7 @@ async function pollSession() {
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
       if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $ask.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
       if (shownQuestionId === null) { await load().catch(() => {}); checkConflict(); if (route().view !== "tree" && route().view !== "node") render(); }
+      renderIssues(s);
     }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
@@ -652,7 +679,7 @@ function renderQuestion(q, pending = 1) {
     <div class="opts" id="q-opts">${opts}</div>
     <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
     <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
-  showAsk(label || q.nodeId || "Question");
+  $question.dataset.label = label || q.nodeId || "Question";
   renderTermRows(q);
   // One answer shape at a time: the options, or typed text that replaces them. Never both.
   $question.querySelector("#q-mode").addEventListener("click", () => {
@@ -756,7 +783,7 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "dendro", menu: true, prn: true, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "dendro", menu: true, prn: true, issuesOpen: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
   if (id.startsWith("PRN-")) { const s = snap.canon.principles.find((p) => p.id === id)?.state ?? "assumed"; return s === "open" || s === "contested" ? "red" : s === "stated" || s === "resolved" ? "green" : "yellow"; }
@@ -1352,12 +1379,24 @@ function buildAdoptCanvas() {
   menu.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.menu = !adoptState.menu; menu.classList.toggle("closed", !adoptState.menu); });
   const labelButton = () => { const b = menu.querySelector("[data-labels]"); b.classList.toggle("on", adoptState.labels); b.textContent = adoptState.labels ? "Collapse" : "Expand"; };
   // The principles keep one place in every view, the canvas's top left corner; each row opens its card.
+  const leftStack = document.createElement("div");
+  leftStack.className = "left-stack";
+  el.appendChild(leftStack);
   const prnBox = document.createElement("div");
   prnBox.className = "menu principles" + (adoptState.prn ? "" : " closed");
   const prnRows = snap.canon.principles.map((p) => `<button class="btn small prn-row" data-prn="${esc(p.id)}" title="${esc(p.statement)}"><i class="sw ${colorOf(p.id)}"></i><span class="tag">${esc(p.id)}</span><span>${esc(p.title)}</span></button>`).join("") || `<span class="muted">none yet</span>`;
   prnBox.innerHTML = `<div class="menu-head"><b>Principles</b><button class="btn small caret" data-collapse="1" title="Fold or unfold the principles">▾</button></div><div class="menu-body">${prnRows}</div>`;
-  el.appendChild(prnBox);
+  leftStack.appendChild(prnBox);
   for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) prnBox.addEventListener(ev, (e) => e.stopPropagation());
+  // The Issues panel: the session's questions, which open when the human clicks them, and the boxes that need the
+  // human; a click highlights a box, a double-click opens its card. Nothing here opens by itself.
+  const issuesBox = document.createElement("div");
+  issuesBox.className = "menu issues" + (adoptState.issuesOpen ? "" : " closed");
+  issuesBox.innerHTML = `<div class="menu-head"><b>Issues</b><span class="pill" id="issues-count" hidden></span><button class="btn small caret" data-collapse="1" title="Fold or unfold the issues">▾</button></div><div class="menu-body" id="issues-body"></div>`;
+  leftStack.appendChild(issuesBox);
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) issuesBox.addEventListener(ev, (e) => e.stopPropagation());
+  issuesBox.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.issuesOpen = !adoptState.issuesOpen; issuesBox.classList.toggle("closed", !adoptState.issuesOpen); });
+  renderIssues(lastSession);
   prnBox.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.prn = !adoptState.prn; prnBox.classList.toggle("closed", !adoptState.prn); });
   for (const b of prnBox.querySelectorAll("[data-prn]")) b.addEventListener("click", () => openPopup(b.dataset.prn));
   const setMode = (mode) => {

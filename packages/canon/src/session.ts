@@ -112,8 +112,6 @@ export class SessionState {
       notice: req.notice,
     };
     this.queue.push(q);
-    // Focus follows the question on screen: the head of the queue, not the last one queued.
-    if (req.nodeId && this.queue.length === 1) this.setFocus(req.nodeId);
     return q;
   }
 
@@ -123,6 +121,11 @@ export class SessionState {
 
   pendingCount(): number {
     return this.queue.length;
+  }
+
+  /** Every queued question in brief, for the page's Issues panel. */
+  queued(): Array<{ id: string; header: string; nodeId: string | undefined; askedAt: string }> {
+    return this.queue.map((q) => ({ id: q.id, header: q.header, nodeId: q.nodeId, askedAt: q.askedAt }));
   }
 
   find(id: string): PendingQuestion | undefined {
@@ -139,8 +142,6 @@ export class SessionState {
     this.push("answer", { id: q?.nodeId, text: `${q?.header}: ${ans.selected.join(", ")}${ans.other ? ` / ${ans.other}` : ""}` });
     for (const w of this.waiters.get(ans.questionId) ?? []) w(ans);
     this.waiters.delete(ans.questionId);
-    const next = this.queue[0];
-    if (i === 0 && next?.nodeId) this.setFocus(next.nodeId);
     return true;
   }
 

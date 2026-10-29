@@ -41,7 +41,7 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     const opt = (q["options"] as Array<Record<string, string>>)[0]!;
     expect(opt["html"]).toContain('class="jargon" data-term="Widget"');
     expect(opt["html"]).toContain('title="README.md:1"');
-    expect((s["focus"] as Record<string, unknown>)["id"]).toBe("REQ-1");
+    expect((s["focus"] as Record<string, unknown>)["id"]).toBeUndefined();
     const pending = await get(`/api/wait?id=${id}&timeout=1`);
     expect(pending["pending"]).toBe(true);
     const ans = await send("/api/answer", { questionId: id, selected: ["Approve as written"], other: "", terms: [{ term: "Widget", decision: "keep" }] });
@@ -90,6 +90,17 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(loadCanon(join(dir, "canon")).principles.map((x) => x.id)).toEqual(["PRN-1"]);
     const kinds = ((await get(`/api/changes?since=${before}`))["entries"] as Array<{ kind: string }>).map((e) => e.kind);
     expect(kinds).toEqual(["node-approved", "node-edited", "node-deleted"]);
+  });
+
+  it("lists every queued question for the Issues panel", async () => {
+    const a = (await send("/api/ask", { header: "Parsing", question: "Which stands?", options: [{ label: "A" }, { label: "B" }] })).body["questionId"] as string;
+    const b = (await send("/api/ask", { header: "Billing", nodeId: "REQ-2", question: "Retry how?", options: [{ label: "Daily" }] })).body["questionId"] as string;
+    const s = await get("/api/session");
+    const mine = (s["queue"] as Array<{ id: string; header: string; nodeId?: string }>).filter((q) => q.id === a || q.id === b);
+    expect(mine.map((q) => [q.id, q.header, q.nodeId ?? null])).toEqual([[a, "Parsing", null], [b, "Billing", "REQ-2"]]);
+    await send("/api/answer", { questionId: a, selected: ["A"] });
+    await send("/api/answer", { questionId: b, selected: ["Daily"] });
+    expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((q) => q.id === a || q.id === b)).toBe(false);
   });
 
   it("approves, rewrites and deletes a glossary term from the page", async () => {

@@ -131,7 +131,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     {
       title: "Ask the human through the HeadCanon page",
       description:
-        "Shows a question in the HeadCanon viewer beside the canon tree and waits for the human's answer. Use it instead of AskUserQuestion whenever the viewer is available. The question text holds the full draft as prose with footnote markers and a Sources line; the page turns the markers into tooltips. Options default to Approve as written and Drop; the human can always switch to typing in Other. Pass `terms` for every word in the draft that the glossary does not define, each with your guessed definition: the page marks them and the human keeps (enshrines in the glossary) or drops each one before answering. Pass `nodeId` to open that node on the human's screen. To ask several questions in one turn, as AskUserQuestion allows, pass `questions`: the page shows them one after another and the result holds every answer in order. Returns the answer(s), or pending question ids after waitSeconds; then call headcanon_wait for each.",
+        "Files a question as an issue in the HeadCanon viewer's Issues panel, beside the canvas, and waits for the human's answer; the human opens it when they choose, so it never interrupts them. A thing you cannot define from its family and the threads is asked here, never written as a node: header names the thing in doubt, nodeId its parent, options your suggestions with their sources. Use it instead of AskUserQuestion whenever the viewer is available. The question text holds the full draft as prose with footnote markers and a Sources line; the page turns the markers into tooltips. Options default to Approve as written and Drop; the human can always switch to typing in Other. Pass `terms` for every word in the draft that the glossary does not define, each with your guessed definition: the page marks them and the human keeps (enshrines in the glossary) or drops each one before answering. Pass `nodeId` to open that node on the human's screen. To ask several questions in one turn, as AskUserQuestion allows, pass `questions`: the page shows them one after another and the result holds every answer in order. Returns the answer(s), or pending question ids after waitSeconds; then call headcanon_wait for each.",
       inputSchema: {
         question: questionShape.question.optional(),
         header: questionShape.header,
@@ -181,7 +181,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     {
       title: "Point at a node on the human's screen, or open it",
       description: "Navigates the HeadCanon viewer to a canon node so the human sees what you are talking about. With `open`, the node's card opens as well, with its text and its approve, edit and delete actions.",
-      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("True to open the node's card, not only point at it.") },
+      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("Ignored by the page since 2026-10-29: a card opens only when the human opens it. The focus highlights the box on the canvas and the chat notes it.") },
     },
     async ({ id, open }) => {
       ensureOpen();
