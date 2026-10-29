@@ -619,36 +619,25 @@ function openIssue(issue) {
   const id = issue.nodeId, n = node(id);
   if (!n) return;
   const html = snap.html[id] ?? "";
-  const settle = async (text, resolve) => { try { await post(`/api/node/${encodeURIComponent(id)}`, { intent: text, resolve }, "PUT"); $ask.hidden = true; await load(); render(); startWorking(`you settled ${id}`); } catch (e) { showToast(e); } };
-  const head = (kind) => `<div class="q-head"><span class="badge kind">${kind}</span> ${idLink(id)} <button class="btn small" id="iss-show" title="Show the box on the canvas">Show on canvas</button> <button class="btn small" id="iss-card" title="Open the box's card">Open the card</button></div><h2 class="q-title">${esc(n.title)}</h2>`;
-  const pick = (items) => items.length ? `<div class="opts">${items.map((c, i) => `<label class="opt"><input type="radio" name="iss" value="${i}" /> <span class="opt-text">${c}</span></label>`).join("")}</div>` : "";
-  const tail = (hasChoices) => `<div class="row"><button class="btn primary" id="iss-choose" ${hasChoices ? "disabled" : "hidden"}>Choose</button><button class="btn" id="iss-write">Write it yourself</button></div><div class="q-write" id="iss-writebox" hidden><textarea id="iss-text" rows="4" placeholder="What must hold, in your words"></textarea><div class="row"><button class="btn primary" id="iss-save">Save</button></div></div>`;
-  let choices = [], resolve = "";
+  const settle = async (text, resolve) => { try { await post(`/api/node/${encodeURIComponent(id)}`, { intent: text, resolve }, "PUT"); $ask.hidden = true; shownIssue = null; await load(); render(); startWorking(`you settled ${id}`); } catch (e) { showToast(e); } };
+  const items = (sectionHtml) => [...sectionHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
   if (issue.kind === "open") {
-    resolve = "open";
-    const intent = extractHtmlSection(html, "Intent");
-    const question = /<strong>([\s\S]*?)<\/strong>/.exec(intent)?.[1];
-    choices = [...extractHtmlSection(html, "Options").matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
-    $question.innerHTML = head("Open question") + (question ? `<p><strong>${question}</strong></p>` : intent.replace(/<h2>[^<]*<\/h2>/, "")) + `<p class="sub">${choices.length ? "Pick a suggestion and it becomes the box's text, in your name; or write it yourself." : "Write what must hold; it becomes the box's text, in your name."}</p>` + pick(choices) + tail(choices.length > 0);
+    const intent = extractHtmlSection(html, "Intent").replace(/<h2>[^<]*<\/h2>/, "");
+    const question = /<strong>([\s\S]*?)<\/strong>/.exec(intent)?.[1] ?? "";
+    const summary = intent.replace(/<p>\s*<strong>[\s\S]*?<\/strong>\s*<\/p>/, "").trim();
+    const choices = items(extractHtmlSection(html, "Options"));
+    questionCard({ badge: "Open question", nodeId: id, title: n.title, questionHtml: question, summaryHtml: summary, options: choices.map((c) => ({ labelHtml: c })), onAnswer: ({ picked, text }) => settle(text || plainWords(choices[picked[0]]), "open") });
   } else if (issue.kind === "contradiction") {
-    resolve = "contested";
     const contested = extractHtmlSection(html, "Contested");
     const summary = /<\/h2>\s*<p>([\s\S]*?)<\/p>\s*<ul>/.exec(contested)?.[1] ?? "";
-    choices = [...contested.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+    const choices = items(contested);
     const others = [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
-    $question.innerHTML = head("Contradiction") + (summary ? `<p class="conflict-summary">${summary}</p>` : "") + (others.length ? `<p class="sub">Also against: ${others.map((x) => `${idLink(x)} ${esc(node(x).title)}`).join("; ")}</p>` : "") + `<p class="sub">${choices.length ? "Keep one statement and it becomes the box's text, in your name; or write it yourself." : "Write what must hold; it becomes the box's text, in your name."}</p>` + pick(choices) + tail(choices.length > 0);
+    questionCard({ badge: "Contradiction", nodeId: id, title: n.title, questionHtml: "Which statement stands?", summaryHtml: `${summary ? `<p>${summary}</p>` : ""}${others.length ? `<p class="sub">Also against: ${others.map((x) => `${idLink(x)} ${esc(node(x).title)}`).join("; ")}</p>` : ""}`, options: choices.map((c) => ({ labelHtml: c })), onAnswer: ({ picked, text }) => settle(text || plainWords(choices[picked[0]]), "contested") });
   } else {
     const fs = findingsFor(id).filter((f) => f.level !== "info" && f.code !== "branch-unconfirmed");
-    $question.innerHTML = head("Flagged") + `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul><div class="row"><button class="btn primary" id="iss-fix">Ask the session to fix it</button></div>`;
-    $question.querySelector("#iss-fix").addEventListener("click", async () => { try { await post("/api/message", { text: `Fix what the check flags on ${id}: ${fs.map((f) => f.message).join("; ")}`, nodeId: id }); $ask.hidden = true; startWorking(`you asked for ${id} to be fixed`); } catch (e) { showToast(e); } });
+    questionCard({ badge: "Flagged", nodeId: id, title: n.title, questionHtml: "What should happen with this box?", summaryHtml: `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>`, options: [{ labelHtml: "<b>Ask the session to fix it</b>" }], onAnswer: async ({ text }) => { try { if (text) await post(`/api/node/${encodeURIComponent(id)}`, { intent: text }, "PUT"); else await post("/api/message", { text: `Fix what the check flags on ${id}: ${fs.map((f) => f.message).join("; ")}`, nodeId: id }); $ask.hidden = true; shownIssue = null; await load(); render(); startWorking(`you answered about ${id}`); } catch (e) { showToast(e); } } });
   }
   $question.dataset.label = `${issue.kind === "open" ? "Open question" : issue.kind === "contradiction" ? "Contradiction" : "Flagged"} · ${id}`;
-  $question.querySelector("#iss-show").addEventListener("click", () => { if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); });
-  $question.querySelector("#iss-card").addEventListener("click", () => { $ask.hidden = true; openPopup(id); });
-  for (const r of $question.querySelectorAll("input[name=iss]")) r.addEventListener("change", () => { $question.querySelector("#iss-choose").disabled = false; });
-  $question.querySelector("#iss-choose")?.addEventListener("click", () => { const picked = $question.querySelector("input[name=iss]:checked"); if (picked) settle(plainWords(choices[Number(picked.value)]), resolve); });
-  $question.querySelector("#iss-write")?.addEventListener("click", () => { const box = $question.querySelector("#iss-writebox"); box.hidden = false; box.querySelector("textarea").focus(); });
-  $question.querySelector("#iss-save")?.addEventListener("click", () => { const text = $question.querySelector("#iss-text").value.trim(); if (!text) { showToast("Write what must hold first."); return; } settle(text, resolve); });
   shownIssue = issue.key;
   showAsk();
 }
@@ -700,46 +689,54 @@ function showWorking(what) {
   $question.innerHTML = "";
   if (what) appendChat([{ kind: "sys", text: `The session is working since ${what}.`, at: new Date().toISOString() }]);
 }
+// One card for every question, whoever asks it: the box's title, the question, a short summary, the options to
+// pick from with "Write it yourself" as the last, and Answer at the bottom. `onAnswer` gets the picked options'
+// indices, or the typed text.
+function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options, multi, more, onAnswer }) {
+  const type = multi ? "checkbox" : "radio";
+  const opts = options.map((o, i) => `<label class="opt"><input type="${type}" name="opt" value="${i}" ${!multi && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${o.labelHtml}</span>${o.descHtml ? `<span class="opt-desc">${o.descHtml}</span>` : ""}</span></label>`).join("");
+  const canShow = nodeId && (node(nodeId) || nodeId.startsWith("PRN-"));
+  $question.innerHTML = `
+    ${more ?? ""}
+    <div class="q-head"><span class="badge kind">${esc(badge)}</span>${nodeId ? ` ${idLink(nodeId)}` : ""}${canShow ? ` <button class="btn small" id="iss-show" title="Show the box on the canvas">Show on canvas</button> <button class="btn small" id="iss-card" title="Open the box's card">Open the card</button>` : ""}</div>
+    ${title ? `<h2 class="q-title">${esc(title)}</h2>` : ""}
+    ${questionHtml ? `<p class="q-question"><strong>${questionHtml}</strong></p>` : ""}
+    ${summaryHtml ? `<div class="q-body body">${summaryHtml}</div>` : ""}
+    <div id="q-terms" class="q-terms" hidden></div>
+    <div class="opts" id="q-opts">${opts}<label class="opt"><input type="${type}" name="opt" value="write" ${options.length ? "" : "checked"}/> <span class="opt-text"><span class="opt-head"><b>Write it yourself</b></span></span></label></div>
+    <div id="q-free" ${options.length ? "hidden" : ""}><textarea id="q-other" rows="3" placeholder="Your own words, or a correction."></textarea></div>
+    <div class="row"><button class="btn primary" id="q-submit">Answer</button><span class="sub" id="q-hint"></span></div>`;
+  const free = $question.querySelector("#q-free"), writeBox = $question.querySelector('input[name=opt][value="write"]');
+  const sync = () => { free.hidden = !writeBox.checked; if (writeBox.checked) free.querySelector("textarea").focus(); };
+  for (const i of $question.querySelectorAll("input[name=opt]")) i.addEventListener("change", sync);
+  if (!options.length) sync();
+  $question.querySelector("#iss-show")?.addEventListener("click", () => { if (document.body.classList.contains("adopt-mode") && !nodeId.startsWith("PRN-")) focusOnCanvas(nodeId, false, true); });
+  $question.querySelector("#iss-card")?.addEventListener("click", () => { $ask.hidden = true; openPopup(nodeId); });
+  $question.querySelector("#q-submit").addEventListener("click", () => {
+    const write = writeBox.checked, text = $question.querySelector("#q-other").value.trim();
+    const picked = write ? [] : [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => Number(i.value));
+    if (write && !text) { showToast("Write it first, or pick an option."); return; }
+    if (!write && !picked.length) { showToast("Pick an option, or write it yourself."); return; }
+    onAnswer({ picked, text: write ? text : "" });
+  });
+}
 function renderQuestion(q, pending = 1) {
   working = null;
-  // An option reads as ID, title, then description. The ID links to the node's page when the node
-  // exists, and the link sits outside the label so following it does not toggle the box.
-  const opts = q.options.map((o, i) => {
-    const m = /^((?:REQ|JRN|DEC|PRN|TERM)-\S+)\s+(.+)$/.exec(o.label);
-    const head = m ? `${idLink(m[1])} <label for="opt-${i}"><b>${esc(m[2])}</b></label>` : `<label for="opt-${i}"><b>${esc(o.label)}</b></label>`;
-    const desc = o.html ? `<label for="opt-${i}" class="opt-desc">${o.html}</label>` : o.description ? `<label for="opt-${i}" class="opt-desc">${esc(o.description)}</label>` : "";
-    return `<div class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" id="opt-${i}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${head}</span>${desc}</span></div>`;
-  }).join("");
   // The card's title: the node's, or the draft's first sentence while the node is still being drafted; the
   // header is a label of the kind of question and is not repeated when it is only the node's id.
   const nodeTitle = q.nodeId ? node(q.nodeId)?.title : undefined;
   const draftTitle = /"([^"\n]{3,90}?)\./.exec(q.question ?? "")?.[1];
   const title = nodeTitle ?? draftTitle ?? "";
   const label = q.header && q.header !== q.nodeId ? q.header : "";
-  $question.innerHTML = `
-    ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
-    <div class="q-head">${label ? `<span class="badge kind">${esc(label)}</span>` : ""}${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
-    ${title ? `<h2 class="q-title">${esc(title)}</h2>` : ""}
-    <div class="q-body body">${q.html}</div>
-    <div id="q-terms" class="q-terms" hidden></div>
-    <div class="opts" id="q-opts">${opts}</div>
-    <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
-    <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
+  // an option reads as ID, title, then description; the ID links to the node's page when the node exists
+  const options = q.options.map((o) => { const m = /^((?:REQ|JRN|DEC|PRN|TERM)-\S+)\s+(.+)$/.exec(o.label); return { labelHtml: m ? `${idLink(m[1])} <b>${esc(m[2])}</b>` : `<b>${esc(o.label)}</b>`, descHtml: o.html ?? (o.description ? esc(o.description) : "") }; });
+  questionCard({ badge: label || "Question", nodeId: q.nodeId, title, questionHtml: "", summaryHtml: q.html, options, multi: q.multiSelect, more: `${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}${pending > 1 ? `<p class="sub">${pending - 1} more after this.</p>` : ""}`, onAnswer: ({ picked, text }) => submitAnswer(q, picked, text) });
   $question.dataset.label = label || q.nodeId || "Question";
   renderTermRows(q);
-  // One answer shape at a time: the options, or typed text that replaces them. Never both.
-  $question.querySelector("#q-mode").addEventListener("click", () => {
-    const free = $question.querySelector("#q-free"), optsEl = $question.querySelector("#q-opts"), mode = $question.querySelector("#q-mode");
-    const toFree = free.hidden;
-    free.hidden = !toFree; optsEl.hidden = toFree;
-    if (toFree) { for (const i of optsEl.querySelectorAll("input")) i.checked = false; free.querySelector("textarea").focus(); } else free.querySelector("textarea").value = "";
-    mode.textContent = toFree ? "Back to the options" : "Other: correct or rewrite instead";
-  });
   for (const span of $question.querySelectorAll(".jargon")) {
     span.addEventListener("mouseenter", () => showTooltip(span, q));
     span.addEventListener("click", (e) => { e.preventDefault(); showTooltip(span, q, true); });
   }
-  $question.querySelector("#q-submit").addEventListener("click", () => submitAnswer(q));
   updateSubmit(q);
 }
 function updateSubmit(q) {
@@ -809,16 +806,12 @@ function renderTermRows(q) {
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); drop(); } });
   }
 }
-async function submitAnswer(q) {
-  const selected = [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => i.value);
-  const freeMode = !$question.querySelector("#q-free").hidden;
-  const other = freeMode ? $question.querySelector("#q-other").value.trim() : "";
-  if (freeMode && !other) { showToast("Type your wording or correction, or go back to the options."); return; }
-  if (!freeMode && !selected.length && !q.multiSelect) { showToast("Pick an option, or switch to a correction."); return; }
+async function submitAnswer(q, picked, text) {
+  const selected = picked.map((i) => q.options[i]?.label).filter(Boolean);
   const terms = Object.values(termState);
   try {
-    await post("/api/answer", { questionId: q.id, selected: freeMode ? [] : selected, other, terms });
-    working = { since: Date.now(), answer: other ? `Other: ${other}` : selected.join(", ") };
+    await post("/api/answer", { questionId: q.id, selected, other: text, terms });
+    working = { since: Date.now(), answer: text ? `Other: ${text}` : selected.join(", ") };
     shownQuestionId = null;
     showWorking();
   } catch (e) { showToast(e); }
