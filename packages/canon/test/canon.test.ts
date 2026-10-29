@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -141,5 +141,16 @@ describe("summary [REQ-6.2]", () => {
     expect(text).toMatch(/└─ REQ-1\.1\s+Sign-up takes under 60 seconds\s+assumed\s+capability\s+numeric\s+! \d finding/m);
     expect(text).toContain("JRN-1");
     expect(text).toContain("origin: obstacle");
+  });
+});
+
+describe("open boxes", () => {
+  it("warns when a title is a question", () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "headcanon-title-")), "canon");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: assumed\n---\n\n# T canon\n");
+    writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Which readers see the computed value?\"\nstate: open\n---\n\n# Which readers see the computed value?\n");
+    const codes = checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`);
+    expect(codes).toContain("warn:title-question:REQ-1");
   });
 });
