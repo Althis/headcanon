@@ -1474,16 +1474,27 @@ function openPopup(id) {
   if (isPrinciples) { openTextCard(id, "Principles", snap.canon.principles.map((p) => `<p><i class="sw ${colorOf(p.id)}"></i><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")); return; }
   const color = colorOf(id);
   const state = isRoot ? snap.canon.root?.state : n.state;
+  // every side of a contradiction: the boxes this one conflicts with, either way round
+  const conflictIds = isRoot || prn ? [] : [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
   const because = color === "red"
-    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? "Two statements pull against each other; keep one or rewrite." : "A check flagged it; see below.")
+    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
   const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : prn ? `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}` : snap.html[id];
+  // ... and the statements a contested box records against each other; each side gets a tab beside the box's own text
+  const contestedHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Contested");
+  const statements = [...contestedHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  const panes = [];
+  if (statements.length >= 2) statements.forEach((st, i) => panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${st}</p>` }));
+  for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
+  const mainHtml = statements.length >= 2 ? stripHtmlSection(bodyHtml ?? "", "Contested") : bodyHtml;
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
-    <div class="popup-body body" id="pp-body">${markSections(bodyHtml || "<p class='muted'>No text yet.</p>")}</div>
+    ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
+    <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
+    ${panes.map((p, i) => `<div class="popup-body body pp-pane" data-pane="${i}" hidden>${markSections(p.html)}</div>`).join("")}
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
       ${color !== "green" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
@@ -1501,6 +1512,8 @@ function openPopup(id) {
   if (wasHidden) centerPopup();
   wirePopupMoves();
   $popup.querySelector("#pp-close").addEventListener("click", () => { if (editingDraft() && !confirm("Discard your rewrite?")) return; closePopup(); });
+  for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { const k = b.dataset.pane; for (const o of $popup.querySelectorAll(".pp-tabs button")) o.classList.toggle("on", o === b); $popup.querySelector("#pp-body").hidden = k !== "-1"; for (const pane of $popup.querySelectorAll(".pp-pane")) pane.hidden = pane.dataset.pane !== k; });
+  for (const a of $popup.querySelectorAll("[data-open]")) a.addEventListener("click", (ev) => { ev.preventDefault(); if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; } closePopup(); focusOnCanvas(a.dataset.open, true); });
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
   });
@@ -1583,10 +1596,9 @@ function chime() {
   show();
 }
 /** Remove one rendered `<h2>` section from a node's HTML. */
-function stripHtmlSection(html, heading) {
-  const re = new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
-  return html.replace(re, "");
-}
+const sectionRe = (heading) => new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
+function stripHtmlSection(html, heading) { return html.replace(sectionRe(heading), ""); }
+function extractHtmlSection(html, heading) { return sectionRe(heading).exec(html)?.[0] ?? ""; }
 /** A read-only card: the principles, or one principle, which live in the root README and are edited there. */
 function openTextCard(id, title, html) {
   const wasHidden = $popup.hidden;
