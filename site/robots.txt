@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://althis.github.io/headcanon/sitemap.xml

@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeadCanon: canonizing user intent</title>
+<meta name="description" content="HeadCanon is an open-source Claude Code plugin that records what you are trying to build, in your words, as a canon the coding agent works from and is tested against.">
+<link rel="canonical" href="https://althis.github.io/headcanon/">
+<meta name="theme-color" content="#F5F1E8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161A22" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HeadCanon">
+<meta property="og:title" content="HeadCanon: canonizing user intent">
+<meta property="og:description" content="An open-source Claude Code plugin that records what you are trying to build, in your words, as a canon the coding agent works from and is tested against.">
+<meta property="og:url" content="https://althis.github.io/headcanon/">
+<meta property="og:image" content="https://althis.github.io/headcanon/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="The HeadCanon logo: a head with a tree inside it, and the words HeadCanon.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HeadCanon: canonizing user intent">
+<meta name="twitter:description" content="An open-source Claude Code plugin that records what you are trying to build, in your words, as a canon the coding agent works from and is tested against.">
+<meta name="twitter:image" content="https://althis.github.io/headcanon/assets/social-preview.png">
+
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "HeadCanon",
+  "description": "An open-source Claude Code plugin that records what you are trying to build, in your words, as a canon the coding agent works from and is tested against.",
+  "url": "https://althis.github.io/headcanon/",
+  "codeRepository": "https://github.com/Althis/headcanon",
+  "programmingLanguage": "TypeScript",
+  "runtimePlatform": "Node.js 20",
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "author": { "@type": "Person", "name": "Althis Mendes", "url": "https://github.com/Althis" },
+  "keywords": "Claude Code plugin, coding agent, AI agent alignment, user intent, requirements, specification, canon, end-to-end tests"
+}
+</script>
+
+<style>
+  :root {
+    --ink: #161A22; --paper: #F5F1E8; --accent: #0B7368; --slate: #5A6472;
+    --line: #DCD6C9; --card: #FBF9F4; --code: #EEE9DD;
+    --stated: #1f8a4c; --assumed: #b7791f; --open: #6b5bd2; --contested: #d13438; --resolved: #2563eb;
+    --stated-bg: #e3f5ea; --assumed-bg: #fff3d6; --open-bg: #ece9fb; --contested-bg: #fde7e8; --resolved-bg: #e8efff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #F5F1E8; --paper: #161A22; --accent: #3FC1B0; --slate: #98A0AD;
+      --line: #2A303A; --card: #1C2129; --code: #0F1216;
+      --stated: #4fc37e; --assumed: #e8b04b; --open: #a497f0; --contested: #ff6b6e; --resolved: #6d9cff;
+      --stated-bg: #15311f; --assumed-bg: #3a2c0f; --open-bg: #26213d; --contested-bg: #3d1a1c; --resolved-bg: #1c2740;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  code, pre { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: 0.9em; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code); padding: 14px 16px; border-radius: 10px; overflow-x: auto; line-height: 1.5; margin: 0; }
+  pre code { background: none; padding: 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3 { line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: clamp(34px, 6.4vw, 56px); margin: 0 0 18px; }
+  h2 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 20px; }
+  h3 { font-size: 18px; margin: 0 0 8px; }
+  p { margin: 0 0 14px; }
+  .muted { color: var(--slate); }
+  button { font: inherit; color: inherit; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 16px; padding: 22px 0; }
+  header.top img { height: 40px; width: auto; display: block; }
+  nav { display: flex; gap: 18px; font-size: 15px; font-weight: 500; }
+  nav a { color: var(--ink); text-decoration: none; white-space: nowrap; }
+  nav a:hover { color: var(--accent); }
+
+  .hero { padding: 48px 0 56px; border-bottom: 1px solid var(--line); }
+  .hero .lede { font-size: clamp(18px, 2.4vw, 21px); max-width: 620px; color: var(--slate); margin-bottom: 14px; }
+  .hero .lede strong { color: var(--ink); font-weight: 600; }
+  .hero .cta { margin-top: 28px; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--slate); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; margin-bottom: 22px; }
+  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--assumed); }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn { display: inline-block; padding: 11px 20px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 16px; }
+  .btn.primary { background: var(--accent); color: var(--paper); }
+  .btn.ghost { border: 1px solid var(--line); color: var(--ink); }
+  .btn:hover { filter: brightness(1.08); }
+
+  section { padding: 56px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card p { margin: 0; color: var(--slate); font-size: 15.5px; }
+
+  /* ---- failure modes: three cards that slide aside for an example panel ---- */
+  .modes { display: grid; gap: 18px; grid-template-columns: repeat(3, 1fr); transition: grid-template-columns .45s ease; }
+  .modes.open { grid-template-columns: 220px 1fr; }
+  .mode-list { display: contents; }
+  .modes.open .mode-list { display: flex; flex-direction: column; gap: 10px; }
+  .mode { text-align: left; cursor: pointer; width: 100%; transition: padding .35s ease, border-color .25s ease, transform .35s ease; }
+  .mode:hover, .mode:focus-visible { border-color: var(--accent); outline: none; }
+  .mode h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .mode h3::after { content: "→"; color: var(--accent); font-weight: 400; transition: transform .25s ease; }
+  .mode[aria-expanded="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .modes.open .mode { padding: 12px 16px; }
+  .modes.open .mode p { display: none; }
+  .modes.open .mode h3 { margin: 0; font-size: 16px; }
+  .panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px 22px; min-height: 300px; }
+  .modes.open .panel { display: block; animation: rise .45s ease both; }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .panel-head h3 { margin: 0; }
+  .panel-head small { color: var(--slate); font-size: 14px; }
+  .close { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--slate); }
+  .close:hover { color: var(--ink); border-color: var(--ink); }
+  .scene { display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+  .line { opacity: 0; transform: translateY(8px); animation: rise .45s ease forwards; animation-delay: var(--d, 0s); max-width: 92%; }
+  .line.you, .line.agent { padding: 10px 14px; border-radius: 12px; }
+  .line.you { align-self: flex-start; background: var(--code); border-bottom-left-radius: 4px; }
+  .line.agent { align-self: flex-end; background: var(--paper); border: 1px solid var(--line); border-bottom-right-radius: 4px; }
+  .line.note { align-self: stretch; max-width: none; margin-top: 4px; padding: 10px 14px; border-left: 3px solid var(--contested); background: var(--contested-bg); color: var(--ink); border-radius: 0 10px 10px 0; font-size: 14.5px; }
+  .line.canon { align-self: stretch; max-width: none; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--card); color: var(--ink); border-radius: 0 10px 10px 0; font-size: 14.5px; }
+  .line.time { align-self: center; color: var(--slate); font-size: 13px; }
+  .who { display: block; font-size: 12px; font-weight: 500; color: var(--slate); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .04em; }
+  .swap { position: relative; display: inline-block; }
+  .swap .old { animation: strike .5s ease forwards; animation-delay: var(--d2, 1s); }
+  .swap .new { opacity: 0; animation: rise .4s ease forwards; animation-delay: calc(var(--d2, 1s) + .3s); color: var(--contested); }
+  .fade { animation: fadeout .8s ease forwards; animation-delay: var(--d2, 1s); }
+  .tick { color: var(--stated); font-weight: 600; }
+  .line code { font-size: 0.88em; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @keyframes strike { to { text-decoration: line-through; color: var(--slate); } }
+  @keyframes fadeout { to { opacity: .35; text-decoration: line-through; } }
+  @media (max-width: 760px) {
+    .modes, .modes.open { grid-template-columns: 1fr; }
+    .modes.open .mode-list { flex-direction: row; flex-wrap: wrap; }
+    .modes.open .mode { width: auto; flex: 1 1 auto; }
+    .modes.open .mode h3 { font-size: 14px; }
+    .modes.open .mode h3::after { content: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .modes, .mode, .panel, .line, .swap .old, .swap .new, .fade { transition: none; animation-duration: .01s; animation-delay: 0s !important; }
+  }
+
+  /* ---- how it works ---- */
+  .steps { counter-reset: s; display: grid; gap: 22px; }
+  .step { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; }
+  .step::before { counter-increment: s; content: counter(s); width: 36px; height: 36px; border-radius: 10px; background: var(--accent); color: var(--paper); font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .step p { color: var(--slate); font-size: 15.5px; margin: 0; }
+  .step p + p { margin-top: 8px; }
+  .states { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 6px; }
+  .state { display: inline-flex; align-items: baseline; gap: 8px; border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 500; }
+  .state small { font-weight: 400; opacity: 0.85; }
+  .st-stated { background: var(--stated-bg); color: var(--stated); }
+  .st-assumed { background: var(--assumed-bg); color: var(--assumed); }
+  .st-open { background: var(--open-bg); color: var(--open); }
+  .st-contested { background: var(--contested-bg); color: var(--contested); }
+  .st-resolved { background: var(--resolved-bg); color: var(--resolved); }
+  .two { display: grid; gap: 28px; grid-template-columns: 1fr; }
+  @media (min-width: 760px) { .two { grid-template-columns: 1.1fr 1fr; align-items: start; } }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  td, th { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; }
+  td:first-child { white-space: nowrap; }
+  @media (max-width: 600px) {
+    table, tbody, tr, td { display: block; }
+    td { padding: 4px 0; border-bottom: 0; }
+    td:first-child { padding-top: 14px; }
+    tr { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  }
+  footer { padding: 28px 0 48px; font-size: 14px; color: var(--slate); display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+  footer img { height: 22px; width: auto; vertical-align: middle; margin-right: 6px; }
+  .mark-hero { display: none; }
+  @media (min-width: 760px) {
+    .hero .wrap { display: grid; grid-template-columns: 1fr 200px; gap: 32px; align-items: center; }
+    .mark-hero { display: block; width: 200px; height: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a href="./" aria-label="HeadCanon home">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/headcanon-lockup-dark.svg">
+        <img src="assets/headcanon-lockup.svg" alt="HeadCanon" width="219" height="40">
+      </picture>
+    </a>
+    <nav aria-label="Main">
+      <a href="#problem">Why</a>
+      <a href="#how">How it works</a>
+      <a href="#try">Try it</a>
+      <a href="https://github.com/Althis/headcanon">GitHub</a>
+    </nav>
+  </header>
+</div>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <span class="status"><i aria-hidden="true"></i> Pre-alpha, open source, Apache 2.0</span>
+        <h1>Canonizing user intent</h1>
+        <p class="lede"><strong>User intent</strong> is what you are trying to achieve, at every level: the product you have in mind, the feature that serves it, the behaviour that proves the feature works. It lives in your head, and a coding agent sees only the prompt in front of it.</p>
+        <p class="lede">HeadCanon writes that intent down as a <strong>canon</strong>, in your own words, and keeps the agent working from it, checking against it, and stopping to ask when the two disagree.</p>
+        <div class="cta">
+          <a class="btn primary" href="#try">Try it on a project</a>
+          <a class="btn ghost" href="https://github.com/Althis/headcanon">View on GitHub</a>
+        </div>
+      </div>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/headcanon-mark-dark.svg">
+        <img class="mark-hero" src="assets/headcanon-mark.svg" alt="" width="200" height="200">
+      </picture>
+    </div>
+  </div>
+
+  <section id="problem">
+    <div class="wrap">
+      <h2>What goes wrong without it</h2>
+      <p class="muted" style="max-width: 640px">AI coding agents lose track of what the human is trying to build, especially in large projects and over many iterations. Prompts alone leave the agent with a partial picture. Three failures follow. Pick one to see how it happens.</p>
+      <div class="modes" id="modes">
+        <div class="mode-list" role="list">
+          <button class="card mode" type="button" data-mode="substitution" aria-expanded="false" aria-controls="mode-panel"><h3>Substitution</h3><p>The agent reinterprets the request to fit something closely related that is easier to achieve.</p></button>
+          <button class="card mode" type="button" data-mode="justification" aria-expanded="false" aria-controls="mode-panel"><h3>Justification</h3><p>The agent reads the evidence so that what was shipped appears to be what was asked for.</p></button>
+          <button class="card mode" type="button" data-mode="erosion" aria-expanded="false" aria-controls="mode-panel"><h3>Erosion</h3><p>The agent builds something that fits the current context but overwrites older design goals, without checking first.</p></button>
+        </div>
+        <div class="panel" id="mode-panel" role="region" aria-live="polite" hidden>
+          <div class="panel-head"><h3 id="panel-title"></h3><button class="close" type="button" id="panel-close">Close</button></div>
+          <div class="scene" id="scene"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <div class="two">
+        <div class="steps">
+          <div class="step"><div><h3>Your intent becomes a canon</h3><p>A canon is a folder of plain files in your repository, versioned with the code, that records your intent towards your product. Canons are organized into increasing levels of detail, and an agent working on a feature only needs to care about its local canon.</p></div></div>
+          <div class="step"><div><h3>A second agent keeps the canon whole</h3><p>While you work, a secondary agent keeps track of the entire canon. It highlights contradictions, asks for disambiguation when two readings are possible, and asks for your approval before anything counts as your word. You and the agent maintain the canon together.</p></div></div>
+          <div class="step"><div><h3>Intent history</h3><p>Every commit names the intent it serves: a commit-msg hook asks for trailers that point at the requirement, journey or decision behind the change, and changes to the canon itself pass a review by a verifier agent before they land. The history of the code becomes the history of why.</p></div></div>
+          <div class="step"><div><h3>Tests that hold your intent</h3><p>A leaf of the canon is a statement that is either met or not, written before the code. That is what lets the system create real end-to-end tests of what you asked for, instead of tests written after the fact to pass.</p><p><strong>Writ</strong> is the tool that will run these in CI/CD, as a gate on every commit, pull request or release, reporting which intentions are verified, which rest on assumptions and which are untested. It shares the canon format and is not started yet.</p></div></div>
+        </div>
+        <div>
+          <div class="card">
+            <h3>Every entry carries its certainty</h3>
+            <p>Nothing in a canon pretends to be more settled than it is. Each node and journey step carries one of five states, and the agent can only move something to the human's own words with the human's click.</p>
+            <div class="states">
+              <span class="state st-stated">stated <small>your words</small></span>
+              <span class="state st-assumed">assumed <small>the agent's guess</small></span>
+              <span class="state st-open">open <small>a known unknown</small></span>
+              <span class="state st-contested">contested <small>you disagree</small></span>
+              <span class="state st-resolved">resolved <small>agreed, recorded</small></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="try">
+    <div class="wrap">
+      <h2>Try it on a project</h2>
+      <p class="muted" style="max-width: 640px">Node 20 or newer, and Claude Code. Build the plugin from a checkout and load it into the project you want to align.</p>
+      <pre><code>git clone https://github.com/Althis/headcanon.git
+cd headcanon
+npm install
+npm run build
+
+# in the project you want to align
+claude --plugin-dir /path/to/headcanon</code></pre>
+      <p style="margin-top: 16px">Then run <code>/headcanon:adopt</code>. The skills it adds:</p>
+      <table>
+        <tr><td><code>/headcanon:adopt</code></td><td>Start the canon from the project's existing artifacts and your words, then review the draft on the canvas.</td></tr>
+        <tr><td><code>/headcanon:attend</code></td><td>Keep refining the tree in the background while you work in the page.</td></tr>
+        <tr><td><code>/headcanon:capture</code></td><td>Turn what a conversation established into a change request you approve.</td></tr>
+        <tr><td><code>/headcanon:review</code></td><td>Walk the assumed, open and contested items one at a time.</td></tr>
+        <tr><td><code>/headcanon:commit</code></td><td>Compose a commit with the intent trailers and run it through the hook.</td></tr>
+      </table>
+      <p class="muted" style="margin-top: 18px; font-size: 15px">HeadCanon is built with itself: its own repository has carried a canon and the intent trailers since the first commit. The <a href="https://github.com/Althis/headcanon/blob/main/docs/design-brief-v0.md">design brief</a> that started it is in the repository.</p>
+    </div>
+  </section>
+</main>
+
+<div class="wrap">
+  <footer>
+    <span><img src="assets/headcanon-mark.svg" alt="" width="22" height="22">HeadCanon</span>
+    <a href="https://github.com/Althis/headcanon">Source on GitHub</a>
+    <a href="https://github.com/Althis/headcanon/blob/main/LICENSE">Apache 2.0</a>
+    <span>Model-agnostic by design; Claude Code is the first target.</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  // Each scene is a short exchange. Lines appear in order; a "swap" strikes the
+  // first text and replaces it with the second a moment later.
+  const scenes = {
+    substitution: {
+      title: 'Substitution',
+      sub: 'A choice you never made is made for you, and the easy value becomes the spec.',
+      lines: [
+        { k: 'you', t: 'Search should find a product even when I misspell it. "Headfones" has to return headphones.' },
+        { k: 'agent', swap: ['How tolerant should it be? One typo, two, a setting?', 'Fuzzy matching with an edit distance of one. "Headfones" finds headphones. Done.'] },
+        { k: 'you', t: '"Hedphons" finds nothing.' },
+        { k: 'agent', t: 'That is two edits away. Fuzzy matching allows one.' },
+        { k: 'note', t: 'You never said one. The agent needed a number, took the easiest, and the guess shipped as if it were the request. The thing built is a narrower neighbour of the thing asked.' },
+        { k: 'canon', t: 'With a canon: a parameter you did not state is an open question, not a guess. The agent asks you to pick the tolerance or builds it as a setting, and either way the choice is recorded as yours.' },
+      ],
+    },
+    justification: {
+      title: 'Justification',
+      sub: 'The evidence is read until the result looks like the request.',
+      lines: [
+        { k: 'you', t: 'Exports have to finish in under two seconds; people wait on this screen.' },
+        { k: 'agent', t: 'Implemented the export. Measured 6.1 s on the sample data.' },
+        { k: 'agent', swap: ['expect(duration).toBeLessThan(2000)', 'expect(duration).toBeLessThan(10000)  // realistic for this dataset'], code: true },
+        { k: 'agent', t: '<span class="tick">✓</span> All tests pass. Export performance is covered.' },
+        { k: 'note', t: 'The test was written after the code, to pass. The report is true and the intent is gone.' },
+        { k: 'canon', t: 'With a canon: the threshold is your stated words. A test that loosens it contradicts the canon, and the change is contested, not merged.' },
+      ],
+    },
+    erosion: {
+      title: 'Erosion',
+      sub: 'A new request fits the moment and overwrites an older goal.',
+      lines: [
+        { k: 'time', t: 'March' },
+        { k: 'you', t: 'Offline first. Field workers have no signal for hours; everything must work from the local store.', fade: true },
+        { k: 'time', t: 'October, forty sessions later' },
+        { k: 'you', t: 'Add live collaboration so two people can edit the same report.' },
+        { k: 'agent', t: 'Done. Edits now go straight to the server so everyone sees the same state. Removed the local store, it was causing conflicts.' },
+        { k: 'note', t: 'Each step was reasonable in its own context. The March goal was never contradicted on purpose; it was simply not in the room.' },
+        { k: 'canon', t: 'With a canon: "works without a network" is a stated requirement in the tree. Removing the local store breaks a leaf, and the agent has to raise it before it builds.' },
+      ],
+    },
+  };
+
+  const modes = document.getElementById('modes');
+  const panel = document.getElementById('mode-panel');
+  const scene = document.getElementById('scene');
+  const title = document.getElementById('panel-title');
+  const buttons = Array.from(modes.querySelectorAll('.mode'));
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+  function render(key) {
+    const s = scenes[key];
+    title.innerHTML = esc(s.title) + ' <small>' + esc(s.sub) + '</small>';
+    let d = 0.15;
+    scene.innerHTML = s.lines.map(l => {
+      const who = l.k === 'you' ? '<span class="who">You</span>' : l.k === 'agent' ? '<span class="who">Agent</span>' : '';
+      let body;
+      if (l.swap) {
+        const [a, b] = l.swap.map(esc);
+        const wrap = l.code ? ['<code>', '</code>'] : ['', ''];
+        body = '<span class="swap" style="--d2:' + (d + 1.1).toFixed(2) + 's"><span class="old">' + wrap[0] + a + wrap[1] + '</span><br><span class="new">' + wrap[0] + b + wrap[1] + '</span></span>';
+        d += 1.0;
+      } else {
+        body = l.k === 'note' || l.k === 'canon' || (l.t && l.t.indexOf('<span class="tick">') === 0) ? l.t : esc(l.t);
+      }
+      const cls = 'line ' + l.k + (l.fade ? ' fade' : '');
+      const fadeAt = l.fade ? ' --d2:' + (d + 3.6).toFixed(2) + 's;' : '';
+      const html = '<div class="' + cls + '" style="--d:' + d.toFixed(2) + 's;' + fadeAt + '">' + who + body + '</div>';
+      d += l.k === 'time' ? 0.5 : 0.9;
+      return html;
+    }).join('');
+  }
+
+  function open(key) {
+    buttons.forEach(b => b.setAttribute('aria-expanded', String(b.dataset.mode === key)));
+    panel.hidden = false;
+    modes.classList.add('open');
+    render(key);
+    if (window.matchMedia('(max-width: 760px)').matches) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function close() {
+    buttons.forEach(b => b.setAttribute('aria-expanded', 'false'));
+    modes.classList.remove('open');
+    panel.hidden = true;
+    scene.innerHTML = '';
+  }
+  buttons.forEach(b => b.addEventListener('click', () => {
+    if (b.getAttribute('aria-expanded') === 'true') close(); else open(b.dataset.mode);
+  }));
+  document.getElementById('panel-close').addEventListener('click', close);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) close(); });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="HeadCanon mark, Held canon">
+<path d="M24 62V53C13 50 6 41 6 30 6 17 16 6 30 6s24 10 24 24c0 4-1 8-3 11l6 9-7 2v10z" fill="#161A22"/>
+<g stroke="#F5F1E8" stroke-width="2.6" stroke-linecap="round" fill="none">
+  <path d="M22 30h12M22 30l12-10M22 30l12 10M34 30l10-5M34 30l10 5"/>
+</g>
+<g fill="#F5F1E8"><circle cx="34" cy="20" r="3.2"/><circle cx="34" cy="30" r="3.2"/><circle cx="34" cy="40" r="3.2"/><circle cx="44" cy="25" r="3.2"/><circle cx="44" cy="35" r="3.2"/></g>
+<circle cx="22" cy="30" r="4.6" fill="#0B7368" stroke="#F5F1E8" stroke-width="2"/></svg>

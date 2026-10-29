@@ -1,5 +1,12 @@
 # HeadCanon
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/final/headcanon-lockup-dark.svg">
+    <img src="docs/brand/final/headcanon-lockup.svg" alt="HeadCanon" height="72">
+  </picture>
+</p>
+
 A Claude Code plugin that keeps a coding agent aligned with what the human
 is actually trying to build.
 
