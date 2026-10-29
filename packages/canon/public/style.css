@@ -178,6 +178,9 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: calc(var(--
 .sw.green { background: #16a34a; } .sw.yellow { background: #d97706; } .sw.red { background: #dc2626; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .popup { position: fixed; left: 24px; top: 84px; width: min(560px, 46vw); max-height: calc(100vh - 100px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.28); padding: 14px 16px; z-index: 25; box-sizing: border-box; }
+.popup.ask { z-index: 31; width: min(640px, 60vw); }
+.chat:empty::before { content: "What the session says appears here; what you write goes to it."; color: var(--muted); font-size: 12px; padding: 4px 2px; }
+.session-head .sub.has-q { cursor: pointer; text-decoration: underline dotted; }
 .popup-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: move; user-select: none; position: sticky; top: -14px; margin: -14px -16px 0; padding: 14px 16px 8px; background: var(--panel); z-index: 1; }
 .pp-resize { position: sticky; display: block; width: 14px; height: 14px; z-index: 2; }
 .pp-resize.nw, .pp-resize.ne { top: -14px; }

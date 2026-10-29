@@ -499,6 +499,28 @@ function showToast(msg) {
 // ---------------------------------------------------------------- session panel: questions from the agent, jargon gate, focus, messages
 const $session = document.getElementById("session");
 const $question = document.getElementById("question");
+// A question is a card over the canvas, moved by its header; the panel's header brings it back when put away.
+const $ask = document.getElementById("ask");
+function showAsk(header) {
+  document.getElementById("ask-sub").textContent = header ?? "";
+  $ask.hidden = false;
+  if ($ask.dataset.placed) return;
+  const area = $main.querySelector(".adopt #cy")?.getBoundingClientRect() ?? $main.getBoundingClientRect();
+  const w = Math.min(640, Math.max(320, area.width - 40));
+  $ask.style.width = `${w}px`;
+  $ask.style.left = `${Math.max(8, area.left + (area.width - w) / 2)}px`;
+  $ask.style.top = `${Math.max(60, area.top + Math.max(0, (area.height - $ask.offsetHeight) / 2))}px`;
+  $ask.dataset.placed = "1";
+}
+document.getElementById("ask-close").addEventListener("click", () => { $ask.hidden = true; });
+document.getElementById("session-status").addEventListener("click", () => { if (shownQuestionId) $ask.hidden = false; });
+$ask.querySelector(".popup-head").addEventListener("pointerdown", (e) => {
+  if (e.target.closest("button")) return;
+  const r = $ask.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+  const move = (ev) => { $ask.style.left = `${ev.clientX - dx}px`; $ask.style.top = `${Math.max(0, ev.clientY - dy)}px`; };
+  const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); };
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
+});
 const $tooltip = document.getElementById("tooltip");
 let shownQuestionId = null, lastFocusSeq = 0, lastCursor = 0, termState = {};
 function setToggle(collapsed) {
@@ -550,6 +572,7 @@ async function pollSession() {
     const pill = document.getElementById("session-pending");
     pill.textContent = s.pending; pill.hidden = s.pending === 0;
     document.getElementById("session-status").textContent = s.question ? `waiting on you: ${s.question.header}` : "no question waiting";
+    document.getElementById("session-status").classList.toggle("has-q", Boolean(s.question));
     if (s.focus && s.focus.seq !== lastFocusSeq) {
       lastFocusSeq = s.focus.seq;
       if (s.focus.id) {
@@ -569,7 +592,7 @@ async function pollSession() {
     if (s.cursor !== lastCursor) {
       lastCursor = s.cursor;
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { working = null; if (!s.question) { $question.innerHTML = `<p class="muted">Waiting for you. Open a box on the canvas, or write below.</p>`; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { working = null; if (!s.question) { $ask.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
       if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); }
     }
   } catch (e) { /* server away; try again */ }
@@ -580,9 +603,10 @@ let working = null;
 const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
 function showWorking(what) {
   if (!working) working = { since: Date.now(), answer: "" };
-  $question.innerHTML = `
-    <div class="working"><span class="spinner"></span><div><b>The session is working${what ? ` since ${esc(what)}` : ""}.</b> What it says or asks next appears here. <span class="muted" id="work-elapsed">${elapsed()}</span></div></div>
-    ${working.answer ? `<p class="muted">You answered: <b>${esc(working.answer.slice(0, 200))}</b></p>` : ""}`;
+  // the panel's header counts the seconds; the card goes away until the next question
+  $ask.hidden = true;
+  $question.innerHTML = "";
+  if (what) appendChat([{ kind: "sys", text: `The session is working since ${what}.`, at: new Date().toISOString() }]);
 }
 function renderQuestion(q, pending = 1) {
   working = null;
@@ -602,6 +626,7 @@ function renderQuestion(q, pending = 1) {
     <div class="opts" id="q-opts">${opts}</div>
     <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
     <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
+  showAsk(q.header);
   // One answer shape at a time: the options, or typed text that replaces them. Never both.
   $question.querySelector("#q-mode").addEventListener("click", () => {
     const free = $question.querySelector("#q-free"), optsEl = $question.querySelector("#q-opts"), mode = $question.querySelector("#q-mode");
