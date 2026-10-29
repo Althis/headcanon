@@ -36,6 +36,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
 
 - Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`; your questions are issues, never nodes.
 - The human gives this about a quarter of an hour, for the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
+- A red box titled as a question (the check's `title-question`) is a question from before the issues model: file it as an issue, with its Options as the suggestions and its parent as `nodeId`, and delete the box; the answer writes the node anew under a feature title.
 - A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
 - Write only files under `canon/`; `HC check` after every write; never commit from here.
 
