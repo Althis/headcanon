@@ -715,27 +715,18 @@ function adopt(selectedId) {
   </div>`;
 }
 // Progress of a draft: the agent writes one file per node in dependency order, so the canon on disk says
-// how far it is. Phases: premise, domains, capabilities, requirements, consistency pass, review, finished.
+// how far it is. Phases: reading, premise, then reviewing while the draft goes on under the reach rule, finished.
 function adoptProgress() {
   const nodes = Object.values(snap.canon.nodes);
   const finished = snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
   if (finished) return { phase: "Adoption finished", fraction: 1, detail: `${nodes.length} nodes committed` };
   if (!snap.canon.root && nodes.length === 0) return { phase: "Reading the repository", fraction: 0.03, detail: "the premise comes first" };
-  const roots = snap.canon.roots.map(node);
-  if (roots.length === 0) return { phase: "Drafting the premise and principles", fraction: 0.1, detail: "then the domains" };
-  const cut = (n) => n.children.length > 0 || n.state === "open";
-  const domains = roots.filter((n) => n.layer === "domain");
-  const caps = nodes.filter((n) => n.layer === "capability");
-  if (domains.length && !domains.some(cut)) return { phase: "Drafting the domains", fraction: 0.2, detail: `${domains.length} so far` };
-  const domainsCut = domains.filter(cut).length;
-  if (domains.length && domainsCut < domains.length) return { phase: "Drafting the capabilities", fraction: 0.25 + 0.3 * (domainsCut / domains.length), detail: `${domainsCut} of ${domains.length} domains cut · ${nodes.length} nodes` };
-  const capsCut = caps.filter(cut).length;
-  if (caps.length && capsCut < caps.length) return { phase: "Drafting the requirements", fraction: 0.55 + 0.35 * (capsCut / caps.length), detail: `${capsCut} of ${caps.length} capabilities cut · ${nodes.length} nodes` };
-  const spoke = chatCursor > 0 && [...document.querySelectorAll("#activity li.say")].length > 0;
-  if (!spoke) return { phase: "Consistency pass, then the canvas opens", fraction: 0.93, detail: `${nodes.length} nodes drafted` };
+  if (snap.canon.roots.length === 0) return { phase: "Drafting the premise and principles", fraction: 0.1, detail: "the canvas opens with the domains" };
+  // from the domains on, the human reviews while refiners cut what lies within reach of their approvals
   const c = adoptCounts();
   const total = c.green + c.yellow + c.red || 1;
-  return { phase: "Reviewing", fraction: 0.93 + 0.07 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you` };
+  const toCut = snap.stats?.unrefined ?? 0;
+  return { phase: "Reviewing while the draft goes on", fraction: 0.2 + 0.8 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you · ${toCut} box${toCut === 1 ? "" : "es"} still to cut` };
 }
 function progressStrip() {
   const p = adoptProgress();
