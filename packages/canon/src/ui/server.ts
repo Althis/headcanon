@@ -1,6 +1,6 @@
 import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { basename, dirname, extname, join, normalize, resolve } from "node:path";
+import { basename, dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import { approveNode, deletePrinciple, editNode, editPrinciple, setPrincipleState } from "../edits.js";
@@ -19,6 +19,16 @@ const TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+  ".json": "application/json; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
   ".ico": "image/x-icon",
 };
 
@@ -61,6 +71,8 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   const p = url.pathname;
   const method = req.method ?? "GET";
   const json = (status: number, body: unknown) => send(res, status, "application/json; charset=utf-8", JSON.stringify(body));
+  // A mock runs in a sandboxed frame with an opaque origin; nothing from such a frame may change the canon or the session.
+  if (p.startsWith("/api/") && method !== "GET" && req.headers.origin !== undefined && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, "text/plain; charset=utf-8", "Forbidden origin");
 
   if (p === "/api/health") return json(200, { ok: true, canon: canonDir });
   if (p === "/api/snapshot") {
@@ -202,6 +214,27 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     return json(200, { ...r, feed: session.push("node-created", { id: r.id, path: r.path, text: `${body.title.trim()} (created in the page)` }) });
   }
 
+  // ---- mocks (REQ-12.1.9): a mock's page and its files, served from the canon folder into a sandboxed frame ----
+  const mockMatch = /^\/api\/mock\/([A-Za-z0-9.-]+)(?:\/(.*))?$/.exec(p);
+  if (mockMatch && method === "GET") {
+    const m = loadCanon(canonDir).mocks.find((x) => x.id === mockMatch[1]);
+    if (!m) return send(res, 404, "text/plain; charset=utf-8", `No mock ${mockMatch[1]}`);
+    // The page's relative links resolve against the frame's URL, so the page lives under a trailing slash.
+    if (mockMatch[2] === undefined) { res.writeHead(302, { location: `/api/mock/${m.id}/` }); return void res.end(); }
+    const folder = resolve(canonDir, m.folder);
+    let sub = "";
+    try { sub = decodeURIComponent(mockMatch[2]); } catch { return send(res, 404, "text/plain; charset=utf-8", `Not found: ${p}`); }
+    // The viewer's frame has an opaque origin and cannot load the page's files, so it asks for the page as one
+    // document with those files bundled in; a tab opens the page itself, with its files beside it.
+    if (sub === "bundle") return send(res, 200, TYPES[".html"]!, prepareMockPage(bundleMockPage(readFileSync(resolve(canonDir, m.page), "utf8"), folder), m.needs));
+    const abs = normalize(join(folder, sub || basename(m.page)));
+    if (!abs.startsWith(folder + sep) || !existsSync(abs) || !statSync(abs).isFile()) return send(res, 404, "text/plain; charset=utf-8", `Not found: ${p}`);
+    const ext = extname(abs).toLowerCase();
+    if (ext === ".html" || ext === ".htm") return send(res, 200, TYPES[".html"]!, prepareMockPage(readFileSync(abs, "utf8"), m.needs));
+    res.writeHead(200, { "content-type": TYPES[ext] ?? "application/octet-stream", "cache-control": "no-store" });
+    return void createReadStream(abs).pipe(res);
+  }
+
   // ---- static ----
   const rel = p === "/" ? "index.html" : p.replace(/^\/+/, "");
   const file = normalize(join(PUBLIC, rel));
@@ -244,7 +277,79 @@ function presentQuestion(q: PendingQuestion) {
   };
   // An option's description is the item's draft; it gets the same tooltips and jargon marks as the body.
   const options = q.options.map((o) => ({ ...o, html: o.description ? decorate(marked.parseInline(o.description, { async: false }) as string) : "" }));
-  return { ...q, options, html: decorate(marked.parse(q.question, { async: false }) as string) };
+  return { ...q, options, draft: q.draft ? prepareMockPage(q.draft, []) : undefined, html: decorate(marked.parse(q.question, { async: false }) as string) };
+}
+
+/** The script tag the viewer adds to a mock's page for each declared need (REQ-6.8), unless the page already loads it. */
+const NEED_TAGS: Record<string, [RegExp, string]> = {
+  tailwind: [/tailwindcss/i, `<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>`],
+  lucide: [/unpkg\.com\/lucide|lucide(?:\.min)?\.js/i, `<script src="https://unpkg.com/lucide@latest"></script><script>addEventListener("load",function(){if(window.lucide)lucide.createIcons()})</script>`],
+};
+
+/**
+ * The bridge the viewer talks to inside a mock's frame: it lights an element when asked, scrolls to one, and
+ * reports hovers, clicks and the page's height. It never lights on its own; the viewer decides what is bound.
+ */
+const BRIDGE = [
+  "<script>(function(){",
+  'var S=document.createElement("style");S.textContent=".hc-lit{outline:2px solid #2563eb!important;outline-offset:2px;box-shadow:0 0 0 4px rgba(37,99,235,.18)!important}";(document.head||document.documentElement).appendChild(S);',
+  "function find(id){return document.getElementById(id)||document.querySelector('[data-el=\"'+String(id).replace(/\"/g,'')+'\"]')}",
+  'function idOf(el){while(el&&el.nodeType===1){if(el.id)return el.id;var d=el.getAttribute("data-el");if(d)return d;el=el.parentNode}return null}',
+  'function tell(m){parent.postMessage(m,"*")}',
+  'addEventListener("message",function(e){var d=e.data||{};if(d.type==="hc-light"){var el=find(d.id);if(el)el.classList.toggle("hc-lit",!!d.on)}else if(d.type==="hc-show"){var t=find(d.id);if(t)t.scrollIntoView({block:"center",behavior:"smooth"})}});',
+  'document.addEventListener("mouseover",function(e){var id=idOf(e.target);if(id)tell({type:"hc-hover",id:id,on:true})});',
+  'document.addEventListener("mouseout",function(e){var id=idOf(e.target);if(id)tell({type:"hc-hover",id:id,on:false})});',
+  'document.addEventListener("click",function(e){var id=idOf(e.target);if(id)tell({type:"hc-pick",id:id})});',
+  'function size(){tell({type:"hc-size",height:Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)})}',
+  'addEventListener("load",function(){size();setTimeout(size,400)});if(window.ResizeObserver)new ResizeObserver(size).observe(document.documentElement);',
+  "})();</script>",
+].join("");
+
+/** A file inside the mock's folder as a data URL, or undefined when the reference points elsewhere or at nothing. */
+function dataUrlOf(ref: string, fromDir: string, folder: string): string | undefined {
+  if (/^(?:[a-z]+:|\/\/|#)/i.test(ref)) return undefined;
+  const clean = ref.split(/[?#]/)[0] ?? "";
+  if (!clean) return undefined;
+  const abs = normalize(join(fromDir, decodeURIComponent(clean)));
+  if (!abs.startsWith(folder + sep) || !existsSync(abs) || !statSync(abs).isFile() || statSync(abs).size > 8_000_000) return undefined;
+  const type = (TYPES[extname(abs).toLowerCase()] ?? "application/octet-stream").split(";")[0];
+  return `data:${type};base64,${readFileSync(abs).toString("base64")}`;
+}
+
+/** The page with its own files bundled in: stylesheets inlined (with their url() files), scripts inlined, images as data URLs. */
+export function bundleMockPage(html: string, folder: string): string {
+  const attr = (tag: string, name: string, s: string, fn: (ref: string, tagText: string) => string | undefined) =>
+    s.replace(new RegExp(`<${tag}\\b[^>]*>`, "gi"), (tagText) => {
+      const m = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i").exec(tagText);
+      if (!m) return tagText;
+      return fn(m[2] ?? m[3] ?? "", tagText) ?? tagText;
+    });
+  const css = (text: string, fromDir: string) => text.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (whole, q: string, ref: string) => { const d = dataUrlOf(ref.trim(), fromDir, folder); return d ? `url("${d}")` : whole; });
+  let out = html;
+  out = attr("link", "href", out, (ref, tagText) => {
+    if (!/rel\s*=\s*["']?stylesheet/i.test(tagText) || /^(?:[a-z]+:|\/\/)/i.test(ref)) return undefined;
+    const abs = normalize(join(folder, decodeURIComponent(ref.split(/[?#]/)[0] ?? "")));
+    if (!abs.startsWith(folder + sep) || !existsSync(abs)) return undefined;
+    return `<style>${css(readFileSync(abs, "utf8"), dirname(abs))}</style>`;
+  });
+  out = attr("script", "src", out, (ref) => {
+    if (/^(?:[a-z]+:|\/\/)/i.test(ref)) return undefined;
+    const abs = normalize(join(folder, decodeURIComponent(ref.split(/[?#]/)[0] ?? "")));
+    if (!abs.startsWith(folder + sep) || !existsSync(abs)) return undefined;
+    return `<script>${readFileSync(abs, "utf8").replace(/<\/script/gi, "<\\/script")}</script>`;
+  });
+  out = out.replace(/<script>(<script>)/g, "$1");
+  for (const tag of ["img", "source", "video", "audio"]) out = attr(tag, "src", out, (ref, tagText) => { const d = dataUrlOf(ref, folder, folder); return d ? tagText.replace(ref, d) : undefined; });
+  out = out.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (whole, body: string) => whole.replace(body, css(body, folder)));
+  return out;
+}
+
+/** A mock's page as the frame receives it: the declared needs in the head, the bridge at the end of the body. */
+export function prepareMockPage(html: string, needs: readonly string[]): string {
+  const head = needs.map((n) => NEED_TAGS[n]).filter((t): t is [RegExp, string] => !!t && !t[0].test(html)).map((t) => t[1]).join("");
+  let out = html;
+  if (head) out = /<head[^>]*>/i.test(out) ? out.replace(/<head[^>]*>/i, (m) => m + head) : head + out;
+  return /<\/body>/i.test(out) ? out.replace(/<\/body>/i, BRIDGE + "</body>") : out + BRIDGE;
 }
 
 function escapeAttr(s: string): string {
@@ -253,7 +358,7 @@ function escapeAttr(s: string): string {
 
 function fileOf(canonDir: string, id: string): { abs: string; rel: string } | undefined {
   const canon = loadCanon(canonDir);
-  const rel = id === "ROOT" ? canon.root?.file : canon.nodes[id]?.file ?? canon.journeys.find((j) => j.id === id)?.file ?? canon.decisions.find((d) => d.id === id)?.file;
+  const rel = id === "ROOT" ? canon.root?.file : canon.nodes[id]?.file ?? canon.journeys.find((j) => j.id === id)?.file ?? canon.decisions.find((d) => d.id === id)?.file ?? canon.mocks.find((m) => m.id === id)?.file;
   if (!rel) return undefined;
   const abs = resolve(canonDir, rel);
   if (!abs.startsWith(resolve(canonDir))) return undefined;

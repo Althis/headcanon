@@ -24,6 +24,7 @@ Pushed earlier by the sixth run's flow (they now happen during drafting and the 
 - The attend loop: reworking children after an approval, a rewrite or a deletion; answering a question about a highlighted passage; a refine request from the card; the working indicator; the Finish check.
 - Resuming an unfinished adoption in a new session.
 - The "enough to guess" rule: whether it guesses too much or too little.
+- Mocks (REQ-6.8, REQ-3.16, REQ-8.8, REQ-12.1.9), nothing of which a run has met: a visual node refined from its mock, the mock question with a draft page, the walk of states and the width presets, a Figma export brought in as a page with its needs declared, a revision accepted element by element, the attend loop over a changed mock, and the Mocks view with lit elements. Checked only on the fixture and on this canon's MOCK-1.
 - Approving, rewriting or deleting a principle from its own card; principles carry their own state since 2026-10-18.
 - The reach limit (DEC-018): nothing drafted more than two levels below the deepest approved box; `HC next` reporting what waits and which approval releases it; whether two levels is the right distance.
 - The canvas on a canon of real size: the lanes simulation, the radial view (rings per dot, dendrogram forks, the sibling swaps that pull dependency lines apart), the tree view (columns as wide as their longest row, one row per leaf), and the view keeping a selected or dropped box on screen. Run 6 rendered the 187-node draft; the fixture checks cover eight nodes.

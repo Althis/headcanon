@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { branchOf, descendants } from "./load.js";
 import { isUnrefined, refinementOrder } from "./next.js";
-import { STATES, type Canon, type Finding, type Level, type State } from "./types.js";
+import { MOCK_NEEDS, STATES, type Canon, type Finding, type Level, type State } from "./types.js";
 
 function finding(level: Level, code: string, message: string, extra: Partial<Finding> = {}): Finding {
   return { level, code, message, id: undefined, file: undefined, branch: undefined, ...extra };
@@ -15,6 +15,9 @@ export function checkCanon(canon: Canon): Finding[] {
   const journeySteps = new Set<string>();
   for (const j of canon.journeys) for (const s of j.steps) journeySteps.add(`${j.id}/${s.id}`);
   const journeyIds = new Set(canon.journeys.map((j) => j.id));
+  const mockIds = new Set(canon.mocks.map((m) => m.id));
+  const mockElements = new Set<string>();
+  for (const m of canon.mocks) for (const e of m.elements) mockElements.add(`${m.id}#${e.id}`);
   const decisionsByIntent = new Map<string, string[]>();
   for (const d of canon.decisions) for (const i of d.intents) (decisionsByIntent.get(i) ?? decisionsByIntent.set(i, []).get(i))!.push(d.id);
 
@@ -37,6 +40,10 @@ export function checkCanon(canon: Canon): Finding[] {
     for (const s of n.steps) {
       if (journeyIds.has(s) || journeySteps.has(s)) continue;
       out.push(finding("error", "link-unknown", `${n.id} links to step ${s}, which does not exist`, at));
+    }
+    for (const s of n.mocks) {
+      if (mockIds.has(s) || mockElements.has(s)) continue;
+      out.push(finding("error", "link-unknown", `${n.id} is bound to ${s}, which does not exist`, at));
     }
     for (const f of n.files) {
       if (!existsSync(join(repoRoot, f)))
@@ -106,11 +113,28 @@ export function checkCanon(canon: Canon): Finding[] {
     }
   }
 
+  // Mocks (REQ-6.8): the page exists, its needs are ones the viewer provides, every row names requirements that
+  // exist, and an element nothing asks for is noted.
+  for (const m of canon.mocks) {
+    const at = { id: m.id, file: m.file };
+    if (!existsSync(join(canon.dir, m.page))) out.push(finding("error", "file-missing", `${m.id} has no page at ${m.page}`, at));
+    for (const n of m.needs) if (!MOCK_NEEDS.includes(n)) out.push(finding("warn", "unknown-need", `${m.id} needs ${n}, which the viewer does not provide (it provides ${MOCK_NEEDS.join(", ")})`, at));
+    if (m.elements.length === 0) out.push(finding("warn", "mock-no-elements", `${m.id} has no element table`, at));
+    for (const e of m.elements) {
+      const here = { ...at, id: `${m.id}#${e.id}` };
+      if (e.requirements.length === 0 && e.state !== "open") out.push(finding("info", "unbound-element", `${m.id}#${e.id} (${e.label}) carries no requirement`, here));
+      for (const r of e.requirements)
+        if (!canon.nodes[r]) out.push(finding("error", "link-unknown", `${m.id}#${e.id} links to ${r}, which does not exist`, here));
+    }
+    if (m.state === "contested") out.push(finding("warn", "contested", `${m.id} is contested: ${m.title}`, at));
+    if (m.state === "open") out.push(finding("info", "open", `${m.id} is an open question: ${m.title}`, at));
+  }
+
   for (const d of canon.decisions) {
     const at = { id: d.id, file: d.file };
     if (d.intents.length === 0) out.push(finding("warn", "decision-unlinked", `${d.id} serves no intent`, at));
     for (const i of d.intents)
-      if (!canon.nodes[i] && !journeyIds.has(i))
+      if (!canon.nodes[i] && !journeyIds.has(i) && !mockIds.has(i))
         out.push(finding("error", "link-unknown", `${d.id} links to ${i}, which does not exist`, at));
     if (d.state === "assumed") out.push(finding("info", "decision-unconfirmed", `${d.id} is not yet confirmed: ${d.title}`, at));
     if (d.origin && !["misread", "obstacle", "side-effect"].includes(d.origin))

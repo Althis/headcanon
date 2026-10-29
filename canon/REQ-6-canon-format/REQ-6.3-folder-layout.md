@@ -29,5 +29,5 @@ Source: docs/design-brief-v0.md:196-209
 
 ## Intent
 
-This canon follows that layout. A node with children is a folder whose README.md is the node; a leaf is a single file.
+This canon follows that layout. A node with children is a folder whose README.md is the node; a leaf is a single file. `mocks/` holds the mocks, a page folder and its record per mock (REQ-6.8).
 

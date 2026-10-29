@@ -48,6 +48,8 @@ export interface ReqNode {
   conflicts: string[];
   requires: string[];
   steps: string[];
+  /** Mock elements this node is seen in, written `MOCK-1#finish` (REQ-6.8). */
+  mocks: string[];
   files: string[];
   baseline: string | undefined;
   /** Path relative to the canon directory. */
@@ -74,6 +76,34 @@ export interface Journey {
   body: string;
   mermaid: string | undefined;
   steps: JourneyStep[];
+}
+
+/** The libraries a mock's page may declare under `needs`; the viewer adds each as a script tag (REQ-6.8). */
+export const MOCK_NEEDS: readonly string[] = ["tailwind", "lucide"];
+
+/** One named part of a mock's page (REQ-6.8): an element with an `id` or `data-el`, and the requirements it carries. */
+export interface MockElement {
+  id: string;
+  label: string;
+  state: State;
+  requirements: string[];
+}
+
+/** A mock: an HTML page of one thing a person will see, and the table that binds its elements to requirements (REQ-6.8). */
+export interface Mock {
+  id: string;
+  title: string;
+  state: State;
+  source: string | undefined;
+  /** The page, relative to the canon directory: `<stem>/index.html` beside the record unless `page` says otherwise. */
+  page: string;
+  /** The page's folder, relative to the canon directory; everything the page uses lives under it. */
+  folder: string;
+  /** Libraries the page relies on and the viewer provides, from `needs`; see MOCK_NEEDS. */
+  needs: string[];
+  file: string;
+  body: string;
+  elements: MockElement[];
 }
 
 export interface Decision {
@@ -110,6 +140,7 @@ export interface Canon {
   /** Top-level requirement IDs in order. */
   roots: string[];
   journeys: Journey[];
+  mocks: Mock[];
   decisions: Decision[];
   terms: Term[];
   principles: Principle[];
