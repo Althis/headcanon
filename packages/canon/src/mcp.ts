@@ -205,7 +205,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     {
       title: "What the human did in the page",
       description:
-        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages (with `quote` and `nodeId` when the human highlighted a passage in a node's card first), refine-request entries naming a branch to define next, and a finish-request when they pressed Finish. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
+        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages (with `quote` and `nodeId` when the human highlighted a passage in a node's card first), edit-conflict entries when the session rewrote a box the human was writing in and they chose to keep theirs or take the session's, refine-request entries naming a branch to define next, and a finish-request when they pressed Finish. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
       inputSchema: {
         since: z.number().optional().describe("The cursor returned last time; 0 or omitted for everything."),
         waitSeconds: z.number().optional().describe(`Wait this long for a first entry before returning empty (max ${WAIT_MAX}).`),

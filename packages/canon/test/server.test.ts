@@ -99,10 +99,12 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(loadCanon(join(dir, "canon")).terms.map((t) => t.id)).toContain("TERM-widget");
     await send("/api/message", { text: "please go deeper on REQ-1" });
     await send("/api/message", { text: "what does this mean?", nodeId: "REQ-1", quote: "productive without help" });
+    await send("/api/conflict", { id: "REQ-1", choice: "keep" });
     await send("/api/refine", { id: "REQ-1" });
     const changes = await get(`/api/changes?since=${before}`);
     const entries = changes["entries"] as Array<Record<string, unknown>>;
-    expect(entries.map((e) => e["kind"])).toEqual(["term-enshrined", "message", "message", "refine-request"]);
+    expect(entries.map((e) => e["kind"])).toEqual(["term-enshrined", "message", "message", "edit-conflict", "refine-request"]);
+    expect(entries[3]).toMatchObject({ kind: "edit-conflict", id: "REQ-1" });
     expect(entries[2]).toMatchObject({ kind: "message", id: "REQ-1", quote: "productive without help", text: "what does this mean?" });
   });
 

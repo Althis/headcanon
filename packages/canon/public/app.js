@@ -580,20 +580,21 @@ async function pollSession() {
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
     }
-    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
+    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); chime(); }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     // While a draft is being written there is no feed entry per file; on the Adopt view, re-read the canon
     // every few seconds and redraw when nodes appeared, so the progress strip and the canvas grow with it.
     if (route().view === "adopt" && !s.question && (pollSession.tick = (pollSession.tick ?? 0) + 1) % 3 === 0) {
       const fresh = await fetch("/api/snapshot", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (fresh && (fresh.stats.nodes !== snap.stats.nodes || fresh.canon.decisions.length !== snap.canon.decisions.length || Boolean(fresh.canon.root) !== Boolean(snap.canon.root))) { snap = fresh; for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; } if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
+      const ed = editingDraft();
+      if (fresh && (fresh.stats.nodes !== snap.stats.nodes || fresh.canon.decisions.length !== snap.canon.decisions.length || Boolean(fresh.canon.root) !== Boolean(snap.canon.root) || (ed && fresh.html[ed.id] !== snap.html[ed.id]))) { snap = fresh; for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; } if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } checkConflict(); chime(); }
     }
     if (s.cursor !== lastCursor) {
       lastCursor = s.cursor;
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { working = null; if (!s.question) { $ask.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
-      if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); }
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $ask.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
+      if (shownQuestionId === null) { await load().catch(() => {}); checkConflict(); if (route().view !== "tree" && route().view !== "node") render(); }
     }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
@@ -1451,12 +1452,14 @@ function buildAdoptCanvas() {
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
 // The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
-function focusOnCanvas(id, open) { adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id); }
+function focusOnCanvas(id, open) { adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open && editingDraft()) showToast(`The session points at ${id}; your rewrite stays open.`); else if (open) openPopup(id); }
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
 const $popup = document.getElementById("popup");
 function openPopup(id) {
+  const draft = editingDraft();
+  if (draft && draft.id !== id) { showToast(`Finish or cancel your rewrite of ${draft.id} first.`); return; }
   const isRoot = id === "ROOT";
   const isPrinciples = id === "PRINCIPLES";
   const prn = id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id) : null;
@@ -1492,7 +1495,7 @@ function openPopup(id) {
   $popup.dataset.id = id;
   if (wasHidden) centerPopup();
   wirePopupMoves();
-  $popup.querySelector("#pp-close").addEventListener("click", closePopup);
+  $popup.querySelector("#pp-close").addEventListener("click", () => { if (editingDraft() && !confirm("Discard your rewrite?")) return; closePopup(); });
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
   });
@@ -1502,22 +1505,75 @@ function openPopup(id) {
   });
   $popup.querySelector("#pp-toggle")?.addEventListener("click", () => { toggleExpand(id); openPopup(id); });
   $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
-  $popup.querySelector("#pp-edit").addEventListener("click", async () => {
+  const startEdit = async (keep) => {
     const editor = $popup.querySelector("#pp-editor");
-    const raw = prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
-    const intent = prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
+    const raw = keep || prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
+    const intent = keep ? keep.intent : prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
     editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
-      ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
+      ${isRoot ? "" : `<input id="pp-title" value="${esc(keep?.title ?? n.title)}" placeholder="Title, in plain words" />`}
       <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
       <div class="row"><button class="btn primary" id="pp-save">Save</button><button class="btn" id="pp-cancel">Cancel</button></div>`;
-    editor.querySelector("#pp-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    if (!keep) editBase = { id, html: snap.html[id] ?? "" };
+    editor.querySelector("#pp-cancel").addEventListener("click", () => { editor.innerHTML = ""; editBase = null; });
     editor.querySelector("#pp-save").addEventListener("click", async () => {
       const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
       try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
     });
-  });
+  };
+  $popup.querySelector("#pp-edit").addEventListener("click", () => startEdit());
+  if (draft) startEdit(draft);
 }
-function closePopup() { $popup.hidden = true; delete $popup.dataset.id; window.CSS?.highlights?.delete("quote"); }
+function closePopup() { $popup.hidden = true; delete $popup.dataset.id; editBase = null; document.getElementById("conflict").hidden = true; window.CSS?.highlights?.delete("quote"); }
+// A rewrite in progress: what the human has typed, so that no redraw can lose it.
+function editingDraft() {
+  if ($popup.hidden) return null;
+  const ta = $popup.querySelector("#pp-editor #pp-intent");
+  if (!ta) return null;
+  return { id: $popup.dataset.id, title: $popup.querySelector("#pp-editor #pp-title")?.value, intent: ta.value };
+}
+// The text a rewrite started from. When the session rewrites that box meanwhile, the human chooses: keep
+// what they typed, or take the session's words; the session hears which as an edit-conflict entry.
+let editBase = null;
+function checkConflict() {
+  const d = editingDraft();
+  if (!d || !editBase || editBase.id !== d.id) return;
+  const dlg = document.getElementById("conflict");
+  if ((snap.html[d.id] ?? "") === editBase.html || !dlg.hidden) return;
+  document.getElementById("conflict-sub").textContent = d.id;
+  document.getElementById("conflict-text").textContent = `The session rewrote ${d.id} while you were writing. Keep your version and go on, or switch to the session's words and drop what you typed?`;
+  dlg.hidden = false;
+  chime();
+}
+{
+  const dlg = document.getElementById("conflict");
+  const tell = (choice, id) => post("/api/conflict", { id, choice }).catch(() => {});
+  document.getElementById("conflict-keep").addEventListener("click", () => { const d = editingDraft(); dlg.hidden = true; if (!d) return; editBase = { id: d.id, html: snap.html[d.id] ?? "" }; tell("keep", d.id); });
+  document.getElementById("conflict-take").addEventListener("click", () => { const d = editingDraft(); dlg.hidden = true; if (!d) return; $popup.querySelector("#pp-editor").innerHTML = ""; editBase = null; tell("take", d.id); openPopup(d.id); });
+}
+// A chime when the session speaks, asks, or changes the canon; the bell in the panel's header mutes it.
+let chimeOn = true;
+try { chimeOn = localStorage.getItem("hc-chime") !== "off"; } catch {}
+function chime() {
+  chime.count = (chime.count ?? 0) + 1;
+  if (!chimeOn) return;
+  try {
+    const ctx = (chime.ctx ??= new (window.AudioContext || window.webkitAudioContext)());
+    if (ctx.state === "suspended") ctx.resume();
+    const t = ctx.currentTime;
+    for (const [freq, dt] of [[880, 0], [1320, 0.12]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t + dt); g.gain.exponentialRampToValueAtTime(0.16, t + dt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.5);
+      o.connect(g).connect(ctx.destination); o.start(t + dt); o.stop(t + dt + 0.55);
+    }
+  } catch {}
+}
+{
+  const bell = document.getElementById("chime-toggle");
+  const show = () => { bell.textContent = chimeOn ? "🔔" : "🔕"; bell.title = chimeOn ? "A chime when the session speaks or changes the canon; click to mute" : "Muted; click to chime again"; };
+  bell.addEventListener("click", () => { chimeOn = !chimeOn; try { localStorage.setItem("hc-chime", chimeOn ? "on" : "off"); } catch {} show(); if (chimeOn) chime(); });
+  show();
+}
 /** Remove one rendered `<h2>` section from a node's HTML. */
 function stripHtmlSection(html, heading) {
   const re = new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
@@ -1578,11 +1634,13 @@ function wirePopupMoves() {
 }
 // Asking about a passage: select words in a card and the chat is ready with them. The words stay lit in the
 // card, the chip above the message box names the node and the words, and the cursor is in the box.
-document.addEventListener("mouseup", () => {
+document.addEventListener("mouseup", (ev) => {
+  const target = ev.target;
   setTimeout(() => {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
-    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) return;
+    // a plain click anywhere but the panel drops a highlighted passage; the panel is where the question is typed
+    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) { if (quote && !document.getElementById("session").contains(target)) setQuote(null); return; }
     if (window.CSS?.highlights && window.Highlight) CSS.highlights.set("quote", new Highlight(sel.getRangeAt(0).cloneRange()));
     setQuote({ id: $popup.dataset.id, text: text.slice(0, 300) });
     openSession();

@@ -58,6 +58,7 @@ export interface PendingQuestion {
 export type FeedKind =
   | "answer"
   | "message"
+  | "edit-conflict"
   | "say"
   | "refine-request"
   | "finish-request"

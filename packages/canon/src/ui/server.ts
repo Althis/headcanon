@@ -108,6 +108,13 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
     return json(200, session.push("message", { text: body.text.trim(), id: body.nodeId, quote: body.quote?.trim() || undefined }));
   }
+  // The session rewrote a box the human was writing in; the human chose, and the session hears which.
+  if (p === "/api/conflict" && method === "POST") {
+    const body = (await readJson(req)) as { id?: string; choice?: string };
+    if (!body?.id) return json(400, { error: "id is required" });
+    const keep = body.choice === "keep";
+    return json(200, session.push("edit-conflict", { id: body.id, text: keep ? `${body.id}: the human keeps their own rewrite in progress over yours; leave the box until their words arrive` : `${body.id}: the human took your rewrite and dropped theirs` }));
+  }
   // The session speaks to the human: a line in the page's chat, optionally about a node.
   if (p === "/api/say" && method === "POST") {
     const body = (await readJson(req)) as { text?: string; nodeId?: string };
