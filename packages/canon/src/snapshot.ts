@@ -48,8 +48,8 @@ export function buildSnapshot(canonDir: string): Snapshot {
   if (canon.root) html["ROOT"] = render(stripSection(canon.root.body, "Glossary"));
   for (const n of Object.values(canon.nodes)) html[n.id] = render(n.body);
   for (const j of canon.journeys) html[j.id] = render(j.body.replace(/```mermaid[\s\S]*?```/, ""));
-  // The page shows a mock's picture and table itself; the rest of the record renders as prose.
-  for (const m of canon.mocks) html[m.id] = render(m.body.replace(/^!\[[^\]]*\]\([^)]*\)[ \t]*$/gm, "").replace(/^\|.*$/gm, ""));
+  // The viewer shows a mock's page and table itself; the link to the page and the table are dropped from the prose.
+  for (const m of canon.mocks) html[m.id] = render(m.body.replace(/^!?\[[^\]]*\]\([^)]*\)[ \t]*$/gm, "").replace(/^\|.*$/gm, ""));
   for (const d of canon.decisions) html[d.id] = render(d.body);
 
   return {

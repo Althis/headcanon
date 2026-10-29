@@ -26,9 +26,9 @@ export interface AskRequest {
   terms?: TermGuess[];
   /** Something the human must know that is not part of the draft, shown apart from the question. */
   notice?: string;
-  /** A mock whose picture the page shows above the question (REQ-12.1.9). */
+  /** A mock whose page the viewer shows above the question (REQ-12.1.9). */
   mock?: string;
-  /** A proposed picture as inline SVG, shown beside the mock or alone; it reaches the disk only once accepted. */
+  /** A proposed page as a complete inline HTML document, shown beside the mock or alone; it reaches the disk only once accepted. */
   draft?: string;
 }
 

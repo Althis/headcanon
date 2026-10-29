@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { branchOf, descendants } from "./load.js";
 import { isUnrefined, refinementOrder } from "./next.js";
-import { STATES, type Canon, type Finding, type Level, type State } from "./types.js";
+import { MOCK_NEEDS, STATES, type Canon, type Finding, type Level, type State } from "./types.js";
 
 function finding(level: Level, code: string, message: string, extra: Partial<Finding> = {}): Finding {
   return { level, code, message, id: undefined, file: undefined, branch: undefined, ...extra };
@@ -113,10 +113,12 @@ export function checkCanon(canon: Canon): Finding[] {
     }
   }
 
-  // Mocks (REQ-6.8): the picture exists, every row names requirements that exist, and an element nothing asks for is noted.
+  // Mocks (REQ-6.8): the page exists, its needs are ones the viewer provides, every row names requirements that
+  // exist, and an element nothing asks for is noted.
   for (const m of canon.mocks) {
     const at = { id: m.id, file: m.file };
-    if (!existsSync(join(canon.dir, m.image))) out.push(finding("error", "file-missing", `${m.id} names picture ${m.image}, which is not in the canon folder`, at));
+    if (!existsSync(join(canon.dir, m.page))) out.push(finding("error", "file-missing", `${m.id} has no page at ${m.page}`, at));
+    for (const n of m.needs) if (!MOCK_NEEDS.includes(n)) out.push(finding("warn", "unknown-need", `${m.id} needs ${n}, which the viewer does not provide (it provides ${MOCK_NEEDS.join(", ")})`, at));
     if (m.elements.length === 0) out.push(finding("warn", "mock-no-elements", `${m.id} has no element table`, at));
     for (const e of m.elements) {
       const here = { ...at, id: `${m.id}#${e.id}` };

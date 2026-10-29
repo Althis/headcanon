@@ -3,12 +3,12 @@ id: MOCK-1
 title: "Sign-up form"
 state: assumed
 source: "REQ-1.1 (archetype of a sign-up form)"
-image: MOCK-1-signup.svg
+needs: [tailwind]
 ---
 
 # Sign-up form
 
-![Sign-up form](MOCK-1-signup.svg)
+[Open the page](MOCK-1-signup/index.html)
 
 | Element | State | Linked requirements |
 | --- | --- | --- |

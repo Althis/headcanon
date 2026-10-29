@@ -401,14 +401,20 @@ function journeys(focus) {
   return `<h1>Journeys</h1><p class="lede">How the user envisions the product working. Intent records, not tests.${focus ? ` <a href="#/journeys">all journeys</a>` : ""}</p>${cards || `<p class="empty">No journeys.</p>`}`;
 }
 // ---------------------------------------------------------------- mocks (REQ-12.1.9)
-// A mock is a picture with an element table; the page shows the picture inline, so pointing at a row lights
-// its element and pointing at an element lights its rows. Journeys and mocks share one shape of card.
+// A mock is an HTML page with an element table. The page runs in a sandboxed frame served from the canon folder;
+// a bridge inside it lights an element on request and reports hovers, so pointing at a row lights its element and
+// pointing at an element lights its rows. Width presets show how the page responds.
+const MOCK_WIDTHS = [["Phone", 390], ["Tablet", 768], ["Laptop", 1200], ["Fit", 0]];
+// The frame has an opaque origin and no access to this page or its server; it receives the mock as one bundled
+// document (or the draft inline), so its scripts run and its files show without the origin ever being ours.
+const mockFrame = (mockId) => `<div class="mock-frame-wrap"><iframe class="mock-frame" sandbox="allow-scripts" ${mockId ? `data-mock="${esc(mockId)}"` : `data-draft="1"`} title="mock"></iframe></div>`;
 function mocks(focus) {
   const list = focus ? snap.canon.mocks.filter((m) => m.id === focus) : snap.canon.mocks;
   const cards = list.map((m) => `
     <div class="card mock" id="${esc(m.id)}">
       <div class="row"><span class="id">${esc(m.id)}</span><h3 style="margin:0">${esc(m.title)}</h3> ${badge(m.state)} ${m.source ? `<span class="muted mono">${esc(m.source)}</span>` : ""}</div>
-      <figure class="mock-figure" data-mock="${esc(m.id)}"><p class="muted">Loading the picture…</p></figure>
+      <div class="row mock-widths">${MOCK_WIDTHS.map(([n, w]) => `<button class="btn small ${w ? "" : "on"}" data-width="${w}">${n}</button>`).join("")}<a class="sub" href="/api/mock/${esc(m.id)}/" target="_blank" rel="noopener">open in a tab</a>${(m.needs ?? []).length ? `<span class="sub">needs ${m.needs.map(esc).join(", ")}</span>` : ""}</div>
+      ${mockFrame(m.id)}
       <table class="list mock-table"><thead><tr><th>Element</th><th>State</th><th>Linked requirements</th></tr></thead><tbody>
         ${m.elements.map((e) => `<tr data-el="${esc(e.id)}"><td><span class="id">#${esc(e.id)}</span> ${esc(e.label)}</td><td>${badge(e.state)}</td><td>${e.requirements.map((r) => `${idLink(r)}${node(r) ? ` <span class="muted">${esc(node(r).title)}</span>` : ` <span class="badge error">missing</span>`}`).join("<br>")}</td></tr>`).join("")}
       </tbody></table>
@@ -416,46 +422,43 @@ function mocks(focus) {
     </div>`).join("");
   return `<h1>Mocks</h1><p class="lede">What a person will see, each part bound to the requirements it carries.${focus ? ` <a href="#/mocks">all mocks</a>` : ""}</p>${cards || `<p class="empty">No mocks.</p>`}`;
 }
-// A picture is placed inline so its elements are reachable; scripts, handlers and script links are stripped first.
-function cleanSvgNode(text) {
-  const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
-  if (!svg || svg.nodeName.toLowerCase() !== "svg") return null;
-  for (const s of svg.querySelectorAll("script, foreignObject")) s.remove();
-  for (const el of svg.querySelectorAll("*")) for (const a of [...el.attributes]) if (/^on/i.test(a.name) || (/href$/i.test(a.name) && /^\s*javascript:/i.test(a.value))) el.removeAttribute(a.name);
-  svg.removeAttribute("width"); svg.removeAttribute("height");
-  return document.importNode(svg, true);
-}
-function wireMocks(root) {
-  for (const fig of root.querySelectorAll(".mock-figure[data-mock]:not([data-wired])")) {
-    fig.dataset.wired = "1";
-    fetch(`/api/mock/${encodeURIComponent(fig.dataset.mock)}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status))))).then((text) => {
-      const svg = cleanSvgNode(text);
-      for (const p of fig.querySelectorAll("p")) p.remove();
-      if (svg) { fig.appendChild(svg); lightMock(fig); } else fig.insertAdjacentHTML("beforeend", `<p class="muted">The picture is not an SVG.</p>`);
-    }).catch(() => { for (const p of fig.querySelectorAll("p")) p.textContent = "The picture is missing."; });
+// Rows light their element through the frame's bridge; width buttons resize the frame; a draft page is set as srcdoc.
+function wireMocks(root, draft) {
+  for (const f of root.querySelectorAll("iframe[data-draft]:not([data-wired])")) { f.dataset.wired = "1"; if (draft) f.srcdoc = draft; }
+  for (const f of root.querySelectorAll("iframe[data-mock]:not([data-wired])")) {
+    f.dataset.wired = "1";
+    fetch(`/api/mock/${encodeURIComponent(f.dataset.mock)}/bundle`).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status))))).then((html) => { f.srcdoc = html; }).catch(() => { f.srcdoc = `<p style="font:14px system-ui;color:#777;padding:12px">The page of ${f.dataset.mock} could not be loaded.</p>`; });
   }
-  for (const fig of root.querySelectorAll(".mock-figure.draft:not([data-wired])")) {
-    fig.dataset.wired = "1";
-    const raw = fig.querySelector("svg");
-    if (raw) { const svg = cleanSvgNode(raw.outerHTML); if (svg) raw.replaceWith(svg); else raw.remove(); }
+  for (const b of root.querySelectorAll(".mock-widths [data-width]:not([data-wired])")) {
+    b.dataset.wired = "1";
+    b.addEventListener("click", () => {
+      const card = b.closest(".mock"), w = Number(b.dataset.width);
+      for (const o of card.querySelectorAll("[data-width]")) o.classList.toggle("on", o === b);
+      const frame = card.querySelector("iframe.mock-frame"); frame.style.width = w ? `${w}px` : ""; frame.closest(".mock-frame-wrap").classList.toggle("fixed", !!w);
+    });
   }
-}
-function lightMock(fig) {
-  const card = fig.closest(".mock") ?? fig.parentElement;
-  const rows = [...card.querySelectorAll("tr[data-el]")];
-  const el = (id) => fig.querySelector(`#${CSS.escape(id)}`);
-  const set = (id, on) => { el(id)?.classList.toggle("lit", on); for (const r of rows) if (r.dataset.el === id) r.classList.toggle("lit", on); };
-  for (const r of rows) {
-    r.addEventListener("mouseenter", () => set(r.dataset.el, true));
-    r.addEventListener("mouseleave", () => set(r.dataset.el, false));
-    const g = el(r.dataset.el);
-    if (!g) { r.title = "This element is not in the picture"; continue; }
-    g.style.cursor = "pointer";
-    g.addEventListener("mouseenter", () => set(r.dataset.el, true));
-    g.addEventListener("mouseleave", () => set(r.dataset.el, false));
-    g.addEventListener("click", () => r.scrollIntoView({ block: "nearest" }));
+  for (const r of root.querySelectorAll(".mock tr[data-el]:not([data-wired])")) {
+    r.dataset.wired = "1";
+    const light = (on) => { const frame = r.closest(".mock")?.querySelector("iframe.mock-frame"); frame?.contentWindow?.postMessage({ type: on ? "hc-light" : "hc-light", id: r.dataset.el, on }, "*"); r.classList.toggle("lit", on); };
+    r.addEventListener("mouseenter", () => light(true));
+    r.addEventListener("mouseleave", () => light(false));
+    r.addEventListener("click", () => r.closest(".mock")?.querySelector("iframe.mock-frame")?.contentWindow?.postMessage({ type: "hc-show", id: r.dataset.el }, "*"));
   }
 }
+// What the frames report: a hover lights the rows bound to that element and asks the frame to light it too; a
+// click scrolls to the row; the page's height sizes the frame.
+window.addEventListener("message", (e) => {
+  const d = e.data || {};
+  if (typeof d.type !== "string" || !d.type.startsWith("hc-")) return;
+  const frame = [...document.querySelectorAll("iframe.mock-frame")].find((f) => f.contentWindow === e.source);
+  if (!frame) return;
+  if (d.type === "hc-size" && d.height) frame.style.height = `${Math.min(1400, Math.max(160, Math.ceil(d.height) + 2))}px`;
+  const card = frame.closest(".mock");
+  if (!card) return;
+  const rows = [...card.querySelectorAll("tr[data-el]")].filter((r) => r.dataset.el === d.id);
+  if (d.type === "hc-hover") { for (const r of rows) r.classList.toggle("lit", !!d.on); if (rows.length) frame.contentWindow.postMessage({ type: "hc-light", id: d.id, on: !!d.on }, "*"); }
+  if (d.type === "hc-pick" && rows[0]) rows[0].scrollIntoView({ block: "nearest" });
+});
 function decisions(focus) {
   if (focus) {
     const d = snap.canon.decisions.find((x) => x.id === focus);
@@ -650,7 +653,7 @@ function renderQuestion(q, pending = 1) {
     ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
     <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
     <div class="q-body body">${q.html}</div>
-    ${q.mock || q.draft ? `<div class="mock-pair">${q.mock ? `<figure class="mock-figure" data-mock="${esc(q.mock)}"><figcaption>${idLink(q.mock)} as it stands</figcaption><p class="muted">Loading the picture…</p></figure>` : ""}${q.draft ? `<figure class="mock-figure draft"><figcaption>${q.mock ? "Proposed" : "Draft"}</figcaption>${q.draft}</figure>` : ""}</div>` : ""}
+    ${q.mock || q.draft ? `<div class="mock-pair">${q.mock ? `<figure class="mock-figure"><figcaption>${idLink(q.mock)} as it stands</figcaption>${mockFrame(q.mock)}</figure>` : ""}${q.draft ? `<figure class="mock-figure draft"><figcaption>${q.mock ? "Proposed" : "Draft"}</figcaption>${mockFrame(null)}</figure>` : ""}</div>` : ""}
     ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
     <div class="opts" id="q-opts">${opts}</div>
     <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
@@ -668,7 +671,7 @@ function renderQuestion(q, pending = 1) {
     span.addEventListener("click", (e) => { e.preventDefault(); showTooltip(span, q, true); });
   }
   $question.querySelector("#q-submit").addEventListener("click", () => submitAnswer(q));
-  wireMocks($question);
+  wireMocks($question, q.draft);
   updateSubmit(q);
 }
 function updateSubmit(q) {

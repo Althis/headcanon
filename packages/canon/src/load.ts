@@ -115,11 +115,12 @@ export function loadCanon(dirInput: string): Canon {
       };
       canon.journeys.push(j);
     } else if (id.startsWith("MOCK-")) {
-      // The picture sits beside the record under the same stem unless `image` names another file in the folder.
-      const folder = file.includes("/") ? file.slice(0, file.lastIndexOf("/") + 1) : "";
-      const stem = file.slice(folder.length).replace(/\.md$/i, "");
-      const image = folder + (str(data["image"])?.trim() || `${stem}.svg`);
-      canon.mocks.push({ id, title, state: stateOf(data["state"]), source: str(data["source"]), image, file, body, elements: parseElementTable(body) });
+      // The page is index.html in a folder named after the record, unless `page` names another file.
+      const here = file.includes("/") ? file.slice(0, file.lastIndexOf("/") + 1) : "";
+      const stem = file.slice(here.length).replace(/\.md$/i, "");
+      const page = here + (str(data["page"])?.trim().replace(/^\.\//, "") || `${stem}/index.html`);
+      const folder = page.includes("/") ? page.slice(0, page.lastIndexOf("/")) : "";
+      canon.mocks.push({ id, title, state: stateOf(data["state"]), source: str(data["source"]), page, folder, needs: strList(data["needs"]), file, body, elements: parseElementTable(body) });
     } else if (id.startsWith("DEC-")) {
       const d: Decision = {
         id,

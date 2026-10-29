@@ -124,8 +124,8 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     nodeId: z.string().optional().describe("A canon node to focus on the human's screen while they answer."),
     terms: z.array(z.object({ term: z.string(), definition: z.string() })).optional().describe("Jargon in the draft with the agent's guessed definition, from `headcanon terms`."),
     notice: z.string().optional().describe("One sentence the human must know that is not part of the draft, e.g. that the commit-msg hook is now installed; shown apart from the question."),
-    mock: z.string().optional().describe("A mock id, e.g. MOCK-3, whose picture the page shows above the question."),
-    draft: z.string().optional().describe("A proposed picture as inline SVG, shown beside the mock or alone, so the human can agree a mock or a revision before it is written to disk."),
+    mock: z.string().optional().describe("A mock id, e.g. MOCK-3, whose page the viewer shows above the question, served from canon/mocks."),
+    draft: z.string().optional().describe("A proposed page as one complete inline HTML document with its styles inside, shown beside the mock or alone, so the human can agree a mock or a revision before it is written to disk."),
   };
 
   server.registerTool(
