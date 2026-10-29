@@ -202,6 +202,9 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: calc(var(--
 .pp-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
 .conflict-summary { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--contested); background: var(--contested-bg); border-radius: 0 8px 8px 0; }
 .conflict-summary .btn { margin-left: 6px; }
+.choices { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 8px; }
+.choices .opt { cursor: pointer; }
+.choices .sub { margin: 0 0 4px; }
 .sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; }
 .sources code { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
 .popup h2 { margin: 8px 0 4px; font-size: 17px; }

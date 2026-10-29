@@ -99,7 +99,7 @@ kind: binary            # on a leaf, with its Check: binary | numeric | open-end
 Source: conversation, <date>
 
 ## Intent [assumed]
-<one or two sentences; drop "[assumed]" from the heading when the node is not stated>
+<one or two sentences; drop "[assumed]" from the heading when the node is not stated; on an open node, the question itself, in bold>
 
 ## Resolution
 <option chosen and date, when approved as written>
@@ -109,6 +109,10 @@ Source: conversation, <date>
 
 ## Not this
 <when an artifact or the human made one clear>
+
+## Options
+<on an open node: up to three suggestions the human can pick, one bullet each with its sources; picking one makes it the node's stated text>
+- <suggestion> (<path:lines>)
 
 ## Contested
 <when two statements disagree: one or two sentences on what they cannot both hold and what choosing decides, then one bullet per statement with its sources>

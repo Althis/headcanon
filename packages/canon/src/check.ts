@@ -73,6 +73,9 @@ export function checkCanon(canon: Canon): Finding[] {
     // A set of one usually restates its parent or hides its siblings (REQ-3.14).
     if (n.children.length === 1)
       out.push(finding("info", "single-child", `${n.id} has one child, ${n.children[0]}; a set of one usually restates its parent or hides siblings`, at));
+    // A title names a thing: a question belongs in the open node's Intent, in bold, not in its title.
+    if (/\?\s*$/.test(n.title))
+      out.push(finding("warn", "title-question", `${n.id} is titled as a question; give it a feature title and put the question in bold under Intent`, at));
     // A leaf's contract (REQ-3.3): `kind` says how it is measured and `## Check` what is observed.
     const hasCheck = n.sections.some((s) => /^Check$/i.test(s.heading));
     if (n.kind && !hasCheck)

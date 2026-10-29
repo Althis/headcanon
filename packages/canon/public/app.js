@@ -1504,7 +1504,7 @@ function openPopup(id) {
   // every side of a contradiction: the boxes this one conflicts with, either way round
   const conflictIds = isRoot || prn ? [] : [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
   const because = color === "red"
-    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
+    ? (state === "open" ? "The session could not decide this. Pick a suggestion below, or write it yourself." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
@@ -1525,10 +1525,14 @@ function openPopup(id) {
   for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
   // the Deferred list, the parts not yet cut, lives in a tab of its own so the intent stands alone
   const deferredHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Deferred");
-  if (deferredHtml) panes.push({ label: `Deferred (${(deferredHtml.match(/<li\b/g) || []).length})`, html: deferredHtml });
+  if (deferredHtml) panes.push({ label: `Deferred (${(deferredHtml.match(/<li/g) || []).length})`, html: deferredHtml });
+  // an open box offers its suggestions as choices; picking one makes it the box's text in the human's name
+  const optionsHtml = isRoot || prn || state !== "open" ? "" : extractHtmlSection(bodyHtml ?? "", "Options");
+  const choices = [...optionsHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
   let mainHtml = bodyHtml ?? "";
   if (statements.length >= 2) mainHtml = stripHtmlSection(mainHtml, "Contested");
   if (deferredHtml) mainHtml = stripHtmlSection(mainHtml, "Deferred");
+  if (choices.length) mainHtml = stripHtmlSection(mainHtml, "Options");
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
@@ -1537,10 +1541,11 @@ function openPopup(id) {
     <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
     ${panes.map((p, i) => `<div class="popup-body body pp-pane" data-pane="${i}" hidden>${markSections(p.html)}</div>`).join("")}
     <div id="pp-editor" class="editor" hidden></div>
+    ${choices.length ? `<div class="choices" id="pp-choices"><p class="sub">Pick one and it becomes this box's text, in your name; or write it yourself.</p>${choices.map((c, i) => `<label class="opt"><input type="radio" name="choice" value="${i}" /> <span class="opt-text">${c}</span></label>`).join("")}<div class="row"><button class="btn primary" id="pp-choose" disabled>Choose</button><button class="btn" id="pp-write">Write it yourself</button></div></div>` : ""}
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
-      ${color !== "green" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
-      <button class="btn" id="pp-edit" title="Say it in your own words">Rewrite</button>
+      ${color !== "green" && state !== "open" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
+      <button class="btn" id="pp-edit" title="Say it in your own words">${state === "open" ? "Write it yourself" : "Rewrite"}</button>
       ${isRoot ? "" : `<button class="btn" id="pp-delete" title="Remove this node and everything under it">Delete</button>`}
       ${kids && !isRoot ? `<button class="btn" id="pp-toggle">${adoptState.expanded?.has(id) ? "Hide children" : `Show ${kids} children`}</button>` : ""}
       ${isRoot || prn ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
@@ -1576,7 +1581,7 @@ function openPopup(id) {
     if (!keep) editBase = { id, html: snap.html[id] ?? "" };
     // the text gives way to the editor, in its place; Cancel brings the card back as it was
     editor.hidden = false;
-    for (const sel of ["#pp-body", ".pp-pane", ".pp-tabs", ".conflict-summary", "#pp-approve", "#pp-edit", "#pp-delete", "#pp-toggle", "#pp-define"]) for (const el of $popup.querySelectorAll(sel)) el.hidden = true;
+    for (const sel of ["#pp-body", ".pp-pane", ".pp-tabs", ".conflict-summary", "#pp-choices", "#pp-approve", "#pp-edit", "#pp-delete", "#pp-toggle", "#pp-define"]) for (const el of $popup.querySelectorAll(sel)) el.hidden = true;
     editor.querySelector("#pp-intent").focus();
     editor.querySelector("#pp-cancel").addEventListener("click", () => { editor.innerHTML = ""; editBase = null; openPopup(id); });
     editor.querySelector("#pp-save").addEventListener("click", async () => {
@@ -1585,6 +1590,15 @@ function openPopup(id) {
     });
   };
   $popup.querySelector("#pp-edit").addEventListener("click", () => startEdit());
+  $popup.querySelector("#pp-write")?.addEventListener("click", () => startEdit());
+  for (const r of $popup.querySelectorAll("#pp-choices input")) r.addEventListener("change", () => { $popup.querySelector("#pp-choose").disabled = false; });
+  $popup.querySelector("#pp-choose")?.addEventListener("click", async () => {
+    const picked = $popup.querySelector("#pp-choices input:checked");
+    if (!picked) return;
+    // the suggestion's words, without the source references, become the intent
+    const text = choices[Number(picked.value)].replace(/<[^>]+>/g, "").replace(/\s*\(([^()]*)\)/g, (m, inner) => (/[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+/.test(inner) ? "" : m)).trim();
+    try { await post(`/api/node/${encodeURIComponent(id)}`, { intent: text }, "PUT"); closePopup(); await load(); render(); startWorking(`you chose for ${id}`); } catch (e) { showToast(e); }
+  });
   if (draft) startEdit(draft);
 }
 function closePopup() { $popup.hidden = true; delete $popup.dataset.id; editBase = null; document.getElementById("conflict").hidden = true; window.CSS?.highlights?.delete("quote"); }
