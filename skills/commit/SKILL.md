@@ -27,7 +27,7 @@ Apply the answers and re-stage. Run `HC review-hash` again; when the hash change
 ## 3. Derive the trailers
 
 - **Intent**: the requirement or journey IDs this change serves, from the canon's `files:` links and the conversation; otherwise `none (reason)`.
-- **Intent-Change**: one per canon operation from the staged files: a new file is `create <ID>`, a modified file `update <ID>` (a mock's picture and record are one operation on `MOCK-n`), a retirement `delete <ID>`, the root README `update ROOT`, a term `create TERM-<slug>`, a principle `create PRN-n`. Read the `id` from the front-matter, never from the filename.
+- **Intent-Change**: one per canon operation from the staged files: a new file is `create <ID>`, a modified file `update <ID>` (a mock's folder and record are one operation on `MOCK-n`), a retirement `delete <ID>`, the root README `update ROOT`, a term `create TERM-<slug>`, a principle `create PRN-n`. Read the `id` from the front-matter, never from the filename.
 - **Decision**: one per new `canon/decisions/DEC-*.md`.
 - **Test-Change**: when a test was weakened, removed or its data changed; cite the test file and the intent change that permits it. No such intent change: stop, because weakening a test needs one and the human's approval first.
 - **Consolidated**: when the hook reports a modified rules, skill or canon file that only gained lines. Re-read the file, merge the addition into what is there, and say what you compared or merged.
