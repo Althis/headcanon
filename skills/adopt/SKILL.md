@@ -24,7 +24,7 @@ The canon is drafted from the repository as guesses, and the human judges it on 
 
 Threads (one thing an artifact says, with its `path:lines`) are the direction of every draft and the evidence every draft is checked against. Precedence: what the human approved or typed in the page, the newest artifact, older artifacts. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 6.
 
-Two threads that disagree on an entry: draft from the newer and make the node `contested`, with both statements under `## Contested`, so it comes up red. A thread that disagrees with something the human approved on the canvas is never settled by you: say it in the chat and ask "The document says A. You approved B. Which stands?" with **Keep what I approved** and **The document is right**; list an overruled document in DEC-001 as superseded on that point.
+Two threads that disagree on an entry: draft from the newer and make the node `contested`, with, under `## Contested`, one or two sentences on what the two cannot both hold and what choosing decides, then both statements with their sources, so it comes up red. A thread that disagrees with something the human approved on the canvas is never settled by you: say it in the chat and ask "The document says A. You approved B. Which stands?" with **Keep what I approved** and **The document is right**; list an overruled document in DEC-001 as superseded on that point.
 
 Read only this repository, reference.md and what the human does in the page. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent.
 

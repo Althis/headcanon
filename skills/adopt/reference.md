@@ -110,6 +110,11 @@ Source: conversation, <date>
 ## Not this
 <when an artifact or the human made one clear>
 
+## Contested
+<when two statements disagree: one or two sentences on what they cannot both hold and what choosing decides, then one bullet per statement with its sources>
+- <statement one> (<path:lines>)
+- <statement two> (<path:lines>)
+
 ## Assumptions
 - <what you decided> (model assumption)
 

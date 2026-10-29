@@ -193,6 +193,10 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: calc(var(--
 .pp-resize.se { float: right; margin-right: -16px; cursor: nwse-resize; }
 .popup-head .btn { margin-left: auto; }
 .pp-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
+.conflict-summary { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--contested); background: var(--contested-bg); border-radius: 0 8px 8px 0; }
+.conflict-summary .btn { margin-left: 6px; }
+.sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; }
+.sources code { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
 .popup h2 { margin: 8px 0 4px; font-size: 17px; }
 .popup .body h2 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
 .pp-actions { gap: 8px; flex-wrap: wrap; margin-top: 10px; }

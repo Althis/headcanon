@@ -1512,13 +1512,22 @@ function openPopup(id) {
   // ... and the statements a contested box records against each other; each side gets a tab beside the box's own text
   const contestedHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Contested");
   const statements = [...contestedHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  // the session's summary of the contradiction: the paragraph under the heading, before the statements
+  const conflictSummary = /<\/h2>\s*<p>([\s\S]*?)<\/p>\s*<ul>/.exec(contestedHtml)?.[1] ?? "";
   const panes = [];
-  if (statements.length >= 2) statements.forEach((st, i) => panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${st}</p>` }));
+  // each statement names where it comes from: the file references in it become a row of chips under it
+  const refRe = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/g, refOne = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/;
+  if (statements.length >= 2) statements.forEach((st, i) => {
+    const refs = [...new Set(st.replace(/<[^>]+>/g, "").match(refRe) ?? [])];
+    const text = st.replace(/\s*\(([^()]*)\)/g, (m, inner) => (refOne.test(inner) && inner.replace(refRe, "").replace(/[;,\s]/g, "") === "" ? "" : m));
+    panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${text}</p>${refs.length ? `<div class="sources"><span class="muted">Where it comes from</span>${refs.map((r) => `<code>${esc(r)}</code>`).join("")}</div>` : `<p class="muted">No source recorded for this statement.</p>`}` });
+  });
   for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
   const mainHtml = statements.length >= 2 ? stripHtmlSection(bodyHtml ?? "", "Contested") : bodyHtml;
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
+    ${state === "contested" ? (conflictSummary ? `<p class="conflict-summary">${conflictSummary}</p>` : `<p class="conflict-summary muted">No summary of the contradiction yet. <button class="btn small" id="pp-explain">Ask the session to explain</button></p>`) : ""}
     ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
     <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
     ${panes.map((p, i) => `<div class="popup-body body pp-pane" data-pane="${i}" hidden>${markSections(p.html)}</div>`).join("")}
@@ -1540,6 +1549,7 @@ function openPopup(id) {
   wirePopupMoves();
   $popup.querySelector("#pp-close").addEventListener("click", () => { if (editingDraft() && !confirm("Discard your rewrite?")) return; closePopup(); });
   for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { const k = b.dataset.pane; for (const o of $popup.querySelectorAll(".pp-tabs button")) o.classList.toggle("on", o === b); $popup.querySelector("#pp-body").hidden = k !== "-1"; for (const pane of $popup.querySelectorAll(".pp-pane")) pane.hidden = pane.dataset.pane !== k; });
+  $popup.querySelector("#pp-explain")?.addEventListener("click", async () => { try { await post("/api/message", { text: `Explain the contradiction in ${id} in one or two sentences: what the two statements cannot both hold, and what choosing decides. Record it as the first paragraph under its Contested heading.`, nodeId: id }); startWorking(`you asked for an explanation of ${id}`); } catch (e) { showToast(e); } });
   for (const a of $popup.querySelectorAll("[data-open]")) a.addEventListener("click", (ev) => { ev.preventDefault(); if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; } closePopup(); focusOnCanvas(a.dataset.open, true); });
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
