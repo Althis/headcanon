@@ -1471,11 +1471,17 @@ function openPopup(id) {
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
+  // the Deferred list, the parts not yet cut, lives in a tab of its own so the intent stands alone
+  const deferredHtml = isRoot || prn ? "" : extractHtmlSection(snap.html[id] ?? "", "Deferred");
   const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : prn ? `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}` : snap.html[id];
+  const mainHtml = deferredHtml ? stripHtmlSection(bodyHtml, "Deferred") : bodyHtml;
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
-    <div class="popup-body body" id="pp-body">${markSections(bodyHtml || "<p class='muted'>No text yet.</p>")}</div>
+    ${deferredHtml ? `<div class="pp-tabs"><button class="btn small on" data-tab="pp-body">Intent</button><button class="btn small" data-tab="pp-deferred">Deferred (${(deferredHtml.match(/<li\b/g) || []).length})</button></div>` : ""}
+    <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
+    ${deferredHtml ? `<div class="popup-body body" id="pp-deferred" hidden>${markSections(deferredHtml)}</div>` : ""}
+    <div id="pp-editor" class="editor" hidden></div>
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
       ${color !== "green" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
@@ -1485,7 +1491,6 @@ function openPopup(id) {
       ${isRoot || prn ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
     </div>
     <p class="sub">Select any words above to ask the session about them in the chat.</p>
-    <div id="pp-editor" class="editor"></div>
     <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
   const wasHidden = $popup.hidden;
   $popup.hidden = false;
@@ -1493,6 +1498,7 @@ function openPopup(id) {
   if (wasHidden) centerPopup();
   wirePopupMoves();
   $popup.querySelector("#pp-close").addEventListener("click", closePopup);
+  for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { for (const o of $popup.querySelectorAll(".pp-tabs button")) { o.classList.toggle("on", o === b); $popup.querySelector(`#${o.dataset.tab}`).hidden = o !== b; } });
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
   });
@@ -1506,11 +1512,15 @@ function openPopup(id) {
     const editor = $popup.querySelector("#pp-editor");
     const raw = prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
     const intent = prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
+    // the text gives way to the editor, in its place; Cancel brings the card back as it was
     editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
       ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
-      <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
+      <textarea id="pp-intent" rows="${Math.max(6, Math.min(18, intent.split("\n").length + 2))}" placeholder="What must hold, in your words">${esc(intent)}</textarea>
       <div class="row"><button class="btn primary" id="pp-save">Save</button><button class="btn" id="pp-cancel">Cancel</button></div>`;
-    editor.querySelector("#pp-cancel").addEventListener("click", () => (editor.innerHTML = ""));
+    editor.hidden = false;
+    for (const sel of ["#pp-body", "#pp-deferred", ".pp-tabs", "#pp-approve", "#pp-edit", "#pp-delete", "#pp-toggle", "#pp-define"]) { const el = $popup.querySelector(sel); if (el) el.hidden = true; }
+    editor.querySelector("#pp-intent").focus();
+    editor.querySelector("#pp-cancel").addEventListener("click", () => openPopup(id));
     editor.querySelector("#pp-save").addEventListener("click", async () => {
       const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
       try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
@@ -1519,10 +1529,9 @@ function openPopup(id) {
 }
 function closePopup() { $popup.hidden = true; delete $popup.dataset.id; window.CSS?.highlights?.delete("quote"); }
 /** Remove one rendered `<h2>` section from a node's HTML. */
-function stripHtmlSection(html, heading) {
-  const re = new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
-  return html.replace(re, "");
-}
+const sectionRe = (heading) => new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
+function stripHtmlSection(html, heading) { return html.replace(sectionRe(heading), ""); }
+function extractHtmlSection(html, heading) { return sectionRe(heading).exec(html)?.[0] ?? ""; }
 /** A read-only card: the principles, or one principle, which live in the root README and are edited there. */
 function openTextCard(id, title, html) {
   const wasHidden = $popup.hidden;

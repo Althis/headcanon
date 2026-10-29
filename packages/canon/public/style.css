@@ -190,6 +190,7 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: calc(var(--
 .pp-resize.sw { float: left; margin-left: -16px; cursor: nesw-resize; }
 .pp-resize.se { float: right; margin-right: -16px; cursor: nwse-resize; }
 .popup-head .btn { margin-left: auto; }
+.pp-tabs { display: flex; gap: 4px; margin: 8px 0 0; }
 .popup h2 { margin: 8px 0 4px; font-size: 17px; }
 .popup .body h2 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
 .pp-actions { gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -285,7 +286,7 @@ details ul.ops-list { columns: 3; column-gap: 20px; font-family: var(--mono); fo
 .opt:hover { background: var(--bg); }
 .session textarea, .session input, .editor textarea, .editor input { width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
 .editor textarea { font-family: var(--mono); font-size: 12.5px; }
-.editor:empty { display: none; }
+.editor:empty, .editor[hidden] { display: none; }
 .editor { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
 .session-msg { display: flex; gap: 8px; align-items: flex-start; }
 .session-msg textarea { flex: 1; }
