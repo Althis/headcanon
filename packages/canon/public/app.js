@@ -508,6 +508,18 @@ function setToggle(collapsed) {
 }
 function openSession() { $session.classList.remove("collapsed"); setToggle(false); }
 document.getElementById("session-toggle").addEventListener("click", () => setToggle($session.classList.toggle("collapsed")));
+// The panel's left edge drags to set the split between canvas and panel; the width is kept for next time.
+{
+  const grip = document.getElementById("session-grip");
+  const apply = (w) => document.documentElement.style.setProperty("--panel-w", `${Math.round(w)}px`);
+  try { const saved = Number(localStorage.getItem("hc-panel-w")); if (saved >= 280) apply(saved); } catch {}
+  grip.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); grip.setPointerCapture(e.pointerId); document.body.classList.add("resizing");
+    const move = (ev) => apply(Math.max(280, Math.min(window.innerWidth * 0.7, window.innerWidth - ev.clientX)));
+    const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); document.body.classList.remove("resizing"); try { localStorage.setItem("hc-panel-w", String(parseInt(getComputedStyle(document.documentElement).getPropertyValue("--panel-w")) || "")); } catch {} };
+    grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up);
+  });
+}
 // A message carries the passage the human highlighted in a card, when they did: the chip above the box names
 // the node and the words, and both go with the text. Enter sends; Shift+Enter breaks a line.
 const $msg = document.getElementById("msg"), $quote = document.getElementById("quote");
@@ -707,7 +719,6 @@ function adopt(selectedId) {
   return `<div class="adopt">
     <div class="toolbar adopt-bar">
       <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
-      <span class="muted">double-click a box to open it; the handle beside it shows its children; drag to pan, wheel to zoom</span>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
     </div>
     ${progressStrip()}
@@ -792,6 +803,8 @@ function buildAdoptCanvas() {
     layout: { name: "preset" },
   });
   window.__cy = cy;
+  // Fit shows everything, but never closer than a comfortable zoom: one box alone does not fill the screen.
+  const fitAll = () => { cy.fit(undefined, 40); if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(); } };
   // Positions come from a force simulation, as in a node canvas: a containment edge is a strong spring that
   // holds a child under its parent, a dependency edge a weaker spring that draws a box toward what it needs,
   // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
@@ -1260,6 +1273,7 @@ function buildAdoptCanvas() {
       <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" data-views="lanes" title="Sort each lane to untangle the lines">Order</button>
       <button class="btn small" data-fit="1" data-views="lanes radial dendro" title="Bring everything into view">Fit</button>
       <button class="btn small" data-expand-all="1" data-views="lanes dendro" title="Open every box down to the leaves">Show all</button>
+      <p class="menu-hint">Double-click a box to open it. The handle beside it shows its children. Drag to pan, wheel to zoom.</p>
     </div>`;
   el.appendChild(menu);
   for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) menu.addEventListener(ev, (e) => e.stopPropagation());
@@ -1282,14 +1296,14 @@ function buildAdoptCanvas() {
     cancelAnimationFrame(sim.raf); sim.alpha = 0; sim.heavy.clear();
     unfork();
     applyDeps();
-    if (mode !== "lanes") { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; relayout(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
+    if (mode !== "lanes") { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; relayout(true); setTimeout(() => fitAll(), 340); return; }
     const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     seed();
     const target = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     cy.batch(() => { for (const [id, p] of before) cy.getElementById(id).position(p); for (const [id, p] of target) cy.getElementById(id).animate({ position: p }, { duration: 420, easing: "ease-in-out", queue: false }); });
     laneLines();
     follow(440);
-    setTimeout(() => { cy.fit(undefined, 40); settle(0.8); }, 440);
+    setTimeout(() => { fitAll(); settle(0.8); }, 440);
   };
   for (const b of menu.querySelectorAll(".mode button")) b.addEventListener("click", () => setMode(b.dataset.mode));
   window.__sim.layoutRadial = layoutRadial; window.__sim.layoutDendro = layoutDendro;
@@ -1390,11 +1404,11 @@ function buildAdoptCanvas() {
       orderLanes(false);
       hardSeparate();
     }
-    if (adoptState.view) cy.viewport(adoptState.view); else cy.fit(undefined, 40);
+    if (adoptState.view) cy.viewport(adoptState.view); else fitAll();
     grid(); applyFocus(); makeOverlays();
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
-  $main.querySelector("[data-fit]")?.addEventListener("click", () => { cy.fit(undefined, 40); });
+  $main.querySelector("[data-fit]")?.addEventListener("click", () => { fitAll(); });
   $main.querySelector("[data-labels]")?.addEventListener("click", () => {
     adoptState.labels = !adoptState.labels;
     labelButton();

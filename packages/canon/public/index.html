@@ -34,6 +34,7 @@
   </header>
   <main id="main"><p class="muted">Loading the canon…</p></main>
   <aside id="session" class="session collapsed" aria-live="polite">
+    <div class="session-grip" id="session-grip" title="Drag to resize the panel"></div>
     <div class="session-head">
       <span class="session-title">Session</span>
       <span class="pill" id="session-pending" hidden></span>
@@ -42,9 +43,9 @@
     </div>
     <div class="session-body">
       <div id="question"><p class="muted">When the session asks something, it appears here. Edits you make in the tree, messages you send and branches you ask for reach the session too.</p></div>
+      <ul id="activity" class="chat"></ul>
       <div id="quote" class="quote-chip" hidden></div>
       <div class="session-msg"><textarea id="msg" rows="2" placeholder="Message the session…"></textarea><button class="btn" id="msg-send">Send</button></div>
-      <ul id="activity" class="chat"></ul>
     </div>
   </aside>
   <div id="tooltip" class="tooltip" hidden></div>
