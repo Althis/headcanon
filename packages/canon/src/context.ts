@@ -59,7 +59,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   }
   if (canon.terms.length) {
     const def = (d: string) => (d.length > 110 ? d.slice(0, 109) + "…" : d);
-    head.push("## Glossary", "", ...canon.terms.map((t) => `- **${t.term}**: ${def(t.definition)}`), "");
+    head.push("## Glossary", "", ...canon.terms.map((t) => `- **${t.term}**${t.state === "stated" ? "" : ` [${t.state}]`}: ${def(t.definition)}`), "");
   }
 
   const fixed = head.join("\n").length + RULES.length + 60;

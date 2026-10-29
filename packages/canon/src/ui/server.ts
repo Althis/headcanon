@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
-import { approveNode, deletePrinciple, editNode, editPrinciple, setPrincipleState } from "../edits.js";
+import { approveNode, deletePrinciple, deleteTerm, editNode, editPrinciple, editTerm, setPrincipleState, setTermState } from "../edits.js";
 import { addGlossaryTerm } from "../glossary.js";
 import { descendants, loadCanon } from "../load.js";
 import { parseFrontMatter, str } from "../parse.js";
@@ -142,6 +142,27 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   // ---- nodes: read raw, edit, approve, delete, create ----
   const nodeMatch = /^\/api\/node\/([^/]+)(\/raw|\/approve)?$/.exec(p);
   const today = () => new Date().toISOString().slice(0, 10);
+  // A glossary term lives in the root README with its own marker; the page approves, rewrites and deletes it there.
+  if (nodeMatch && nodeMatch[2] !== "/raw" && /^TERM-/.test(decodeURIComponent(nodeMatch[1] ?? ""))) {
+    const id = decodeURIComponent(nodeMatch[1] ?? "");
+    const readme = join(canonDir, "README.md");
+    if (!existsSync(readme) || !loadCanon(canonDir).terms.some((t) => t.id === id)) return json(404, { error: "no such term" });
+    const text = readFileSync(readme, "utf8");
+    if (method === "POST" && nodeMatch[2] === "/approve") {
+      writeFileSync(readme, setTermState(text, id, "resolved"));
+      return json(200, { ok: true, path: "README.md", feed: session.push("node-approved", { id, path: "README.md", text: `${id} approved as written` }) });
+    }
+    if (method === "PUT") {
+      const body = (await readJson(req)) as { title?: string; intent?: string };
+      if (typeof body?.intent !== "string" || !body.intent.trim()) return json(400, { error: "intent is required" });
+      writeFileSync(readme, editTerm(text, id, { term: body.title?.trim() || undefined, definition: body.intent }));
+      return json(200, { ok: true, path: "README.md", feed: session.push("node-edited", { id, path: "README.md", text: `${id} rewritten: ${body.intent.trim().slice(0, 120)}` }) });
+    }
+    if (method === "DELETE") {
+      writeFileSync(readme, deleteTerm(text, id));
+      return json(200, { ok: true, removed: [id], feed: session.push("node-deleted", { id, path: "README.md", text: `${id} deleted in the page` }) });
+    }
+  }
   // A principle lives in the root README with its own marker; the page approves, rewrites and deletes it there.
   if (nodeMatch && nodeMatch[2] !== "/raw" && /^PRN-\d+$/.test(decodeURIComponent(nodeMatch[1] ?? ""))) {
     const id = decodeURIComponent(nodeMatch[1] ?? "");

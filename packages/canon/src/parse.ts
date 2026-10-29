@@ -68,10 +68,18 @@ export function parseStepTable(body: string): JourneyStep[] {
 /** Glossary lines of the form: **term** (`TERM-slug`): definition */
 export function parseGlossary(body: string): Term[] {
   const terms: Term[] = [];
-  const re = /^\*\*(.+?)\*\*\s*\(`(TERM-[^`]+)`\)\s*[:—-]\s*(.+)$/gm;
+  // the heading's marker is every unmarked term's state; a term's own marker, after its id, overrides it
+  const headMark = /^##\s+Glossary\b[^\n]*?\[([a-z]+)\]/m.exec(body)?.[1];
+  const fallback: State = isState(headMark) ? headMark : "stated";
+  const re = /^\*\*(.+?)\*\*\s*\(`(TERM-[^`]+)`\)\s*(?:\[([a-z]+)\]\s*)?[:—-]\s*(.+)$/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body))) {
-    terms.push({ term: m[1] ?? "", id: m[2] ?? "", definition: (m[3] ?? "").trim() });
+    let definition = (m[4] ?? "").trim();
+    let state: State = isState(m[3]) ? m[3] : fallback;
+    // a marker written at the end of the definition counts too
+    const tail = /\s*\[([a-z]+)\]$/.exec(definition);
+    if (tail && isState(tail[1])) { state = tail[1]; definition = definition.slice(0, tail.index).trim(); }
+    terms.push({ term: m[1] ?? "", id: m[2] ?? "", definition, state });
   }
   return terms;
 }
