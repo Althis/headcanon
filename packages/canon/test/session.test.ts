@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SessionState } from "../src/index.js";
 
@@ -33,5 +36,16 @@ describe("session state [REQ-12.1.7]", () => {
     expect(all.entries.map((e) => e.kind)).toEqual(["message", "refine-request"]);
     expect(s.changes(all.cursor).entries).toEqual([]);
     expect(all.entries[1]?.id).toBe("REQ-2");
+  });
+  it("keeps the queue in its file, so a session restarted mid-adoption shows the same issues", () => {
+    const store = join(mkdtempSync(join(tmpdir(), "headcanon-q-")), "questions.json");
+    const a = new SessionState(store);
+    const q = a.ask({ question: "Kept?", header: "Keep", nodeId: "REQ-1", options: [{ label: "yes" }] });
+    a.ask({ question: "Also kept?", header: "Also" });
+    const b = new SessionState(store);
+    expect(b.queued().map((x) => x.header)).toEqual(["Keep", "Also"]);
+    expect(b.current()?.id).toBe(q.id);
+    b.answer({ questionId: q.id, selected: ["yes"], other: "", terms: [] });
+    expect(new SessionState(store).queued().map((x) => x.header)).toEqual(["Also"]);
   });
 });

@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 /**
  * The state the viewer keeps for a Claude Code session working through the page (REQ-12.1.7):
@@ -86,6 +88,8 @@ export const DEFAULT_OPTIONS: AskOption[] = [
 ];
 
 export class SessionState {
+  /** Where the queue is kept between processes, when the viewer runs inside a repository. */
+  private store: string | undefined;
   private queue: PendingQuestion[] = [];
   private answers = new Map<string, AskAnswer>();
   private waiters = new Map<string, Array<(a: AskAnswer) => void>>();
@@ -95,6 +99,22 @@ export class SessionState {
   private focusSeq = 0;
   private focusOpen = false;
   private changeWaiters: Array<() => void> = [];
+
+  constructor(store?: string) {
+    this.store = store;
+    // questions outlive the process: a session restarted mid-adoption shows the same issues
+    if (store && existsSync(store)) {
+      try {
+        const saved = JSON.parse(readFileSync(store, "utf8")) as { queue?: PendingQuestion[] };
+        if (Array.isArray(saved.queue)) this.queue = saved.queue;
+      } catch { /* a bad file is an empty queue */ }
+    }
+  }
+
+  private save(): void {
+    if (!this.store) return;
+    try { mkdirSync(dirname(this.store), { recursive: true }); writeFileSync(this.store, JSON.stringify({ queue: this.queue }, null, 2)); } catch { /* the page works without the file */ }
+  }
 
   /** Queue a question. The head of the queue is what the page shows. */
   ask(req: AskRequest): PendingQuestion {
@@ -110,6 +130,7 @@ export class SessionState {
       notice: req.notice,
     };
     this.queue.push(q);
+    this.save();
     return q;
   }
 
@@ -135,6 +156,7 @@ export class SessionState {
     const i = this.queue.findIndex((q) => q.id === partial.questionId);
     if (i < 0) return false;
     const [q] = this.queue.splice(i, 1);
+    this.save();
     const ans: AskAnswer = { ...partial, answeredAt: new Date().toISOString() };
     this.answers.set(ans.questionId, ans);
     this.push("answer", { id: q?.nodeId, text: `${q?.header}: ${ans.selected.join(", ")}${ans.other ? ` / ${ans.other}` : ""}` });

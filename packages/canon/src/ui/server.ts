@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { basename, dirname, extname, join, normalize, resolve } from "node:path";
@@ -40,10 +41,18 @@ export interface Served {
  * endpoints the page and the MCP server use (REQ-12.1.7). Edits made in the page write canon
  * files; the hook, the check and the verifier see them like any other change.
  */
+/** The queue's file: under the repository's git directory, beside the review records; none outside a repository. */
+function questionStore(canonDir: string): string | undefined {
+  try {
+    const dir = existsSync(canonDir) ? canonDir : dirname(canonDir);
+    const gitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return gitDir ? join(gitDir, "headcanon", "questions.json") : undefined;
+  } catch { return undefined; }
+}
 export async function serveUi(opts: ServeOptions): Promise<Served> {
   const host = opts.host ?? "127.0.0.1";
-  const session = new SessionState();
   const canonDir = resolve(opts.canonDir);
+  const session = new SessionState(questionStore(canonDir));
   const server = createServer((req, res) => {
     route(req, res, canonDir, session).catch((e) => send(res, 500, "text/plain; charset=utf-8", e instanceof Error ? e.stack ?? e.message : String(e)));
   });
