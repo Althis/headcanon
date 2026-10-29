@@ -31,7 +31,7 @@ Read only this repository, reference.md and what the human does in the page. The
 ## Guessing
 
 - **Enough to guess**: the entry's line can be written from its chain to the parent plus a thread or the archetype of its kind. Write it `assumed`, with the chain and the thread in `source`.
-- **Not enough**: only the chain exists and nothing in the project says what the thing concretely is. Write an `open` node: its title names the thing in doubt, a feature, never a question; the question stands in bold as its Intent; up to three suggestions the artifacts allow go under `## Options`, each with its sources; the chain in `source`; invent nothing beyond them.
+- **Not enough**: only the chain exists and nothing in the project says what the thing concretely is. Write no node for it. File it as an issue with `headcanon_ask`: header the thing in doubt, `nodeId` its parent, the question in one or two sentences, and up to three suggestions the artifacts allow as options, each with its sources; the page lists it under Issues, and the node is written, `stated`, when the answer arrives. A box is `open` only when the human asks for one to stay open.
 - **Prefer the guess** whenever a thread speaks to the entry at all: the human corrects a wrong guess in one click, but cannot answer a question that was never asked.
 - The premise, the glossary and the principles are guessed the same way, from the newest artifacts that state them; a document the human did not watch being written never makes an entry stated.
 

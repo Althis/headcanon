@@ -339,7 +339,14 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .ov-card.row { display: flex; flex-direction: row; align-items: center; gap: 6px; height: 30px; padding: 0 8px; white-space: nowrap; overflow: hidden; }
 .ov-card.row .tag { position: static; }
 .ov-card.row .ttl { margin-top: 0; text-align: left; }
-.menu.principles { left: 10px; right: auto; max-width: 340px; }
+.left-stack { position: absolute; top: 10px; left: 10px; z-index: 21; display: flex; flex-direction: column; gap: 8px; max-height: calc(100% - 20px); }
+.left-stack .menu { position: static; max-width: 340px; }
+.menu.issues .menu-body { max-height: 40vh; overflow: auto; }
+.menu.issues .menu-head .pill { margin-left: 2px; }
+.issue-row { display: flex; align-items: flex-start; gap: 6px; text-align: left; white-space: normal; }
+.issue-row.now { border-color: var(--accent); }
+.issue-row .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); flex: none; }
+.issue-row .sw { margin: 3px 0 0; flex: none; }
 .menu.principles .menu-head b { font-size: 12px; padding-left: 4px; }
 .prn-row { display: flex; align-items: center; gap: 6px; text-align: left; white-space: normal; }
 .prn-row .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); }

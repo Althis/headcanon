@@ -25,6 +25,7 @@ Pushed earlier by the sixth run's flow (they now happen during drafting and the 
 - Resuming an unfinished adoption in a new session.
 - The "enough to guess" rule: whether it guesses too much or too little.
 - Approving, rewriting or deleting a principle from its own card; principles carry their own state since 2026-10-18.
+- Questions as issues: refiners returning `questions` instead of open nodes, the attend loop filing them with `headcanon_ask` and writing the node on the answer, the Issues panel on a real canon.
 - The reach limit (DEC-018): nothing drafted more than two levels below the deepest approved box; `HC next` reporting what waits and which approval releases it; whether two levels is the right distance.
 - The canvas on a canon of real size: the lanes simulation, the radial view (rings per dot, dendrogram forks, the sibling swaps that pull dependency lines apart), the tree view (columns as wide as their longest row, one row per leaf), and the view keeping a selected or dropped box on screen. Run 6 rendered the 187-node draft; the fixture checks cover eight nodes.
 
