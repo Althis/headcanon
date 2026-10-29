@@ -118,7 +118,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
 
   const questionShape = {
     question: z.string().describe("The full question text: layer label, the draft, footnotes and the Sources line."),
-    header: z.string().optional().describe("Short label, e.g. 'Premise (1 of 5)' or 'REQ-1.4'"),
+    header: z.string().optional().describe("A short label of the kind of question, e.g. 'Premise (1 of 5)' or 'Draft'; never a node id, which goes in nodeId. The page titles the card with the node's title, or with the draft's first sentence when the node is new."),
     options: z.array(z.object({ label: z.string(), description: z.string().optional() })).optional().describe("Defaults to Approve as written / Drop. For a list, one option per item: label is the ID and title, description is the item's one-line draft with its footnote."),
     multiSelect: z.boolean().optional().describe("True for a first pass over a list: ticked means approved as written."),
     nodeId: z.string().optional().describe("A canon node to focus on the human's screen while they answer."),
@@ -195,9 +195,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       title: "Say something to the human in the page's chat",
       description:
         "Posts a line from you into the HeadCanon viewer's chat, where the human reads it beside the canvas. Use it to explain a passage they asked about, to summarize what you changed after their edit, to say what is still red and where to start, and to end a working spell: the page shows a working indicator from the human's last action until your next say or question. One or two sentences; the chat is not a report.",
-      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it.") },
+      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it."), to: z.enum(["human", "history"]).optional().describe("'human' when the line asks something of the human or needs their eyes now (a key point); it lands in their chat. Otherwise it is a report of what you did and goes to the page's history.") },
     },
-    async ({ text: line, nodeId }) => text(await api(base, "/api/say", { method: "POST", body: JSON.stringify({ text: line, nodeId }) })),
+    async ({ text: line, nodeId, to }) => text(await api(base, "/api/say", { method: "POST", body: JSON.stringify({ text: line, nodeId, to }) })),
   );
 
   server.registerTool(
@@ -205,7 +205,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     {
       title: "What the human did in the page",
       description:
-        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages (with `quote` and `nodeId` when the human highlighted a passage in a node's card first), refine-request entries naming a branch to define next, and a finish-request when they pressed Finish. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
+        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages (with `quote` and `nodeId` when the human highlighted a passage in a node's card first), edit-conflict entries when the session rewrote a box the human was writing in and they chose to keep theirs or take the session's, refine-request entries naming a branch to define next, and a finish-request when they pressed Finish. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
       inputSchema: {
         since: z.number().optional().describe("The cursor returned last time; 0 or omitted for everything."),
         waitSeconds: z.number().optional().describe(`Wait this long for a first entry before returning empty (max ${WAIT_MAX}).`),

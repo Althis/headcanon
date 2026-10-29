@@ -576,24 +576,26 @@ async function pollSession() {
     if (s.focus && s.focus.seq !== lastFocusSeq) {
       lastFocusSeq = s.focus.seq;
       if (s.focus.id) {
+        chime();
         if (route().view === "adopt") focusOnCanvas(s.focus.id, !!s.focus.open);
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
     }
-    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); }
+    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); openSession(); chime(); }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     // While a draft is being written there is no feed entry per file; on the Adopt view, re-read the canon
     // every few seconds and redraw when nodes appeared, so the progress strip and the canvas grow with it.
     if (route().view === "adopt" && !s.question && (pollSession.tick = (pollSession.tick ?? 0) + 1) % 3 === 0) {
       const fresh = await fetch("/api/snapshot", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (fresh && (fresh.stats.nodes !== snap.stats.nodes || fresh.canon.decisions.length !== snap.canon.decisions.length || Boolean(fresh.canon.root) !== Boolean(snap.canon.root))) { snap = fresh; for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; } if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
+      const ed = editingDraft();
+      if (fresh && (fresh.stats.nodes !== snap.stats.nodes || fresh.canon.decisions.length !== snap.canon.decisions.length || Boolean(fresh.canon.root) !== Boolean(snap.canon.root) || (ed && fresh.html[ed.id] !== snap.html[ed.id]))) { snap = fresh; for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; } if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } checkConflict(); chime(); }
     }
     if (s.cursor !== lastCursor) {
       lastCursor = s.cursor;
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { working = null; if (!s.question) { $ask.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
-      if (shownQuestionId === null) { await load().catch(() => {}); if (route().view !== "tree" && route().view !== "node") render(); }
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $ask.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
+      if (shownQuestionId === null) { await load().catch(() => {}); checkConflict(); if (route().view !== "tree" && route().view !== "node") render(); }
     }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
@@ -618,15 +620,23 @@ function renderQuestion(q, pending = 1) {
     const desc = o.html ? `<label for="opt-${i}" class="opt-desc">${o.html}</label>` : o.description ? `<label for="opt-${i}" class="opt-desc">${esc(o.description)}</label>` : "";
     return `<div class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" id="opt-${i}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${head}</span>${desc}</span></div>`;
   }).join("");
+  // The card's title: the node's, or the draft's first sentence while the node is still being drafted; the
+  // header is a label of the kind of question and is not repeated when it is only the node's id.
+  const nodeTitle = q.nodeId ? node(q.nodeId)?.title : undefined;
+  const draftTitle = /"([^"\n]{3,90}?)\./.exec(q.question ?? "")?.[1];
+  const title = nodeTitle ?? draftTitle ?? "";
+  const label = q.header && q.header !== q.nodeId ? q.header : "";
   $question.innerHTML = `
     ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
-    <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
+    <div class="q-head">${label ? `<span class="badge kind">${esc(label)}</span>` : ""}${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
+    ${title ? `<h2 class="q-title">${esc(title)}</h2>` : ""}
     <div class="q-body body">${q.html}</div>
-    ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
+    <div id="q-terms" class="q-terms" hidden></div>
     <div class="opts" id="q-opts">${opts}</div>
     <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
     <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
-  showAsk(q.header);
+  showAsk(label || q.nodeId || "Question");
+  renderTermRows(q);
   // One answer shape at a time: the options, or typed text that replaces them. Never both.
   $question.querySelector("#q-mode").addEventListener("click", () => {
     const free = $question.querySelector("#q-free"), optsEl = $question.querySelector("#q-opts"), mode = $question.querySelector("#q-mode");
@@ -647,7 +657,8 @@ function updateSubmit(q) {
   const btn = $question.querySelector("#q-submit"), hint = $question.querySelector("#q-hint");
   if (!btn) return;
   btn.disabled = unresolved.length > 0;
-  hint.textContent = unresolved.length ? `${unresolved.length} term${unresolved.length > 1 ? "s" : ""} to keep or drop first: ${unresolved.map((t) => t.term).join(", ")}` : "";
+  btn.textContent = unresolved.length ? `Decide ${unresolved.length} term${unresolved.length > 1 ? "s" : ""} first` : "Answer";
+  hint.textContent = "";
   for (const span of $question.querySelectorAll(".jargon")) {
     const st = termState[span.dataset.term.toLowerCase()];
     span.classList.toggle("kept", st?.decision === "keep");
@@ -674,21 +685,39 @@ function showTooltip(span, q, pinned = false) {
   const hide = () => { if (!tooltipPinned && !$tooltip.matches(":hover")) $tooltip.hidden = true; };
   span.addEventListener("mouseleave", () => setTimeout(hide, 250), { once: true });
   $tooltip.onmouseleave = () => { if (!tooltipPinned) $tooltip.hidden = true; };
-  $tooltip.querySelector("[data-keep]")?.addEventListener("click", async () => {
-    await post("/api/term", { term, definition: guess.definition, decision: "keep" }).catch(showToast);
-    termState[term.toLowerCase()] = { term, decision: "keep", definition: guess.definition };
-    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" enshrined in the glossary.`);
-  });
+  $tooltip.querySelector("[data-keep]")?.addEventListener("click", () => decideTerm(q, term, "keep", "", guess.definition));
   $tooltip.querySelector("[data-drop]")?.addEventListener("click", () => {
     $tooltip.querySelector(".tt-replace").hidden = false;
     $tooltip.querySelector(".tt-replace input").focus();
   });
-  $tooltip.querySelector("[data-replace]")?.addEventListener("click", async () => {
-    const replacement = $tooltip.querySelector(".tt-replace input").value.trim();
-    await post("/api/term", { term, decision: "drop", replacement }).catch(showToast);
-    termState[term.toLowerCase()] = { term, decision: "drop", replacement };
-    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" dropped${replacement ? `; use "${replacement}"` : ""}.`);
-  });
+  $tooltip.querySelector("[data-replace]")?.addEventListener("click", () => decideTerm(q, term, "drop", $tooltip.querySelector(".tt-replace input").value.trim(), ""));
+}
+// A term's fate, from the tooltip or from the rows under the draft: kept, and it enters the glossary with this
+// meaning; dropped, with a word to use instead.
+async function decideTerm(q, term, decision, replacement, definition) {
+  await post("/api/term", decision === "keep" ? { term, definition, decision } : { term, decision, replacement }).catch(showToast);
+  termState[term.toLowerCase()] = decision === "keep" ? { term, decision, definition } : { term, decision, replacement };
+  $tooltip.hidden = true;
+  updateSubmit(q);
+  renderTermRows(q);
+  showToast(decision === "keep" ? `"${term}" enshrined in the glossary.` : `"${term}" dropped${replacement ? `; use "${replacement}"` : ""}.`);
+}
+// The undefined terms as rows under the draft, each with Keep and Drop, so the gate before the answer is in plain sight.
+function renderTermRows(q) {
+  const box = $question.querySelector("#q-terms");
+  if (!box) return;
+  if (!q.terms.length) { box.hidden = true; return; }
+  const left = q.terms.filter((t) => !termState[t.term.toLowerCase()]).length;
+  box.hidden = false;
+  box.innerHTML = `<p class="sub">${left ? `Before you answer: ${left} term${left > 1 ? "s" : ""} in this draft that the glossary does not define. Keep a term and it enters the glossary with this meaning; drop it and name a word to use instead.` : "Every term is decided; the answer can go."}</p>` +
+    q.terms.map((t) => { const st = termState[t.term.toLowerCase()]; return `<div class="term-row"><b>${esc(t.term)}</b><span class="muted">${esc(t.definition)}</span>${st ? `<span class="badge ${st.decision === "keep" ? "stated" : "contested"}">${st.decision === "keep" ? "kept" : `dropped${st.replacement ? `, use "${esc(st.replacement)}"` : ""}`}</span>` : `<span class="row"><button class="btn small ok" data-term-keep="${esc(t.term)}">Keep</button><button class="btn small no" data-term-drop="${esc(t.term)}">Drop</button><input class="term-replace" data-term-input="${esc(t.term)}" placeholder="word to use instead (optional)" hidden /></span>`}</div>`; }).join("");
+  for (const b of box.querySelectorAll("[data-term-keep]")) b.addEventListener("click", () => { const t = q.terms.find((x) => x.term === b.dataset.termKeep); decideTerm(q, t.term, "keep", "", t.definition); });
+  for (const b of box.querySelectorAll("[data-term-drop]")) {
+    const input = box.querySelector(`[data-term-input="${CSS.escape(b.dataset.termDrop)}"]`);
+    const drop = () => decideTerm(q, b.dataset.termDrop, "drop", input.value.trim(), "");
+    b.addEventListener("click", () => { if (input.hidden) { input.hidden = false; input.focus(); b.textContent = "Drop it"; return; } drop(); });
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); drop(); } });
+  }
 }
 async function submitAnswer(q) {
   const selected = [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => i.value);
@@ -1451,12 +1480,18 @@ function buildAdoptCanvas() {
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
 // The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
-function focusOnCanvas(id, open) { adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id); }
+function focusOnCanvas(id, open) {
+  // while the human has a card open, the session's pointing is noted in the chat and moves nothing
+  if (!$popup.hidden) { adoptState.selected = id; appendChat([{ kind: "sys", text: `The session points at ${id}; your card stays as it is.`, at: new Date().toISOString() }]); return; }
+  adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id);
+}
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
 const $popup = document.getElementById("popup");
 function openPopup(id) {
+  const draft = editingDraft();
+  if (draft && draft.id !== id) { showToast(`Finish or cancel your rewrite of ${draft.id} first.`); return; }
   const isRoot = id === "ROOT";
   const isPrinciples = id === "PRINCIPLES";
   const prn = id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id) : null;
@@ -1466,21 +1501,41 @@ function openPopup(id) {
   if (isPrinciples) { openTextCard(id, "Principles", snap.canon.principles.map((p) => `<p><i class="sw ${colorOf(p.id)}"></i><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")); return; }
   const color = colorOf(id);
   const state = isRoot ? snap.canon.root?.state : n.state;
+  // every side of a contradiction: the boxes this one conflicts with, either way round
+  const conflictIds = isRoot || prn ? [] : [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
   const because = color === "red"
-    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? "Two statements pull against each other; keep one or rewrite." : "A check flagged it; see below.")
+    ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
-  // the Deferred list, the parts not yet cut, lives in a tab of its own so the intent stands alone
-  const deferredHtml = isRoot || prn ? "" : extractHtmlSection(snap.html[id] ?? "", "Deferred");
   const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : prn ? `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}` : snap.html[id];
-  const mainHtml = deferredHtml ? stripHtmlSection(bodyHtml, "Deferred") : bodyHtml;
+  // ... and the statements a contested box records against each other; each side gets a tab beside the box's own text
+  const contestedHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Contested");
+  const statements = [...contestedHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  // the session's summary of the contradiction: the paragraph under the heading, before the statements
+  const conflictSummary = /<\/h2>\s*<p>([\s\S]*?)<\/p>\s*<ul>/.exec(contestedHtml)?.[1] ?? "";
+  const panes = [];
+  // each statement names where it comes from: the file references in it become a row of chips under it
+  const refRe = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/g, refOne = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/;
+  if (statements.length >= 2) statements.forEach((st, i) => {
+    const refs = [...new Set(st.replace(/<[^>]+>/g, "").match(refRe) ?? [])];
+    const text = st.replace(/\s*\(([^()]*)\)/g, (m, inner) => (refOne.test(inner) && inner.replace(refRe, "").replace(/[;,\s]/g, "") === "" ? "" : m));
+    panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${text}</p>${refs.length ? `<div class="sources"><span class="muted">Where it comes from</span>${refs.map((r) => `<code>${esc(r)}</code>`).join("")}</div>` : `<p class="muted">No source recorded for this statement.</p>`}` });
+  });
+  for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
+  // the Deferred list, the parts not yet cut, lives in a tab of its own so the intent stands alone
+  const deferredHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Deferred");
+  if (deferredHtml) panes.push({ label: `Deferred (${(deferredHtml.match(/<li\b/g) || []).length})`, html: deferredHtml });
+  let mainHtml = bodyHtml ?? "";
+  if (statements.length >= 2) mainHtml = stripHtmlSection(mainHtml, "Contested");
+  if (deferredHtml) mainHtml = stripHtmlSection(mainHtml, "Deferred");
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
-    ${deferredHtml ? `<div class="pp-tabs"><button class="btn small on" data-tab="pp-body">Intent</button><button class="btn small" data-tab="pp-deferred">Deferred (${(deferredHtml.match(/<li\b/g) || []).length})</button></div>` : ""}
+    ${state === "contested" ? (conflictSummary ? `<p class="conflict-summary">${conflictSummary}</p>` : `<p class="conflict-summary muted">No summary of the contradiction yet. <button class="btn small" id="pp-explain">Ask the session to explain</button></p>`) : ""}
+    ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
     <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
-    ${deferredHtml ? `<div class="popup-body body" id="pp-deferred" hidden>${markSections(deferredHtml)}</div>` : ""}
+    ${panes.map((p, i) => `<div class="popup-body body pp-pane" data-pane="${i}" hidden>${markSections(p.html)}</div>`).join("")}
     <div id="pp-editor" class="editor" hidden></div>
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
@@ -1497,8 +1552,10 @@ function openPopup(id) {
   $popup.dataset.id = id;
   if (wasHidden) centerPopup();
   wirePopupMoves();
-  $popup.querySelector("#pp-close").addEventListener("click", closePopup);
-  for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { for (const o of $popup.querySelectorAll(".pp-tabs button")) { o.classList.toggle("on", o === b); $popup.querySelector(`#${o.dataset.tab}`).hidden = o !== b; } });
+  $popup.querySelector("#pp-close").addEventListener("click", () => { if (editingDraft() && !confirm("Discard your rewrite?")) return; closePopup(); });
+  for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { const k = b.dataset.pane; for (const o of $popup.querySelectorAll(".pp-tabs button")) o.classList.toggle("on", o === b); $popup.querySelector("#pp-body").hidden = k !== "-1"; for (const pane of $popup.querySelectorAll(".pp-pane")) pane.hidden = pane.dataset.pane !== k; });
+  $popup.querySelector("#pp-explain")?.addEventListener("click", async () => { try { await post("/api/message", { text: `Explain the contradiction in ${id} in one or two sentences: what the two statements cannot both hold, and what choosing decides. Record it as the first paragraph under its Contested heading.`, nodeId: id }); startWorking(`you asked for an explanation of ${id}`); } catch (e) { showToast(e); } });
+  for (const a of $popup.querySelectorAll("[data-open]")) a.addEventListener("click", (ev) => { ev.preventDefault(); if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; } closePopup(); focusOnCanvas(a.dataset.open, true); });
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); closePopup(); await load(); render(); startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
   });
@@ -1508,26 +1565,82 @@ function openPopup(id) {
   });
   $popup.querySelector("#pp-toggle")?.addEventListener("click", () => { toggleExpand(id); openPopup(id); });
   $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
-  $popup.querySelector("#pp-edit").addEventListener("click", async () => {
+  const startEdit = async (keep) => {
     const editor = $popup.querySelector("#pp-editor");
-    const raw = prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
-    const intent = prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
-    // the text gives way to the editor, in its place; Cancel brings the card back as it was
+    const raw = keep || prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
+    const intent = keep ? keep.intent : prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
     editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
-      ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
+      ${isRoot ? "" : `<input id="pp-title" value="${esc(keep?.title ?? n.title)}" placeholder="Title, in plain words" />`}
       <textarea id="pp-intent" rows="${Math.max(6, Math.min(18, intent.split("\n").length + 2))}" placeholder="What must hold, in your words">${esc(intent)}</textarea>
       <div class="row"><button class="btn primary" id="pp-save">Save</button><button class="btn" id="pp-cancel">Cancel</button></div>`;
+    if (!keep) editBase = { id, html: snap.html[id] ?? "" };
+    // the text gives way to the editor, in its place; Cancel brings the card back as it was
     editor.hidden = false;
-    for (const sel of ["#pp-body", "#pp-deferred", ".pp-tabs", "#pp-approve", "#pp-edit", "#pp-delete", "#pp-toggle", "#pp-define"]) { const el = $popup.querySelector(sel); if (el) el.hidden = true; }
+    for (const sel of ["#pp-body", ".pp-pane", ".pp-tabs", ".conflict-summary", "#pp-approve", "#pp-edit", "#pp-delete", "#pp-toggle", "#pp-define"]) for (const el of $popup.querySelectorAll(sel)) el.hidden = true;
     editor.querySelector("#pp-intent").focus();
-    editor.querySelector("#pp-cancel").addEventListener("click", () => openPopup(id));
+    editor.querySelector("#pp-cancel").addEventListener("click", () => { editor.innerHTML = ""; editBase = null; openPopup(id); });
     editor.querySelector("#pp-save").addEventListener("click", async () => {
       const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
       try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
     });
-  });
+  };
+  $popup.querySelector("#pp-edit").addEventListener("click", () => startEdit());
+  if (draft) startEdit(draft);
 }
-function closePopup() { $popup.hidden = true; delete $popup.dataset.id; window.CSS?.highlights?.delete("quote"); }
+function closePopup() { $popup.hidden = true; delete $popup.dataset.id; editBase = null; document.getElementById("conflict").hidden = true; window.CSS?.highlights?.delete("quote"); }
+// A rewrite in progress: what the human has typed, so that no redraw can lose it.
+function editingDraft() {
+  if ($popup.hidden) return null;
+  const ta = $popup.querySelector("#pp-editor #pp-intent");
+  if (!ta) return null;
+  return { id: $popup.dataset.id, title: $popup.querySelector("#pp-editor #pp-title")?.value, intent: ta.value };
+}
+// The text a rewrite started from. When the session rewrites that box meanwhile, the human chooses: keep
+// what they typed, or take the session's words; the session hears which as an edit-conflict entry.
+let editBase = null;
+function checkConflict() {
+  const d = editingDraft();
+  if (!d || !editBase || editBase.id !== d.id) return;
+  const dlg = document.getElementById("conflict");
+  if ((snap.html[d.id] ?? "") === editBase.html || !dlg.hidden) return;
+  document.getElementById("conflict-sub").textContent = d.id;
+  document.getElementById("conflict-text").textContent = `The session rewrote ${d.id} while you were writing. Keep your version and go on, or switch to the session's words and drop what you typed?`;
+  dlg.hidden = false;
+  chime();
+}
+{
+  const dlg = document.getElementById("conflict");
+  const tell = (choice, id) => post("/api/conflict", { id, choice }).catch(() => {});
+  document.getElementById("conflict-keep").addEventListener("click", () => { const d = editingDraft(); dlg.hidden = true; if (!d) return; editBase = { id: d.id, html: snap.html[d.id] ?? "" }; tell("keep", d.id); });
+  document.getElementById("conflict-take").addEventListener("click", () => { const d = editingDraft(); dlg.hidden = true; if (!d) return; $popup.querySelector("#pp-editor").innerHTML = ""; editBase = null; tell("take", d.id); openPopup(d.id); });
+}
+// A chime when the session speaks, asks, or changes the canon; the bell in the panel's header mutes it.
+let chimeOn = true;
+try { chimeOn = localStorage.getItem("hc-chime") !== "off"; } catch {}
+function chime() {
+  // one chime per change: the focus, the redraw and the chat line about one change arrive seconds apart
+  if (Date.now() - (chime.last ?? 0) < 1500) return;
+  chime.last = Date.now();
+  chime.count = (chime.count ?? 0) + 1;
+  if (!chimeOn) return;
+  try {
+    const ctx = (chime.ctx ??= new (window.AudioContext || window.webkitAudioContext)());
+    if (ctx.state === "suspended") ctx.resume();
+    const t = ctx.currentTime;
+    for (const [freq, dt] of [[880, 0], [1320, 0.12]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t + dt); g.gain.exponentialRampToValueAtTime(0.16, t + dt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.5);
+      o.connect(g).connect(ctx.destination); o.start(t + dt); o.stop(t + dt + 0.55);
+    }
+  } catch {}
+}
+{
+  const bell = document.getElementById("chime-toggle");
+  const show = () => { bell.textContent = chimeOn ? "🔔" : "🔕"; bell.title = chimeOn ? "A chime when the session speaks or changes the canon; click to mute" : "Muted; click to chime again"; };
+  bell.addEventListener("click", () => { chimeOn = !chimeOn; try { localStorage.setItem("hc-chime", chimeOn ? "on" : "off"); } catch {} show(); if (chimeOn) chime(); });
+  show();
+}
 /** Remove one rendered `<h2>` section from a node's HTML. */
 const sectionRe = (heading) => new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
 function stripHtmlSection(html, heading) { return html.replace(sectionRe(heading), ""); }
@@ -1587,11 +1700,13 @@ function wirePopupMoves() {
 }
 // Asking about a passage: select words in a card and the chat is ready with them. The words stay lit in the
 // card, the chip above the message box names the node and the words, and the cursor is in the box.
-document.addEventListener("mouseup", () => {
+document.addEventListener("mouseup", (ev) => {
+  const target = ev.target;
   setTimeout(() => {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
-    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) return;
+    // a plain click anywhere but the panel drops a highlighted passage; the panel is where the question is typed
+    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) { if (quote && !document.getElementById("session").contains(target)) setQuote(null); return; }
     if (window.CSS?.highlights && window.Highlight) CSS.highlights.set("quote", new Highlight(sel.getRangeAt(0).cloneRange()));
     setQuote({ id: $popup.dataset.id, text: text.slice(0, 300) });
     openSession();
@@ -1605,19 +1720,45 @@ let chatCursor = 0;
 const ID_RE = /\b(REQ-\d+(?:\.\d+)*|PRN-\d+|DEC-\d+)\b/g;
 const linkIds = (text) => esc(text).replace(ID_RE, (id) => `<a class="id" data-id="${id}" href="#/node/${id}">${id}</a>`);
 const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+// Two lists. The chat holds what the session asks of the human (a say marked `to: human`, or one that ends in a
+// question) and what they write. The history holds the rest: what the session did, and what the human did on
+// the canvas. A history line opens its box on a double-click, or the nearest box above it if it is gone.
+const KIND_LABELS = { "node-approved": "approved", "node-edited": "rewritten", "node-deleted": "deleted", "node-created": "created", "term-enshrined": "term kept", "term-dropped": "term dropped", "refine-request": "asked to define", "finish-request": "finish", "edit-conflict": "conflict", answer: "you answered", say: "session" };
+let historyNew = 0;
 function appendChat(entries) {
-  const list = document.getElementById("activity");
+  const chat = document.getElementById("activity"), history = document.getElementById("history");
   for (const e of entries) {
     const li = document.createElement("li");
     const t = timeOf(e.at);
-    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; }
-    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; }
-    else { li.className = "sys"; li.title = `${t} · ${e.text ?? e.kind}`; li.innerHTML = linkIds(e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind); }
-    list.appendChild(li);
+    const toHuman = e.kind === "message" || (e.kind === "say" && (e.to === "human" || /\?\s*$/.test(e.text ?? "")));
+    if (toHuman && e.kind === "say") { li.className = "say"; li.innerHTML = `${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; chat.appendChild(li); }
+    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; chat.appendChild(li); }
+    else {
+      li.className = `ev ${e.kind}`; if (e.id) li.dataset.id = e.id; li.title = "Double-click to go to this box";
+      li.innerHTML = `<span class="kind">${esc(KIND_LABELS[e.kind] ?? e.kind)}</span>${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<span class="ref">${esc(e.id)}</span>` : ""}<time>${t}</time></div>`;
+      li.addEventListener("dblclick", () => goToEvent(e.id));
+      history.appendChild(li);
+      if (history.hidden) { historyNew++; const pill = document.getElementById("history-new"); pill.textContent = historyNew; pill.hidden = false; }
+    }
   }
-  while (list.children.length > 60) list.firstChild.remove();
-  list.lastElementChild?.scrollIntoView({ block: "nearest" });
+  for (const list of [chat, history]) { while (list.children.length > 80) list.firstChild.remove(); if (!list.hidden) list.lastElementChild?.scrollIntoView({ block: "nearest" }); }
 }
+function goToEvent(id) {
+  if (!id || !snap) return;
+  if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; }
+  if (id.startsWith("PRN-")) { openPopup(id); return; }
+  let target = id;
+  while (target !== "ROOT" && !snap.canon.nodes[target]) target = target.includes(".") ? target.slice(0, target.lastIndexOf(".")) : "ROOT";
+  if (target !== id) showToast(`${id} is gone; showing ${target}.`);
+  closePopup();
+  if (document.body.classList.contains("adopt-mode")) focusOnCanvas(target, false); else location.hash = target === "ROOT" ? "#/" : `#/node/${target}`;
+}
+for (const b of document.querySelectorAll(".panel-tabs button")) b.addEventListener("click", () => {
+  for (const o of document.querySelectorAll(".panel-tabs button")) o.classList.toggle("on", o === b);
+  for (const id of ["activity", "history"]) document.getElementById(id).hidden = id !== b.dataset.panel;
+  if (b.dataset.panel === "history") { historyNew = 0; document.getElementById("history-new").hidden = true; }
+  document.getElementById(b.dataset.panel).lastElementChild?.scrollIntoView({ block: "nearest" });
+});
 // While the canvas is up, a box named in the chat is focused there rather than opened as a page; a principle opens its card.
 document.getElementById("activity").addEventListener("click", (ev) => {
   const a = ev.target.closest("a[data-id]");
@@ -1626,6 +1767,8 @@ document.getElementById("activity").addEventListener("click", (ev) => {
   if (id.startsWith("PRN-")) { ev.preventDefault(); openPopup(id); return; }
   if (!snap?.canon.nodes[id]) return;
   ev.preventDefault();
+  if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; }
+  closePopup();
   focusOnCanvas(id, false);
 });
 function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }

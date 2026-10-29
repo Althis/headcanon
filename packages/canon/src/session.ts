@@ -58,6 +58,7 @@ export interface PendingQuestion {
 export type FeedKind =
   | "answer"
   | "message"
+  | "edit-conflict"
   | "say"
   | "refine-request"
   | "finish-request"
@@ -77,6 +78,8 @@ export interface FeedEntry {
   path?: string;
   /** On a message: the passage the human highlighted in a node's card before writing. */
   quote?: string;
+  /** On a say: "human" when the line asks something of them; otherwise it is a report for the history. */
+  to?: string;
 }
 
 export const DEFAULT_OPTIONS: AskOption[] = [
@@ -174,12 +177,13 @@ export class SessionState {
     return { id: this.focusId, seq: this.focusSeq, open: this.focusOpen };
   }
 
-  push(kind: FeedKind, data: { id?: string | undefined; text?: string | undefined; path?: string | undefined; quote?: string | undefined } = {}): FeedEntry {
+  push(kind: FeedKind, data: { id?: string | undefined; text?: string | undefined; path?: string | undefined; quote?: string | undefined; to?: string | undefined } = {}): FeedEntry {
     const e: FeedEntry = { seq: ++this.seq, at: new Date().toISOString(), kind };
     if (data.id) e.id = data.id;
     if (data.text) e.text = data.text;
     if (data.path) e.path = data.path;
     if (data.quote) e.quote = data.quote;
+    if (data.to) e.to = data.to;
     this.feed.push(e);
     if (this.feed.length > 500) this.feed.splice(0, this.feed.length - 500);
     for (const w of this.changeWaiters.splice(0)) w();

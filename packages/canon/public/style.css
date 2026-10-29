@@ -140,7 +140,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 body.adopt-mode .session { top: 58px; bottom: 0; right: 0; width: var(--panel-w); max-height: none; border-radius: 0; border-width: 0 0 0 1px; box-shadow: none; }
 body.adopt-mode .session .session-body { overflow: hidden; padding-bottom: 10px; }
 body.adopt-mode .session #question { flex: none; max-height: 55%; overflow: auto; }
-body.adopt-mode .session #activity { flex: 1; min-height: 60px; overflow: auto; }
+body.adopt-mode .session #activity, body.adopt-mode .session #history { flex: 1; min-height: 60px; overflow: auto; }
 .session-grip { display: none; }
 body.adopt-mode .session:not(.collapsed) .session-grip { display: block; position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 1; }
 body.adopt-mode .session:not(.collapsed) .session-grip:hover, body.resizing .session-grip { background: var(--accent-soft); }
@@ -179,7 +179,16 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: calc(var(--
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .popup { position: fixed; left: 24px; top: 84px; width: min(560px, 46vw); max-height: calc(100vh - 100px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.28); padding: 14px 16px; z-index: 25; box-sizing: border-box; }
 .popup.ask { z-index: 31; width: min(640px, 60vw); }
-.chat:empty::before { content: "What the session says appears here; what you write goes to it."; color: var(--muted); font-size: 12px; padding: 4px 2px; }
+.popup.conflict { z-index: 32; width: min(480px, 70vw); left: 50%; top: 40%; transform: translate(-50%, -50%); }
+.popup.conflict .popup-head { cursor: default; }
+.chat:empty::before { content: "What the session asks of you appears here; what you write goes to it."; color: var(--muted); font-size: 12px; padding: 4px 2px; }
+.chat.history:empty::before { content: "What the session did, and what you did on the canvas, appears here. Double-click a line to go to its box."; }
+.panel-tabs { display: flex; gap: 4px; }
+.panel-tabs .pill { margin-left: 4px; }
+.chat.history li { align-self: stretch; max-width: 100%; padding: 6px 10px; font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.chat.history li:hover { border-color: var(--accent); }
+.chat.history li .kind { font-size: 11px; color: var(--muted); margin-right: 6px; }
+.chat.history li .meta { margin-top: 3px; }
 .session-head .sub.has-q { cursor: pointer; text-decoration: underline dotted; }
 .popup-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: move; user-select: none; position: sticky; top: -14px; margin: -14px -16px 0; padding: 14px 16px 8px; background: var(--panel); z-index: 1; }
 .pp-resize { position: sticky; display: block; width: 14px; height: 14px; z-index: 2; }
@@ -190,7 +199,11 @@ body.adopt-mode:has(.session:not(.collapsed)) .adopt { margin-right: calc(var(--
 .pp-resize.sw { float: left; margin-left: -16px; cursor: nesw-resize; }
 .pp-resize.se { float: right; margin-right: -16px; cursor: nwse-resize; }
 .popup-head .btn { margin-left: auto; }
-.pp-tabs { display: flex; gap: 4px; margin: 8px 0 0; }
+.pp-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
+.conflict-summary { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--contested); background: var(--contested-bg); border-radius: 0 8px 8px 0; }
+.conflict-summary .btn { margin-left: 6px; }
+.sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; }
+.sources code { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
 .popup h2 { margin: 8px 0 4px; font-size: 17px; }
 .popup .body h2 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
 .pp-actions { gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -294,6 +307,12 @@ details ul.ops-list { columns: 3; column-gap: 20px; font-family: var(--mono); fo
 .activity li { padding: 2px 0; }
 .node-actions { margin: 8px 0; }
 .jargon { border-bottom: 2px dotted var(--assumed); cursor: help; }
+.q-title { margin: 6px 0 2px; font-size: 16px; }
+.q-terms { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-left: 3px solid var(--assumed); border-radius: 8px; }
+.q-terms .sub { margin: 0 0 4px; }
+.term-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); }
+.term-row .row { gap: 6px; margin: 0; }
+.term-replace { width: 220px; }
 .notice { margin: 0 0 8px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 6px 6px 0; color: var(--muted); }
 .working { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; }
 .spinner { flex: none; width: 16px; height: 16px; margin-top: 2px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }

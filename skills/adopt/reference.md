@@ -110,6 +110,11 @@ Source: conversation, <date>
 ## Not this
 <when an artifact or the human made one clear>
 
+## Contested
+<when two statements disagree: one or two sentences on what they cannot both hold and what choosing decides, then one bullet per statement with its sources>
+- <statement one> (<path:lines>)
+- <statement two> (<path:lines>)
+
 ## Assumptions
 - <what you decided> (model assumption)
 
@@ -204,7 +209,7 @@ When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_
 4. The result is the answer, or `{pending: true, questionId}`. When pending, call `headcanon_wait` with the `questionId` and keep calling it until the answer arrives. Never give up on a pending question and never re-ask it.
 5. Read the answer like a terminal answer: `selected` holds the chosen labels; `other` holds typed text, which is wording, a correction or a process instruction as the skill defines.
 6. `headcanon_changes` with the last cursor, and `waitSeconds` to wait for the next action, returns what the human did: `node-approved`, `node-edited`, `node-created` and `node-deleted` (their wording is stated), `term-enshrined` and `term-dropped`, `message` (free text, or a question about a quoted passage with its `id`), `refine-request` naming a branch to define next, and `finish-request`. The attend skill says what each one asks of you.
-7. `headcanon_say` posts a line of yours in the chat; the page shows a working indicator from the human's last action until your next say or question, so end every spell of work with one. `headcanon_focus` with `open` opens a box's card on their screen; `headcanon_open` with view `adopt` opens the canvas.
+7. `headcanon_say` posts a line of yours; with `to: "human"` it lands in their chat, otherwise in the page's history of what you did; the page shows a working indicator from the human's last action until your next say or question, so end every spell of work with one. `headcanon_focus` with `open` opens a box's card on their screen; `headcanon_open` with view `adopt` opens the canvas.
 
 Example call:
 
