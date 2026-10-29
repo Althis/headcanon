@@ -576,6 +576,7 @@ async function pollSession() {
     if (s.focus && s.focus.seq !== lastFocusSeq) {
       lastFocusSeq = s.focus.seq;
       if (s.focus.id) {
+        chime();
         if (route().view === "adopt") focusOnCanvas(s.focus.id, !!s.focus.open);
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
@@ -1452,7 +1453,11 @@ function buildAdoptCanvas() {
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
 // The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
-function focusOnCanvas(id, open) { adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open && editingDraft()) showToast(`The session points at ${id}; your rewrite stays open.`); else if (open) openPopup(id); }
+function focusOnCanvas(id, open) {
+  // while the human has a card open, the session's pointing is noted in the chat and moves nothing
+  if (!$popup.hidden) { adoptState.selected = id; appendChat([{ kind: "sys", text: `The session points at ${id}; your card stays as it is.`, at: new Date().toISOString() }]); return; }
+  adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id);
+}
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
@@ -1554,6 +1559,9 @@ function checkConflict() {
 let chimeOn = true;
 try { chimeOn = localStorage.getItem("hc-chime") !== "off"; } catch {}
 function chime() {
+  // one chime per change: the focus, the redraw and the chat line about one change arrive seconds apart
+  if (Date.now() - (chime.last ?? 0) < 1500) return;
+  chime.last = Date.now();
   chime.count = (chime.count ?? 0) + 1;
   if (!chimeOn) return;
   try {
@@ -1675,6 +1683,8 @@ document.getElementById("activity").addEventListener("click", (ev) => {
   if (id.startsWith("PRN-")) { ev.preventDefault(); openPopup(id); return; }
   if (!snap?.canon.nodes[id]) return;
   ev.preventDefault();
+  if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; }
+  closePopup();
   focusOnCanvas(id, false);
 });
 function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
