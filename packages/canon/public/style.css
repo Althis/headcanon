@@ -346,6 +346,9 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .issue-row { display: flex; align-items: flex-start; gap: 6px; text-align: left; white-space: normal; }
 .issue-row.now { border-color: var(--accent); }
 .issue-row .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); flex: none; }
+.issue-row .kind { font-family: var(--mono); font-weight: 700; color: var(--open); flex: none; width: 1.1em; text-align: center; }
+.q-write { margin-top: 8px; }
+.q-head .btn { margin-left: 4px; }
 .issue-row .sw { margin: 3px 0 0; flex: none; }
 .menu.principles .menu-head b { font-size: 12px; padding-left: 4px; }
 .prn-row { display: flex; align-items: center; gap: 6px; text-align: left; white-space: normal; }

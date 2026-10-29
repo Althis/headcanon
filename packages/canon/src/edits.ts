@@ -117,3 +117,8 @@ export function deleteTerm(text: string, id: string): string {
   lines.splice(i, i + 1 < lines.length && !(lines[i + 1] ?? "").trim() ? 2 : 1);
   return lines.join("\n");
 }
+
+/** Remove one `## Heading` section of a node's Markdown, with its body. */
+export function dropSection(text: string, heading: string): string {
+  return text.replace(new RegExp(`^##[ \\t]+${heading}\\b[^\\n]*\\n[\\s\\S]*?(?=^##[ \\t]|(?![\\s\\S]))`, "m"), "").replace(/\n{3,}/g, "\n\n");
+}

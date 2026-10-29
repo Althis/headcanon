@@ -529,7 +529,7 @@ function showAsk(header) {
   $ask.style.top = `${Math.max(60, area.top + Math.max(0, (area.height - $ask.offsetHeight) / 2))}px`;
   $ask.dataset.placed = "1";
 }
-document.getElementById("ask-close").addEventListener("click", () => { $ask.hidden = true; });
+document.getElementById("ask-close").addEventListener("click", () => { $ask.hidden = true; shownIssue = null; });
 document.getElementById("session-status").addEventListener("click", () => { if (shownQuestionId) $ask.hidden = false; });
 $ask.querySelector(".popup-head").addEventListener("pointerdown", (e) => {
   if (e.target.closest("button")) return;
@@ -583,30 +583,76 @@ async function sendMessage() {
 }
 document.getElementById("msg-send").addEventListener("click", sendMessage);
 $msg.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-// What the Issues panel shows: the session's queued questions first, then every red box. Redrawn only when
-// its content changes, so a hovered row is not pulled from under the pointer.
+// Issues are their own objects, each of a kind with its own template, and each acts on a box: a question the
+// session asked, an open box to settle, a contradiction to settle, a check that flagged a box. The panel lists
+// them; clicking one opens its template, never the box's card. Redrawn only when the list changes.
 let lastSession = null;
+const ISSUE_MARK = { question: "?", open: "?", contradiction: "≠", check: "!" };
+function issuesOf(s) {
+  const out = [];
+  const queue = s?.queue ?? (s?.question ? [{ id: s.question.id, header: s.question.header, nodeId: s.question.nodeId }] : []);
+  const qTitle = (q) => { const draft = q.id === s?.question?.id ? /"([^"\n]{3,90}?)\./.exec(s.question.question ?? "")?.[1] : undefined; return (q.nodeId && node(q.nodeId)?.title) || draft || q.header; };
+  queue.forEach((q, i) => out.push({ kind: "question", key: q.id, id: q.id, nodeId: q.nodeId, title: qTitle(q), sub: q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? q.header : "", current: i === 0 }));
+  for (const n of Object.values(snap.canon.nodes)) {
+    if (n.state === "contested") out.push({ kind: "contradiction", key: "c:" + n.id, nodeId: n.id, title: n.title });
+    else if (n.state === "open") out.push({ kind: "open", key: "o:" + n.id, nodeId: n.id, title: n.title });
+    else if (findingsFor(n.id).some((f) => f.level !== "info" && f.code !== "branch-unconfirmed")) out.push({ kind: "check", key: "k:" + n.id, nodeId: n.id, title: n.title });
+  }
+  return out;
+}
 function renderIssues(s) {
   const body = document.getElementById("issues-body"), count = document.getElementById("issues-count");
   if (!body || !snap) return;
-  const queue = s?.queue ?? (s?.question ? [{ id: s.question.id, header: s.question.header, nodeId: s.question.nodeId }] : []);
-  const red = [...Object.values(snap.canon.nodes).map((n) => n.id), ...snap.canon.principles.map((p) => p.id)].filter((id) => colorOf(id) === "red");
-  const key = JSON.stringify([queue.map((q) => q.id), red, s?.question?.id]);
+  const issues = issuesOf(s);
+  const key = JSON.stringify(issues.map((i) => i.key));
   if (body.dataset.key === key) return;
   body.dataset.key = key;
-  const total = queue.length + red.length;
-  count.textContent = total; count.hidden = total === 0;
-  const title = (id) => id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id)?.title ?? id : node(id)?.title ?? id;
-  const qTitle = (q) => { const draft = q.id === s?.question?.id ? /"([^"\n]{3,90}?)\./.exec(s.question.question ?? "")?.[1] : undefined; return (q.nodeId && node(q.nodeId)?.title) || draft || q.header; };
-  body.innerHTML = (total ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
-    queue.map((q, i) => `<button class="btn small issue-row${i === 0 ? " now" : ""}" data-question="${esc(q.id)}" title="${i === 0 ? "Open this question" : "Waits behind the question above"}"><span class="tag">?</span><span>${esc(qTitle(q))}${q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? ` <span class="muted">· ${esc(q.header)}</span>` : ""}</span></button>`).join("") +
-    red.map((id) => `<button class="btn small issue-row" data-box="${esc(id)}" title="Click to show this box; double-click to open it"><i class="sw red"></i><span class="tag">${esc(id)}</span><span>${esc(title(id))}</span></button>`).join("");
-  for (const b of body.querySelectorAll("[data-question]")) b.addEventListener("click", () => { if (b.dataset.question === s?.question?.id) showAsk(); else showToast("Answer the question above it first."); });
-  for (const b of body.querySelectorAll("[data-box]")) {
-    b.addEventListener("click", () => { const id = b.dataset.box; if (id.startsWith("PRN-")) return; if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); });
-    b.addEventListener("dblclick", () => openPopup(b.dataset.box));
-  }
+  count.textContent = issues.length; count.hidden = issues.length === 0;
+  body.innerHTML = (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
+    issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}" data-issue="${k}" title="${i.kind === "question" ? (i.current ? "Open this question" : "Waits behind the question above") : i.kind === "open" ? "Settle what is open" : i.kind === "contradiction" ? "Settle the contradiction" : "See what the check flagged"}"><span class="kind">${ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
+  for (const b of body.querySelectorAll("[data-issue]")) b.addEventListener("click", () => openIssue(issues[Number(b.dataset.issue)]));
 }
+// A suggestion's words without their source references, as a box's text.
+const plainWords = (html) => html.replace(/<[^>]+>/g, "").replace(/\s*\(([^()]*)\)/g, (m, inner) => (/[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+/.test(inner) ? "" : m)).trim();
+function openIssue(issue) {
+  if (issue.kind === "question") { if (issue.current) showAsk(); else showToast("Answer the question above it first."); return; }
+  const id = issue.nodeId, n = node(id);
+  if (!n) return;
+  const html = snap.html[id] ?? "";
+  const settle = async (text, resolve) => { try { await post(`/api/node/${encodeURIComponent(id)}`, { intent: text, resolve }, "PUT"); $ask.hidden = true; await load(); render(); startWorking(`you settled ${id}`); } catch (e) { showToast(e); } };
+  const head = (kind) => `<div class="q-head"><span class="badge kind">${kind}</span> ${idLink(id)} <button class="btn small" id="iss-show" title="Show the box on the canvas">Show on canvas</button> <button class="btn small" id="iss-card" title="Open the box's card">Open the card</button></div><h2 class="q-title">${esc(n.title)}</h2>`;
+  const pick = (items) => items.length ? `<div class="opts">${items.map((c, i) => `<label class="opt"><input type="radio" name="iss" value="${i}" /> <span class="opt-text">${c}</span></label>`).join("")}</div>` : "";
+  const tail = (hasChoices) => `<div class="row"><button class="btn primary" id="iss-choose" ${hasChoices ? "disabled" : "hidden"}>Choose</button><button class="btn" id="iss-write">Write it yourself</button></div><div class="q-write" id="iss-writebox" hidden><textarea id="iss-text" rows="4" placeholder="What must hold, in your words"></textarea><div class="row"><button class="btn primary" id="iss-save">Save</button></div></div>`;
+  let choices = [], resolve = "";
+  if (issue.kind === "open") {
+    resolve = "open";
+    const intent = extractHtmlSection(html, "Intent");
+    const question = /<strong>([\s\S]*?)<\/strong>/.exec(intent)?.[1];
+    choices = [...extractHtmlSection(html, "Options").matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+    $question.innerHTML = head("Open question") + (question ? `<p><strong>${question}</strong></p>` : intent.replace(/<h2>[^<]*<\/h2>/, "")) + `<p class="sub">${choices.length ? "Pick a suggestion and it becomes the box's text, in your name; or write it yourself." : "Write what must hold; it becomes the box's text, in your name."}</p>` + pick(choices) + tail(choices.length > 0);
+  } else if (issue.kind === "contradiction") {
+    resolve = "contested";
+    const contested = extractHtmlSection(html, "Contested");
+    const summary = /<\/h2>\s*<p>([\s\S]*?)<\/p>\s*<ul>/.exec(contested)?.[1] ?? "";
+    choices = [...contested.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+    const others = [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
+    $question.innerHTML = head("Contradiction") + (summary ? `<p class="conflict-summary">${summary}</p>` : "") + (others.length ? `<p class="sub">Also against: ${others.map((x) => `${idLink(x)} ${esc(node(x).title)}`).join("; ")}</p>` : "") + `<p class="sub">${choices.length ? "Keep one statement and it becomes the box's text, in your name; or write it yourself." : "Write what must hold; it becomes the box's text, in your name."}</p>` + pick(choices) + tail(choices.length > 0);
+  } else {
+    const fs = findingsFor(id).filter((f) => f.level !== "info" && f.code !== "branch-unconfirmed");
+    $question.innerHTML = head("Flagged") + `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul><div class="row"><button class="btn primary" id="iss-fix">Ask the session to fix it</button></div>`;
+    $question.querySelector("#iss-fix").addEventListener("click", async () => { try { await post("/api/message", { text: `Fix what the check flags on ${id}: ${fs.map((f) => f.message).join("; ")}`, nodeId: id }); $ask.hidden = true; startWorking(`you asked for ${id} to be fixed`); } catch (e) { showToast(e); } });
+  }
+  $question.dataset.label = `${issue.kind === "open" ? "Open question" : issue.kind === "contradiction" ? "Contradiction" : "Flagged"} · ${id}`;
+  $question.querySelector("#iss-show").addEventListener("click", () => { if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); });
+  $question.querySelector("#iss-card").addEventListener("click", () => { $ask.hidden = true; openPopup(id); });
+  for (const r of $question.querySelectorAll("input[name=iss]")) r.addEventListener("change", () => { $question.querySelector("#iss-choose").disabled = false; });
+  $question.querySelector("#iss-choose")?.addEventListener("click", () => { const picked = $question.querySelector("input[name=iss]:checked"); if (picked) settle(plainWords(choices[Number(picked.value)]), resolve); });
+  $question.querySelector("#iss-write")?.addEventListener("click", () => { const box = $question.querySelector("#iss-writebox"); box.hidden = false; box.querySelector("textarea").focus(); });
+  $question.querySelector("#iss-save")?.addEventListener("click", () => { const text = $question.querySelector("#iss-text").value.trim(); if (!text) { showToast("Write what must hold first."); return; } settle(text, resolve); });
+  shownIssue = issue.key;
+  showAsk();
+}
+let shownIssue = null;
 async function pollSession() {
   try {
     const s = await fetch("/api/session", { cache: "no-store" }).then((r) => r.json());
@@ -623,7 +669,7 @@ async function pollSession() {
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
     }
-    if (s.question && s.question.id !== shownQuestionId) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); chime(); }
+    if (s.question && s.question.id !== shownQuestionId && !(shownIssue && !$ask.hidden)) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); shownIssue = null; chime(); }
     renderIssues(s);
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
@@ -1568,7 +1614,7 @@ function openPopup(id) {
   // every side of a contradiction: the boxes this one conflicts with, either way round
   const conflictIds = isRoot || prn ? [] : [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
   const because = color === "red"
-    ? (state === "open" ? "The session could not decide this. Pick a suggestion below, or write it yourself." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
+    ? (state === "open" ? "The session could not decide this; it is listed under Issues, where you settle it." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
@@ -1600,7 +1646,6 @@ function openPopup(id) {
     ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
     <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
     ${panes.map((p, i) => `<div class="popup-body body pp-pane" data-pane="${i}" hidden>${markSections(p.html)}</div>`).join("")}
-    ${choices.length ? `<div class="choices" id="pp-choices"><p class="sub">Pick one and it becomes this box's text, in your name; or write it yourself.</p>${choices.map((c, i) => `<label class="opt"><input type="radio" name="choice" value="${i}" /> <span class="opt-text">${c}</span></label>`).join("")}<div class="row"><button class="btn primary" id="pp-choose" disabled>Choose</button><button class="btn" id="pp-write">Write it yourself</button></div></div>` : ""}
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
       ${color !== "green" && state !== "open" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
@@ -1646,15 +1691,7 @@ function openPopup(id) {
     });
   };
   $popup.querySelector("#pp-edit").addEventListener("click", () => startEdit());
-  $popup.querySelector("#pp-write")?.addEventListener("click", () => startEdit());
-  for (const r of $popup.querySelectorAll("#pp-choices input")) r.addEventListener("change", () => { $popup.querySelector("#pp-choose").disabled = false; });
-  $popup.querySelector("#pp-choose")?.addEventListener("click", async () => {
-    const picked = $popup.querySelector("#pp-choices input:checked");
-    if (!picked) return;
-    // the suggestion's words, without the source references, become the intent
-    const text = choices[Number(picked.value)].replace(/<[^>]+>/g, "").replace(/\s*\(([^()]*)\)/g, (m, inner) => (/[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+/.test(inner) ? "" : m)).trim();
-    try { await post(`/api/node/${encodeURIComponent(id)}`, { intent: text }, "PUT"); closePopup(); await load(); render(); startWorking(`you chose for ${id}`); } catch (e) { showToast(e); }
-  });
+
   if (draft) startEdit(draft);
 }
 function closePopup() { $popup.hidden = true; delete $popup.dataset.id; editBase = null; document.getElementById("conflict").hidden = true; window.CSS?.highlights?.delete("quote"); }

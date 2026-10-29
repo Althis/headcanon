@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
-import { approveNode, deletePrinciple, deleteTerm, editNode, editPrinciple, editTerm, setPrincipleState, setTermState } from "../edits.js";
+import { approveNode, deletePrinciple, deleteTerm, dropSection, editNode, editPrinciple, editTerm, setPrincipleState, setTermState } from "../edits.js";
 import { addGlossaryTerm } from "../glossary.js";
 import { descendants, loadCanon } from "../load.js";
 import { parseFrontMatter, str } from "../parse.js";
@@ -200,7 +200,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const id = decodeURIComponent(nodeMatch[1] ?? "");
     const file = fileOf(canonDir, id);
     if (!file) return json(404, { error: "no such node" });
-    const body = (await readJson(req)) as { text?: string; title?: string; intent?: string };
+    const body = (await readJson(req)) as { text?: string; title?: string; intent?: string; resolve?: string };
     if (typeof body?.text === "string") {
       const { data } = parseFrontMatter(body.text);
       if (str(data["id"])?.trim() !== id) return json(400, { error: `the front-matter id must stay ${id}` });
@@ -209,8 +209,12 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     }
     // Fields from the popup: the typed text is the human's wording, stated, and becomes the entry.
     if (typeof body?.intent !== "string" || !body.intent.trim()) return json(400, { error: "text or intent is required" });
-    writeFileSync(file.abs, editNode(readFileSync(file.abs, "utf8"), { title: body.title?.trim() || undefined, intent: body.intent }, today()));
-    return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: `${id} rewritten: ${body.intent.trim().slice(0, 120)}` }) });
+    // settling an issue with these words also drops the section the issue came from
+    let out = editNode(readFileSync(file.abs, "utf8"), { title: body.title?.trim() || undefined, intent: body.intent }, today());
+    if (body.resolve === "open") out = dropSection(out, "Options");
+    if (body.resolve === "contested") out = dropSection(out, "Contested");
+    writeFileSync(file.abs, out);
+    return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: `${id} ${body.resolve ? "settled" : "rewritten"}: ${body.intent.trim().slice(0, 120)}` }) });
   }
   if (nodeMatch && method === "DELETE" && !nodeMatch[2]) {
     const id = decodeURIComponent(nodeMatch[1] ?? "");

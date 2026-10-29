@@ -103,6 +103,16 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((q) => q.id === a || q.id === b)).toBe(false);
   });
 
+  it("settling an issue with the human's words drops the section it came from", async () => {
+    await send("/api/node/REQ-2", { text: "---\nid: REQ-2\ntitle: \"Billing works\"\nstate: contested\n---\n\n# Billing works\n\n## Intent\n\nOld.\n\n## Contested\n\nTwo readings.\n\n- A (docs/a.md:1).\n- B (docs/b.md:2).\n" }, "PUT");
+    expect(loadCanon(join(dir, "canon")).nodes["REQ-2"]?.state).toBe("contested");
+    await send("/api/node/REQ-2", { intent: "A.", resolve: "contested" }, "PUT");
+    const raw = (await get("/api/node/REQ-2/raw"))["text"] as string;
+    expect(raw).not.toContain("## Contested");
+    expect(loadCanon(join(dir, "canon")).nodes["REQ-2"]?.state).toBe("stated");
+    expect(raw).toContain("> A.");
+  });
+
   it("approves, rewrites and deletes a glossary term from the page", async () => {
     const before = (await get("/api/changes"))["cursor"] as number;
     expect((await send("/api/node/TERM-skip/approve", {})).status).toBe(200);
