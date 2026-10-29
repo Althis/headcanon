@@ -603,7 +603,7 @@ function renderIssues(s) {
     red.map((id) => `<button class="btn small issue-row" data-box="${esc(id)}" title="Click to show this box; double-click to open it"><i class="sw red"></i><span class="tag">${esc(id)}</span><span>${esc(title(id))}</span></button>`).join("");
   for (const b of body.querySelectorAll("[data-question]")) b.addEventListener("click", () => { if (b.dataset.question === s?.question?.id) showAsk(); else showToast("Answer the question above it first."); });
   for (const b of body.querySelectorAll("[data-box]")) {
-    b.addEventListener("click", () => { const id = b.dataset.box; if (id.startsWith("PRN-")) return; if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false); });
+    b.addEventListener("click", () => { const id = b.dataset.box; if (id.startsWith("PRN-")) return; if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); });
     b.addEventListener("dblclick", () => openPopup(b.dataset.box));
   }
 }
@@ -1517,6 +1517,8 @@ function buildAdoptCanvas() {
     }
     if (adoptState.view) cy.viewport(adoptState.view); else fitAll();
     grid(); applyFocus(); makeOverlays();
+    // a redraw with a selected box brings that box on screen
+    if (adoptState.selected && cy.getElementById(adoptState.selected).length) keepInView(adoptState.selected);
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
   $main.querySelector("[data-fit]")?.addEventListener("click", () => { fitAll(); });
@@ -1537,9 +1539,14 @@ function buildAdoptCanvas() {
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
 // The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
-function focusOnCanvas(id, open) {
-  // while the human has a card open, the session's pointing is noted in the chat and moves nothing
-  if (!$popup.hidden) { adoptState.selected = id; appendChat([{ kind: "sys", text: `The session points at ${id}; your card stays as it is.`, at: new Date().toISOString() }]); return; }
+function focusOnCanvas(id, open, byHuman = false) {
+  // while the human has a card open, the session's pointing is noted in the chat and moves nothing; the
+  // human's own click closes the card first, unless they are mid-rewrite
+  if (!$popup.hidden) {
+    if (!byHuman) { adoptState.selected = id; appendChat([{ kind: "sys", text: `The session points at ${id}; your card stays as it is.`, at: new Date().toISOString() }]); return; }
+    if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; }
+    closePopup();
+  }
   adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id);
 }
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
