@@ -16,6 +16,6 @@ So the canon keeps the picture as SVG and the binding as a Markdown table beside
 
 Rejected: Penpot's file as the record, which is not diffable, renders only in Penpot and is heavy for the agent to write; Excalidraw's JSON as the record, which renders nowhere without an export step whose SVG carries no element ids; pen.dev, a proprietary application with a format in flux; tldraw, which is not under an open licence; PlantUML Salt, which has no element identity and no way back into a design tool; screenshots and HTML prototypes, which record state and code rather than intent.
 
-## Open
+## Retired
 
-- 2026-10-18: whether designers accept an SVG kit drawn by the agent as a starting point, or always bring their own export; the first run with a visual node decides.
+Superseded by DEC-019 on 2026-10-18: the human chose HTML and CSS as the foundation after asking how layout would be carried and who holds the design files. Kept as the record of the first proposal and of the research it rested on.

@@ -67,7 +67,7 @@ Terms as the agent understands them from the brief and the session. Each is assu
 
 **step** (`TERM-step`): One node of a journey graph, written `JRN-1/S3`.
 
-**mock** (`TERM-mock`): A picture of one thing a person will see, kept in the canon as an SVG with a table that binds each of its elements to the requirements it carries. An intent record.
+**mock** (`TERM-mock`): An HTML page of one thing a person will see, kept in the canon with a table that binds each of its elements to the requirements it carries. An intent record.
 
 **mock element** (`TERM-mock-element`): One named part of a mock, written `MOCK-1#finish`, that a requirement is bound to.
 

@@ -3,12 +3,13 @@ id: MOCK-1
 title: "The node card on the Adopt canvas"
 state: assumed
 source: "REQ-12.1.8 (the card as the human described it); packages/canon/public/app.js (openPopup)"
-image: MOCK-1-node-card.svg
+page: MOCK-1-node-card/index.html
+needs: []
 ---
 
 # The node card on the Adopt canvas
 
-![The node card](MOCK-1-node-card.svg)
+[Open the page](MOCK-1-node-card/index.html)
 
 | Element | State | Linked requirements |
 | --- | --- | --- |
@@ -22,4 +23,4 @@ image: MOCK-1-node-card.svg
 | #grips Resize grips in the corners | assumed | REQ-12.1.8 |
 | #close Close button | assumed | REQ-12.1.8 |
 
-The first mock in this canon, drawn by the agent from the card the human described for the Adopt canvas. It exists to exercise the mock format on the project itself (REQ-11.5): one picture, one table, every button bound to the requirement that makes it do what it does.
+The first mock in this canon, written by the agent from the card the human described for the Adopt canvas. It exists to exercise the mock format on the project itself (REQ-11.5): one page, one table, every button bound to the requirement that makes it do what it does. Below the phone width the actions stack.

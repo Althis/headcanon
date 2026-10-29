@@ -61,7 +61,7 @@ flowchart LR
     REQ_6_5["REQ-6.5<br/>Mermaid index limits and generated-view freshne…"]:::assumed
     REQ_6_6["REQ-6.6<br/>ID scheme for requirements, journeys, steps, de…"]:::resolved
     REQ_6_7["REQ-6.7<br/>Every node carries a layer: domain, capability …"]:::resolved
-    REQ_6_8["REQ-6.8<br/>A mock is an SVG picture with an element table …"]:::assumed
+    REQ_6_8["REQ-6.8<br/>A mock is an HTML page in a folder, with an ele…"]:::assumed
     REQ_7["REQ-7<br/>Success criteria exist before code, and obstacl…"]:::stated
     REQ_7_1["REQ-7.1<br/>Workflow runs requirements → tests → implementa…"]:::stated
     REQ_7_2["REQ-7.2<br/>Negotiation is a triggered mode, not an upfront…"]:::stated
@@ -384,7 +384,7 @@ flowchart LR
     REQ_6_5["REQ-6.5<br/>Mermaid index limits and generated-view freshne…"]:::assumed
     REQ_6_6["REQ-6.6<br/>ID scheme for requirements, journeys, steps, de…"]:::resolved
     REQ_6_7["REQ-6.7<br/>Every node carries a layer: domain, capability …"]:::resolved
-    REQ_6_8["REQ-6.8<br/>A mock is an SVG picture with an element table …"]:::assumed
+    REQ_6_8["REQ-6.8<br/>A mock is an HTML page in a folder, with an ele…"]:::assumed
     REQ_6 --> REQ_6_1
     REQ_6 --> REQ_6_2
     REQ_6 --> REQ_6_3
@@ -554,7 +554,7 @@ flowchart LR
     REQ_11_6["REQ-11.6<br/>Adopting HeadCanon in an existing project works…"]:::stated
     REQ_11_6_1["REQ-11.6.1<br/>Selecting an item in a multi-select is approval…"]:::stated
     REQ_11_6_2["REQ-11.6.2<br/>Drafts read as prose with footnoted sources, an…"]:::stated
-    REQ_11_6_3["REQ-11.6.3<br/>Adoption drafts the whole canon as guesses and …"]:::stated
+    REQ_11_6_3["REQ-11.6.3<br/>Adoption drafts the canon as guesses and questi…"]:::stated
     REQ_11 --> REQ_11_1
     REQ_11_1 --> REQ_11_1_1
     REQ_11_1 --> REQ_11_1_2
@@ -588,7 +588,7 @@ flowchart LR
     REQ_12_1_6["REQ-12.1.6<br/>A term new to a draft is gated in the page: a s…"]:::stated
     REQ_12_1_7["REQ-12.1.7<br/>The session asks through the page, focuses the …"]:::resolved
     REQ_12_1_8["REQ-12.1.8<br/>Adopt: a full canvas of coloured boxes with han…"]:::stated
-    REQ_12_1_9["REQ-12.1.9<br/>Mocks on the page: a Mocks view, a mock beside …"]:::assumed
+    REQ_12_1_9["REQ-12.1.9<br/>Mocks on the page: a Mocks view with width pres…"]:::assumed
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
     REQ_12_3["REQ-12.3<br/>No hosted coding environment; no Claude.ai logi…"]:::assumed
     REQ_12 --> REQ_12_1
@@ -643,30 +643,30 @@ flowchart LR
 ## Text tree
 
 ```
-REQ-1             Divergence from intent is caught early, where the human sees it           stated    · unrefined
+REQ-1             Divergence from intent is caught early, where the human sees it           stated
 ├─ REQ-1.1        Three target failure modes: substitution, justification, erosion          stated    · unrefined
 ├─ REQ-1.2        Root cause stays an open hypothesis; the design must work under both      stated    · unrefined
-└─ REQ-1.3        Tag each caught divergence with its origin, as an opt-out field; trial …  stated    · unrefined
+└─ REQ-1.3        Tag each caught divergence with its origin, as an opt-out field; trial …  stated
    └─ REQ-1.3.1   The origin field lives on decision records only                           resolved  · unrefined
-REQ-2             Two products share one intent format                                      stated    · unrefined
+REQ-2             Two products share one intent format                                      stated
 ├─ REQ-2.1        Two products: HeadCanon (agent alignment during implementation) and Wri…  stated    · unrefined
 ├─ REQ-2.2        HeadCanon is the priority now                                             stated    · unrefined
 ├─ REQ-2.3        Writ builds on teams' existing test tooling instead of replacing it       stated    · unrefined
 ├─ REQ-2.4        HeadCanon is a Claude Code plugin first; both products model-agnostic i…  stated    · unrefined
 ├─ REQ-2.5        The user supplies Writ's model; v1 supports Anthropic models and API ke…  stated    · unrefined
-├─ REQ-2.6        The shared canon CLI never calls a model                                  resolved  · unrefined
+├─ REQ-2.6        The shared canon CLI never calls a model                                  resolved
 │  └─ REQ-2.6.1   What the check command counts as a problem                                assumed   · unrefined
 ├─ REQ-2.7        Two repositories: headcanon and writ                                      stated    · unrefined
 ├─ REQ-2.8        Windows plus macOS are supported first; Linux follows for free            resolved  · unrefined
 └─ REQ-2.9        Writ's v1 test environment is Node                                        stated    · unrefined
-REQ-3             Intent is a tree of requirements refined to binary leaves                 stated    · unrefined
-├─ REQ-3.1        HeadCanon's own model is the description framework; Diataxis maybe for …  stated    · unrefined
+REQ-3             Intent is a tree of requirements refined to binary leaves                 stated
+├─ REQ-3.1        HeadCanon's own model is the description framework; Diataxis maybe for …  stated
 │  └─ REQ-3.1.1   Aim: the canon holds explanation, requirements are the reference, how-t…  stated    · unrefined
 ├─ REQ-3.2        KAOS obstacle analysis is kept in mind, not adopted now                   stated    · unrefined
 ├─ REQ-3.3        Requirements form a tree, refined down to binary-measurable leaves        stated    · unrefined
 ├─ REQ-3.4        The tree is filled lazily: gaps surface when relevant; deeper details m…  stated    · unrefined
-├─ REQ-3.5        Human-judgment leaves are allowed (e.g. aesthetics); human approval is …  stated    · unrefined
-│  └─ REQ-3.5.1   How a human approves a judgment leaf                                      open      · unrefined
+├─ REQ-3.5        Human-judgment leaves are allowed (e.g. aesthetics); human approval is …  stated
+│  └─ REQ-3.5.1   How a human approves a judgment leaf                                      open
 ├─ REQ-3.6        Binary leaves are proxies; passing leaves do not prove the parent         assumed   · unrefined
 ├─ REQ-3.7        Principles are a layer above the tree: tested against requirements by a…  stated    · unrefined
 ├─ REQ-3.8        The top of the tree is derived from the premise and from what every sof…  stated    · unrefined
@@ -677,23 +677,23 @@ REQ-3             Intent is a tree of requirements refined to binary leaves     
 ├─ REQ-3.13       Decomposition infers what a node implies, and the inference is its own …  stated    · unrefined
 ├─ REQ-3.14       A node is cut into children by laddering what it implies to the rung be…  resolved  · unrefined
 ├─ REQ-3.15       Refinement follows dependency order: a node requires the nodes whose co…  stated    · unrefined
-└─ REQ-3.16       A visual node is defined from its mock: the picture is agreed first, an…  assumed   · unrefined
-REQ-4             User journeys are first-class intent records                              stated    · unrefined
+└─ REQ-3.16       A visual node is defined from its mock: the picture is agreed first, an…  assumed   · unrefined  ! 1 finding
+REQ-4             User journeys are first-class intent records                              stated
 ├─ REQ-4.1        User journeys are intent records, not tests, kept separate from the tree  stated    · unrefined
 ├─ REQ-4.2        Journeys are decision graphs whose steps link many-to-many to requireme…  stated    · unrefined
 └─ REQ-4.3        Journey files: a Mermaid flowchart plus a step-to-requirement table       assumed   · unrefined
-REQ-5             Terms and certainty are modeled, never hidden                             stated    · unrefined
-├─ REQ-5.1        The root canon file's Glossary section defines the user's terms           stated    · unrefined
+REQ-5             Terms and certainty are modeled, never hidden                             stated
+├─ REQ-5.1        The root canon file's Glossary section defines the user's terms           stated
 │  └─ REQ-5.1.1   A definition says what the term is, and covers one concept                stated    · unrefined
 ├─ REQ-5.2        Undefined or badly defined elements are modeled; the AI maps them with …  stated    · unrefined
-├─ REQ-5.3        Five certainty states: stated, assumed, open, contested, resolved         stated    · unrefined
+├─ REQ-5.3        Five certainty states: stated, assumed, open, contested, resolved         stated
 │  ├─ REQ-5.3.1   Stated items are always verbatim quotes collected from the conversation   stated    · unrefined
 │  ├─ REQ-5.3.2   Resolved only on the human's explicit agreement; tacit approval never c…  stated    · unrefined
 │  ├─ REQ-5.3.3   One state per node; sections may carry their own marker and may be expa…  resolved  · unrefined
 │  └─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined
 ├─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined
 └─ REQ-5.5        The human's latest approval outranks every artifact; artifacts pre-fill…  stated    · unrefined
-REQ-6             The canon is plain files that existing tools already render               stated    · unrefined
+REQ-6             The canon is plain files that existing tools already render               stated
 ├─ REQ-6.1        Canon stored as Markdown with front-matter, in a folder tree mirroring …  stated    · unrefined
 ├─ REQ-6.2        Generated views: a text tree inside the agent, a Mermaid index on GitHub  stated    · unrefined
 ├─ REQ-6.3        Folder layout: root README, one folder per branch, journeys/, decisions/  assumed   · unrefined
@@ -701,31 +701,31 @@ REQ-6             The canon is plain files that existing tools already render   
 ├─ REQ-6.5        Mermaid index limits and generated-view freshness                         assumed   · unrefined
 ├─ REQ-6.6        ID scheme for requirements, journeys, steps, decisions, terms and datas…  resolved  · unrefined
 ├─ REQ-6.7        Every node carries a layer: domain, capability or requirement             resolved  · unrefined
-└─ REQ-6.8        A mock is an SVG picture with an element table that binds its parts to …  assumed   · unrefined
-REQ-7             Success criteria exist before code, and obstacles are negotiated, not a…  stated    · unrefined
+└─ REQ-6.8        A mock is an HTML page in a folder, with an element table that binds it…  assumed   · unrefined  ! 1 finding
+REQ-7             Success criteria exist before code, and obstacles are negotiated, not a…  stated
 ├─ REQ-7.1        Workflow runs requirements → tests → implementation                       stated    · unrefined
-├─ REQ-7.2        Negotiation is a triggered mode, not an upfront phase                     stated    · unrefined
+├─ REQ-7.2        Negotiation is a triggered mode, not an upfront phase                     stated
 │  ├─ REQ-7.2.1   Negotiation triggers                                                      assumed   · unrefined
 │  └─ REQ-7.2.2   A baseline regression found in the session triggers negotiation           assumed   · unrefined
 ├─ REQ-7.3        The agent may work around obstacles alone if intent is preserved          stated    · unrefined
 ├─ REQ-7.4        "Preserved" means every affected journey still plays out as written       stated    · unrefined
 └─ REQ-7.5        Stopping to raise an obstacle counts as a successful outcome              assumed   · unrefined
-REQ-8             Intent never changes silently                                             stated    · unrefined
+REQ-8             Intent never changes silently                                             stated
 ├─ REQ-8.1        Intent history is append-only; the agent proposes, the human approves     stated    · unrefined
 ├─ REQ-8.2        Decision records link to intents and get flagged when an intent changes   stated    · unrefined
 ├─ REQ-8.3        Intent descriptions go in commit messages in a fixed format, never free…  stated    · unrefined
 ├─ REQ-8.4        Canon files hold the current intent; commit trailers record how and why…  stated    · unrefined
-├─ REQ-8.5        Commit format: Conventional Commits header plus required intent trailers  assumed   · unrefined
+├─ REQ-8.5        Commit format: Conventional Commits header plus required intent trailers  assumed
 │  ├─ REQ-8.5.1   Trailers: Intent, Intent-Change, Decision, Test-Change, Approved-By       resolved  · unrefined
 │  ├─ REQ-8.5.2   The commit-msg hook is installed from the start by headcanon init         stated    · unrefined
 │  ├─ REQ-8.5.3   An edit that only adds lines to a rules, skill or canon file needs a Co…  stated    · unrefined
 │  ├─ REQ-8.5.4   Every canon commit passes a semantic review for contradictions, reitera…  stated    · unrefined
 │  └─ REQ-8.5.5   A change to a child asks its parent: untouched parents are accounted fo…  stated    · unrefined
-├─ REQ-8.6        The agent changes the canon only through create, update and delete requ…  stated    · unrefined
+├─ REQ-8.6        The agent changes the canon only through create, update and delete requ…  stated
 │  └─ REQ-8.6.1   The canon is managed through a fixed set of operations drawn from estab…  stated    · unrefined
 ├─ REQ-8.7        CUD covers all canon objects; updates are patches; deletes retire; trai…  assumed   · unrefined
 └─ REQ-8.8        An agreed mock is redrawn only as a proposal the human accepts element …  assumed   · unrefined
-REQ-9             Writ verifies every change against the canon                              stated    · unrefined
+REQ-9             Writ verifies every change against the canon                              stated
 ├─ REQ-9.1        Intent-traced verification is Writ's headline output, leaning on E2E      stated    · unrefined
 ├─ REQ-9.2        Writ checks intent before code; intent takes precedence                   stated    · unrefined
 ├─ REQ-9.3        Preservation reruns every earlier approved test, not only those linked …  stated    · unrefined
@@ -742,30 +742,30 @@ REQ-9             Writ verifies every change against the canon                  
 ├─ REQ-9.14       Binary baselines, tolerance in the canon, drift tracking, approval as i…  stated    · unrefined
 ├─ REQ-9.15       The model proposes tolerances and the human approves them; repeated run…  stated    · unrefined
 ├─ REQ-9.16       Model checks are non-deterministic; Writ's review report justifies ever…  stated    · unrefined
-├─ REQ-9.17       Which CI run's numbers count for baselines                                open      · unrefined
+├─ REQ-9.17       Which CI run's numbers count for baselines                                open
 └─ REQ-9.18       Writ judges requirements against the principles with a model and surfac…  stated    · unrefined
-REQ-10            Writ sits a layer above the team's tools and runs where they run          stated    · unrefined
+REQ-10            Writ sits a layer above the team's tools and runs where they run          stated
 ├─ REQ-10.1       Writ runs in CI, outside the agent's session                              stated    · unrefined
 ├─ REQ-10.2       A Writ GitHub Action installs the CLI, runs the stages and reports on P…  stated    · unrefined
 ├─ REQ-10.3       Writ is one CLI (local, CI step, required PR check) reading JUnit XML o…  assumed   · unrefined
 ├─ REQ-10.4       Writ reduces redundancy, fits existing ecosystems, and sits a layer abo…  stated    · unrefined
 ├─ REQ-10.5       Requirements link to files or functions; Writ scopes checks to a commit…  stated    · unrefined
 └─ REQ-10.6       Links are many-to-many; unlinked changes are flagged; E2E and per-relea…  assumed   · unrefined
-REQ-11            HeadCanon keeps the agent aligned from inside Claude Code                 stated    · unrefined
-├─ REQ-11.1       SessionStart summary instead of editing CLAUDE.md; Stop hook as the "do…  assumed   · unrefined  ! 1 finding
+REQ-11            HeadCanon keeps the agent aligned from inside Claude Code                 stated
+├─ REQ-11.1       SessionStart summary instead of editing CLAUDE.md; Stop hook as the "do…  assumed   ! 1 finding
 │  ├─ REQ-11.1.1  The Stop gate ships in warn mode and blocks only once its checks prove …  resolved  · unrefined
 │  └─ REQ-11.1.2  A blocking Stop hook must check stop_hook_active                          assumed   · unrefined
-├─ REQ-11.2       What lives where inside the plugin                                        assumed   · unrefined  ! 1 finding
+├─ REQ-11.2       What lives where inside the plugin                                        assumed   ! 1 finding
 │  └─ REQ-11.2.1  The minimal plugin: session context, four skills, init with the hook, r…  resolved  · unrefined
 ├─ REQ-11.3       All hooks live at plugin level                                            assumed   · unrefined  ! 1 finding
 ├─ REQ-11.4       The E2E target is discovered by developing HeadCanon alongside a real p…  stated    · unrefined
 ├─ REQ-11.5       HeadCanon is built with itself from the first commit                      resolved  · unrefined
-└─ REQ-11.6       Adopting HeadCanon in an existing project works top-down: overview, pri…  stated    · unrefined
+└─ REQ-11.6       Adopting HeadCanon in an existing project works top-down: overview, pri…  stated
    ├─ REQ-11.6.1  Selecting an item in a multi-select is approval, and the human is told …  stated    · unrefined
    ├─ REQ-11.6.2  Drafts read as prose with footnoted sources, and a principle is a title…  stated    · unrefined
-   └─ REQ-11.6.3  Adoption drafts the whole canon as guesses and questions, then the huma…  stated    · unrefined
-REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   · unrefined  ! 1 finding
-├─ REQ-12.1       A local viewer now; an MCP App later                                      stated    · unrefined
+   └─ REQ-11.6.3  Adoption drafts the canon as guesses and questions while the human revi…  stated    · unrefined
+REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   ! 1 finding
+├─ REQ-12.1       A local viewer now; an MCP App later                                      stated
 │  ├─ REQ-12.1.1  Overview: requirements at a glance                                        assumed   · unrefined
 │  ├─ REQ-12.1.2  Tree: the canon as a graph by default, the nested list on request, and …  stated    · unrefined
 │  ├─ REQ-12.1.3  Health: problematic branches and their children                           assumed   · unrefined
@@ -774,14 +774,14 @@ REQ-12            Viewing surfaces and the paid team layer come after v1        
 │  ├─ REQ-12.1.6  A term new to a draft is gated in the page: a span with a tooltip, a ch…  stated    · unrefined
 │  ├─ REQ-12.1.7  The session asks through the page, focuses the human's screen, and read…  resolved  · unrefined
 │  ├─ REQ-12.1.8  Adopt: a full canvas of coloured boxes with handles, a card to approve,…  stated    · unrefined
-│  └─ REQ-12.1.9  Mocks on the page: a Mocks view, a mock beside the question that asks a…  assumed   · unrefined
+│  └─ REQ-12.1.9  Mocks on the page: a Mocks view with width presets, a mock beside the q…  assumed   · unrefined  ! 1 finding
 ├─ REQ-12.2       Paid product: a hosted team layer over the open-source CLI and plugin     assumed   · unrefined
 └─ REQ-12.3       No hosted coding environment; no Claude.ai login, API keys only           assumed   · unrefined
-REQ-13            Open parts stay genuinely open; revenue comes from the hosted layer       assumed   · unrefined  ! 1 finding
+REQ-13            Open parts stay genuinely open; revenue comes from the hosted layer       assumed   ! 1 finding
 ├─ REQ-13.1       Apache 2.0 for the canon spec, HeadCanon and Writ                         resolved  · unrefined
 ├─ REQ-13.2       The hosted team layer stays proprietary                                   assumed   · unrefined
-├─ REQ-13.3       Register the HeadCanon trademark; check Writ's registrability first       assumed   · unrefined
-│  └─ REQ-13.3.1  Whether Writ can be registered as a trademark                             open      · unrefined
+├─ REQ-13.3       Register the HeadCanon trademark; check Writ's registrability first       assumed
+│  └─ REQ-13.3.1  Whether Writ can be registered as a trademark                             open
 ├─ REQ-13.4       A Harmony-based CLA, signed via CLA Assistant, before the first outside…  assumed   · unrefined
 └─ REQ-13.5       Clean-room provenance: everything written from scratch for this project   assumed   · unrefined
 
@@ -807,4 +807,7 @@ Decisions
   DEC-014         The canon is a directed acyclic graph: one home per node, typed links, lifting before linking  resolved  origin: misread
   DEC-015         Children are built by laddering, with the axis read off the set, never chosen first  resolved  origin: misread
   DEC-016         A mock is kept as SVG with a Markdown element table; the design tool's own file travels inside or beside it  assumed
+  DEC-017         Drafting is continuous and local: one refiner agent per node in a fresh context, in dependency order, with the human called at key points  stated  origin: misread
+  DEC-018         Drafting runs two levels ahead of approval: a box is cut only when its children lie within two levels of the deepest approved box on its path  stated  origin: side-effect
+  DEC-019         A mock is an HTML and CSS page: the agent writes one, and Figma's exports enter as one  resolved  origin: misread
 ```

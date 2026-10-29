@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The node card</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section class="card" aria-label="Node card">
+    <div id="grips" class="grips" aria-hidden="true"><span class="nw"></span><span class="ne"></span><span class="sw"></span><span class="se"></span></div>
+    <header id="head" class="head">
+      <span class="tag">REQ-1.2</span>
+      <span class="state">assumed</span>
+      <span class="why"><i class="dot"></i>the session's guess from your documents</span>
+      <button id="close" class="close" title="Close">✕</button>
+    </header>
+    <h1 id="title">Title of the node</h1>
+    <div id="body" class="body">
+      <p>The node's text: what the thing is, one or two sentences, read as an encyclopedia entry.</p>
+      <p><mark>selected words</mark> <button class="ask" title="Ask the session what this passage means">?</button></p>
+    </div>
+    <div class="actions">
+      <button id="approve" class="primary">Approve</button>
+      <button id="rewrite">Rewrite</button>
+      <button id="delete">Delete</button>
+      <button id="define">Define further</button>
+    </div>
+  </section>
+</body>
+</html>
