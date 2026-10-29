@@ -118,7 +118,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
 
   const questionShape = {
     question: z.string().describe("The full question text: layer label, the draft, footnotes and the Sources line."),
-    header: z.string().optional().describe("Short label, e.g. 'Premise (1 of 5)' or 'REQ-1.4'"),
+    header: z.string().optional().describe("A short label of the kind of question, e.g. 'Premise (1 of 5)' or 'Draft'; never a node id, which goes in nodeId. The page titles the card with the node's title, or with the draft's first sentence when the node is new."),
     options: z.array(z.object({ label: z.string(), description: z.string().optional() })).optional().describe("Defaults to Approve as written / Drop. For a list, one option per item: label is the ID and title, description is the item's one-line draft with its footnote."),
     multiSelect: z.boolean().optional().describe("True for a first pass over a list: ticked means approved as written."),
     nodeId: z.string().optional().describe("A canon node to focus on the human's screen while they answer."),

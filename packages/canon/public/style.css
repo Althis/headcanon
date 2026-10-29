@@ -296,6 +296,12 @@ details ul.ops-list { columns: 3; column-gap: 20px; font-family: var(--mono); fo
 .activity li { padding: 2px 0; }
 .node-actions { margin: 8px 0; }
 .jargon { border-bottom: 2px dotted var(--assumed); cursor: help; }
+.q-title { margin: 6px 0 2px; font-size: 16px; }
+.q-terms { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-left: 3px solid var(--assumed); border-radius: 8px; }
+.q-terms .sub { margin: 0 0 4px; }
+.term-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); }
+.term-row .row { gap: 6px; margin: 0; }
+.term-replace { width: 220px; }
 .notice { margin: 0 0 8px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 6px 6px 0; color: var(--muted); }
 .working { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; }
 .spinner { flex: none; width: 16px; height: 16px; margin-top: 2px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }

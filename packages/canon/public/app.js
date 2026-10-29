@@ -620,15 +620,23 @@ function renderQuestion(q, pending = 1) {
     const desc = o.html ? `<label for="opt-${i}" class="opt-desc">${o.html}</label>` : o.description ? `<label for="opt-${i}" class="opt-desc">${esc(o.description)}</label>` : "";
     return `<div class="opt"><input type="${q.multiSelect ? "checkbox" : "radio"}" id="opt-${i}" name="opt" value="${esc(o.label)}" ${!q.multiSelect && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${head}</span>${desc}</span></div>`;
   }).join("");
+  // The card's title: the node's, or the draft's first sentence while the node is still being drafted; the
+  // header is a label of the kind of question and is not repeated when it is only the node's id.
+  const nodeTitle = q.nodeId ? node(q.nodeId)?.title : undefined;
+  const draftTitle = /"([^"\n]{3,90}?)\./.exec(q.question ?? "")?.[1];
+  const title = nodeTitle ?? draftTitle ?? "";
+  const label = q.header && q.header !== q.nodeId ? q.header : "";
   $question.innerHTML = `
     ${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}
-    <div class="q-head"><span class="badge kind">${esc(q.header)}</span>${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
+    <div class="q-head">${label ? `<span class="badge kind">${esc(label)}</span>` : ""}${q.nodeId ? ` ${idLink(q.nodeId)}` : ""}${pending > 1 ? ` <span class="muted">${pending - 1} more after this</span>` : ""}</div>
+    ${title ? `<h2 class="q-title">${esc(title)}</h2>` : ""}
     <div class="q-body body">${q.html}</div>
-    ${q.terms.length ? `<p class="sub q-terms">Terms in this draft that the glossary does not define are marked; hover each one and keep or drop it before answering.</p>` : ""}
+    <div id="q-terms" class="q-terms" hidden></div>
     <div class="opts" id="q-opts">${opts}</div>
     <div id="q-free" hidden><textarea id="q-other" rows="3" placeholder="Your own wording, or a correction. This replaces the options above."></textarea></div>
     <div class="row"><button class="btn" id="q-submit">Answer</button><button class="btn small" id="q-mode">Other: correct or rewrite instead</button><span class="sub" id="q-hint"></span></div>`;
-  showAsk(q.header);
+  showAsk(label || q.nodeId || "Question");
+  renderTermRows(q);
   // One answer shape at a time: the options, or typed text that replaces them. Never both.
   $question.querySelector("#q-mode").addEventListener("click", () => {
     const free = $question.querySelector("#q-free"), optsEl = $question.querySelector("#q-opts"), mode = $question.querySelector("#q-mode");
@@ -649,7 +657,8 @@ function updateSubmit(q) {
   const btn = $question.querySelector("#q-submit"), hint = $question.querySelector("#q-hint");
   if (!btn) return;
   btn.disabled = unresolved.length > 0;
-  hint.textContent = unresolved.length ? `${unresolved.length} term${unresolved.length > 1 ? "s" : ""} to keep or drop first: ${unresolved.map((t) => t.term).join(", ")}` : "";
+  btn.textContent = unresolved.length ? `Decide ${unresolved.length} term${unresolved.length > 1 ? "s" : ""} first` : "Answer";
+  hint.textContent = "";
   for (const span of $question.querySelectorAll(".jargon")) {
     const st = termState[span.dataset.term.toLowerCase()];
     span.classList.toggle("kept", st?.decision === "keep");
@@ -676,21 +685,39 @@ function showTooltip(span, q, pinned = false) {
   const hide = () => { if (!tooltipPinned && !$tooltip.matches(":hover")) $tooltip.hidden = true; };
   span.addEventListener("mouseleave", () => setTimeout(hide, 250), { once: true });
   $tooltip.onmouseleave = () => { if (!tooltipPinned) $tooltip.hidden = true; };
-  $tooltip.querySelector("[data-keep]")?.addEventListener("click", async () => {
-    await post("/api/term", { term, definition: guess.definition, decision: "keep" }).catch(showToast);
-    termState[term.toLowerCase()] = { term, decision: "keep", definition: guess.definition };
-    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" enshrined in the glossary.`);
-  });
+  $tooltip.querySelector("[data-keep]")?.addEventListener("click", () => decideTerm(q, term, "keep", "", guess.definition));
   $tooltip.querySelector("[data-drop]")?.addEventListener("click", () => {
     $tooltip.querySelector(".tt-replace").hidden = false;
     $tooltip.querySelector(".tt-replace input").focus();
   });
-  $tooltip.querySelector("[data-replace]")?.addEventListener("click", async () => {
-    const replacement = $tooltip.querySelector(".tt-replace input").value.trim();
-    await post("/api/term", { term, decision: "drop", replacement }).catch(showToast);
-    termState[term.toLowerCase()] = { term, decision: "drop", replacement };
-    $tooltip.hidden = true; updateSubmit(q); showToast(`"${term}" dropped${replacement ? `; use "${replacement}"` : ""}.`);
-  });
+  $tooltip.querySelector("[data-replace]")?.addEventListener("click", () => decideTerm(q, term, "drop", $tooltip.querySelector(".tt-replace input").value.trim(), ""));
+}
+// A term's fate, from the tooltip or from the rows under the draft: kept, and it enters the glossary with this
+// meaning; dropped, with a word to use instead.
+async function decideTerm(q, term, decision, replacement, definition) {
+  await post("/api/term", decision === "keep" ? { term, definition, decision } : { term, decision, replacement }).catch(showToast);
+  termState[term.toLowerCase()] = decision === "keep" ? { term, decision, definition } : { term, decision, replacement };
+  $tooltip.hidden = true;
+  updateSubmit(q);
+  renderTermRows(q);
+  showToast(decision === "keep" ? `"${term}" enshrined in the glossary.` : `"${term}" dropped${replacement ? `; use "${replacement}"` : ""}.`);
+}
+// The undefined terms as rows under the draft, each with Keep and Drop, so the gate before the answer is in plain sight.
+function renderTermRows(q) {
+  const box = $question.querySelector("#q-terms");
+  if (!box) return;
+  if (!q.terms.length) { box.hidden = true; return; }
+  const left = q.terms.filter((t) => !termState[t.term.toLowerCase()]).length;
+  box.hidden = false;
+  box.innerHTML = `<p class="sub">${left ? `Before you answer: ${left} term${left > 1 ? "s" : ""} in this draft that the glossary does not define. Keep a term and it enters the glossary with this meaning; drop it and name a word to use instead.` : "Every term is decided; the answer can go."}</p>` +
+    q.terms.map((t) => { const st = termState[t.term.toLowerCase()]; return `<div class="term-row"><b>${esc(t.term)}</b><span class="muted">${esc(t.definition)}</span>${st ? `<span class="badge ${st.decision === "keep" ? "stated" : "contested"}">${st.decision === "keep" ? "kept" : `dropped${st.replacement ? `, use "${esc(st.replacement)}"` : ""}`}</span>` : `<span class="row"><button class="btn small ok" data-term-keep="${esc(t.term)}">Keep</button><button class="btn small no" data-term-drop="${esc(t.term)}">Drop</button><input class="term-replace" data-term-input="${esc(t.term)}" placeholder="word to use instead (optional)" hidden /></span>`}</div>`; }).join("");
+  for (const b of box.querySelectorAll("[data-term-keep]")) b.addEventListener("click", () => { const t = q.terms.find((x) => x.term === b.dataset.termKeep); decideTerm(q, t.term, "keep", "", t.definition); });
+  for (const b of box.querySelectorAll("[data-term-drop]")) {
+    const input = box.querySelector(`[data-term-input="${CSS.escape(b.dataset.termDrop)}"]`);
+    const drop = () => decideTerm(q, b.dataset.termDrop, "drop", input.value.trim(), "");
+    b.addEventListener("click", () => { if (input.hidden) { input.hidden = false; input.focus(); b.textContent = "Drop it"; return; } drop(); });
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); drop(); } });
+  }
 }
 async function submitAnswer(q) {
   const selected = [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => i.value);
