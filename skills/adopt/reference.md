@@ -33,7 +33,7 @@ On the canvas, every box has a colour:
 - Yellow: my guess from your documents. Open it and approve it, rewrite it in your own words, or delete it.
 - Red: I could not guess it, or two statements disagree. Those need you before we can finish.
 
-Work top-down: the premise first, then the domains. When you change a box, I rework what hangs from it and tell you in the chat on the right. Select any words in a box and press ? to ask me what they mean.
+Work top-down: the premise first, then the domains. When you change a box, I rework what hangs from it and tell you in the chat on the right. Select any words in a box's card and the chat is ready for your question about them.
 
 Nothing is final until you press Finish with no red left.
 ```
@@ -67,7 +67,7 @@ Source: conversation, <date>
 
 ## Principles
 
-**PRN-1 <Title>**
+**PRN-1 <Title>** [assumed]
 <Two to four sentences: what the direction is, what it means for the choices the project makes, where it applies.>
 Source: <path:lines or conversation, date>
 
@@ -75,7 +75,7 @@ Source: <path:lines or conversation, date>
 **<term>** (`TERM-<slug>`): <definition>
 ```
 
-`state` is `stated` when the purpose was typed by the human, `resolved` when approved as written. Remove `[assumed]` from the Glossary heading only when every term was approved.
+`state` is `stated` when the purpose was typed by the human, `resolved` when approved as written. Remove `[assumed]` from the Glossary heading only when every term was approved. A principle carries its own marker on its title line: `[assumed]` while it is the session's guess, `[open]` when only the human can state it; the page writes `[resolved]` when they approve it and no marker when they rewrite it, and a line without a marker is the human's own (stated).
 
 ## 2. Requirement node
 
@@ -89,7 +89,7 @@ title: "Plain-language title"
 state: stated | resolved | assumed | open | contested
 layer: domain | capability | requirement
 source: "path:lines, or: conversation, <date>, or: archetype"
-kind: binary            # only when the node is already a yes-or-no check
+kind: binary            # on a leaf, with its Check: binary | numeric | open-ended
 ---
 
 # Plain-language title
@@ -103,6 +103,9 @@ Source: conversation, <date>
 
 ## Resolution
 <option chosen and date, when approved as written>
+
+## Check
+<on a leaf: one sentence, what is observed and what counts as yes>
 
 ## Not this
 <when an artifact or the human made one clear>

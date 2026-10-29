@@ -2,29 +2,27 @@
 name: refine
 description: "Derives the children of one approved canon node and has the human approve them as a set: infers what the node implies, ladders every artifact hint up to the rung just below the node, reads the axis off the set, closes the gaps, and writes only what was approved. Use when adopt, capture or review need a node's children, or when the human asks to define, refine, decompose or expand a branch."
 when_to_use: "A node is approved and its children are needed; the human pressed Define this branch in the viewer or asks to refine, decompose or expand a node."
-argument-hint: "<ID> <domain|capability|requirement>"
+argument-hint: "<ID> <domain|capability|requirement> [draft]"
 ---
 
 # Refine: cut one node into its children
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The worked example, the set question and the child file format are in [reference.md](reference.md); read it before step 1.
 
-Input: one node (`ROOT` for the premise), the layer its children get, and optionally `draft`. Output: the children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Without `draft`, nothing is written before the human approves it; with `draft`, nothing is asked: the set is written at once as guesses and questions by the adopt skill's Guessing rules, step 0 refines a blocked prerequisite first instead of asking, and the partition is written as read. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
+Input: one node (`ROOT` for the premise), the layer its children get, and optionally `draft`. Below the domains, draft runs as the `refiner` agent: one node per agent, in a fresh context that holds the node's family and nothing else, several agents at once. Output: the children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Without `draft`, nothing is written before the human approves it; with `draft`, nothing is asked: the set is written at once as guesses and questions by the adopt skill's Guessing rules, step 0 refines a blocked prerequisite first instead of asking, and the partition is written as read. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
 
 ## Checklist
 
-Write this list to your scratch file and tick items as you go.
-
-- [ ] 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
-- [ ] 1 Gather candidates, each with its origin; a visual node's mock comes first.
-- [ ] 2 Ladder every candidate up to the node.
-- [ ] 3 Take the top rungs; merge rungs that name one thing; defer the rest.
-- [ ] 4 Read the axis off the set; make facet children; place strays.
-- [ ] 5 Close the set: entailment, conservation.
-- [ ] 6 Needs: what each child requires; order the set by it.
-- [ ] 7 Name; judge drift; jargon through the gate.
-- [ ] 8 Ask: one multi-select, then one by one. Write only after approval.
-- [ ] 9 `HC check`, `HC next`; report to the caller.
+- 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
+- 1 Gather candidates, each with its origin; a visual node's mock comes first.
+- 2 Ladder every candidate up to the node.
+- 3 Take the top rungs; merge rungs that name one thing; defer the rest.
+- 4 Read the axis off the set; make facet children; place strays.
+- 5 Close the set: entailment, conservation.
+- 6 Needs: what each child requires; order the set by it.
+- 7 Name; judge drift; jargon through the gate.
+- 8 Ask: one multi-select, then one by one. Write only after approval.
+- 9 `HC check`, `HC next`; report to the caller.
 
 Step 0 stops when `HC next` lists the node as blocked or reports a deadlock: ask "<node> needs <prerequisite>, which is not refined yet" with **Refine <prerequisite> first** and **Refine this anyway**; in a deadlock, **Refine <prerequisite> first** and **Drop the edge**; a typed lift is applied. Then continue with what was chosen.
 
@@ -43,7 +41,7 @@ Four prompts on the node's meaning, answered in the project's vocabulary; each a
 - **failure**: what it looks like when the node does not hold, and what must prevent it;
 - **archetype**: what every system of this kind has at this point.
 
-Then the hints: threads in the node's scope, assumptions recorded earlier under it, its `## Deferred` list, and candidates the caller passed in. An answer you cannot trace to the node's text or to a hint is not a candidate, because untraced is how invented needs enter.
+Then the hints: threads in the node's scope, from documents and from the code, where a constant, a limit, a default, an error path, a state or a test is a thread like a document's line; assumptions recorded earlier under it; its `## Deferred` list; and candidates the caller passed in. An answer you cannot trace to the node's text or to a hint is not a candidate, because untraced is how invented needs enter.
 
 **Visual nodes.** A node whose text names something a person sees or operates (a screen, a panel, a card, a control, a message) is refined from its mock (reference.md section 5): draw it from the threads in scope and the archetype of its kind, show it with the node's text, and gather only once it is agreed. Each element the human kept is a candidate whose origin is the element, `MOCK-3#finish`; the four prompts are asked of each element, and the walk of states in section 5 is the archetype. A behaviour the human types for an element is stated. A mock the human drops makes the node an ordinary one.
 
@@ -72,17 +70,17 @@ Two checks before asking. **Entailment**: if every child holds, does the node ho
 
 ### 6 Needs
 
-A child **requires** every node whose concepts its line or its deferred rungs use, sibling or not; the home of a concept is found by descent, like any node's. The edge is written on the child as `requires` when the child is written, and a cousin edge is written the moment it is noticed. An edge that would close a cycle names a concept both nodes need: lift that concept to their lowest common ancestor instead of writing the edge; nothing to lift, ask which direction stands with the inconsistency procedure. Order the set prerequisites first, then time for stages, otherwise the user's path; the IDs follow that order, so a number reads as build order.
+A child **requires** every node whose concepts its line or its deferred rungs use, sibling or not; the home of a concept is found by descent, like any node's. The edge is written on the child as `requires` when the child is written, and a cousin edge is written the moment it is noticed. An edge points at the most specific node that holds the concept: when the node being cut is required by others, each of their edges moves down to the child that now holds what they use, so a dependent reads one leaf, not a branch. An edge that would close a cycle names a concept both nodes need: lift that concept to their lowest common ancestor instead of writing the edge; nothing to lift, ask which direction stands with the inconsistency procedure. Order the set prerequisites first, then time for stages, otherwise the user's path; the IDs follow that order, so a number reads as build order.
 
 ### 7 Name
 
-Each child is named by its rung, never by the artifact's wording: domains and capabilities in plain words, requirements in glossary terms, one or two sentences, an encyclopedia entry. A requirement is verifiable by definition: name to yourself a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it; already a yes-or-no check: `kind: binary`. Judge each child against the principles and name any drift in the question. Children that cannot be approved or tested separately are one child, or a facet is missing.
+Each child is named by its rung, never by the artifact's wording: domains and capabilities in plain words, requirements in glossary terms, one or two sentences, an encyclopedia entry. A requirement is verifiable by definition: name a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it. A child that will have no children is a leaf only when that check can be written as one sentence under `## Check`, in glossary terms, saying what is observed and what counts as yes, with `kind: binary`, or `numeric` naming the measure, or `open-ended` naming who or what judges; a choice the sentence needs that the canon does not make is a child, not a check, and a leaf without a check is not a leaf yet. Judge each child against the principles and name any drift in the question. Children that cannot be approved or tested separately are one child, or a facet is missing.
 
 ### 8 Ask
 
 One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the draft restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes `state: open`, titled as the question. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires`, `mocks` when it is bound to an element, and `## Deferred`; the node's front-matter gains `partition`, and a bound child joins its element's row in the mock's table. Entries carry no footnote markers.
 
-**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files and the partition, and report. A visual node's mock is drawn and written `assumed` without asking; its elements are hints like threads.
+**Draft.** Skip the question. A child whose line rests on its chain plus a thread or the archetype is written `assumed`; one that rests on the chain alone is written `open`, titled as the question, with no Intent; both carry the chain in `source`. Write the files, the partition and the leaves' checks, and report. A visual node's mock is drawn and written `assumed` without asking; its elements are hints like threads.
 
 ### 9 Report
 

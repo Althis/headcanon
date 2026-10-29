@@ -1,6 +1,6 @@
 # What the Valley runs have exercised, and what they have not
 
-Status as of 2026-10-17, after five adopt runs on the test project. The fifth run reached the requirement layer and was stopped there; nothing was committed in that project, so everything that happens at or after the first commit is untested on a real project. The sixth run uses the draft-then-review flow (REQ-11.6.3), which moves some of these earlier in the pipeline and leaves others where they were.
+Status as of 2026-10-18, after six adopt runs on the test project. The fifth run reached the requirement layer through the question flow and was stopped there. The sixth run used the draft-then-review flow (REQ-11.6.3): it drafted 187 nodes in 13 minutes, ran the verifier once, applied its 28 findings before the canvas opened, then opened and attended the canvas; the human had not acted on it when this was written. Nothing has been committed in that project, so everything that happens at or after the first commit is untested on a real project.
 
 ## Exercised on a real project
 
@@ -9,19 +9,25 @@ Status as of 2026-10-17, after five adopt runs on the test project. The fifth ru
 - The briefing, the premise, principles, domains and capabilities as questions through the page; the jargon gate; options as ID, title, description; corrections typed in Other.
 - The refine construction at the domain and capability layers: laddering, axis, facet rules; the child sets were judged good.
 - The MCP server and the page: ask, wait, focus, changes, open; port choice beside another viewer; the pre-init empty canon.
+- Drafting the whole canon as guesses (run 6): premise, glossary, eight principles, 11 domains, 187 nodes, two open, one contested from two decision records that disagree, 27 `requires` edges. The session drafted the tree in one generator script instead of calling refine per branch, so refine's draft mode itself went unexercised; a lost connection during that single output cost one full generation and left the session idle until the human spoke.
+- The verifier on a whole drafted canon: one pass of two and a half minutes, 28 findings in all four kinds. Three contradictions were reworded in the draft and one kept contested; reiterations were merged; drift went under Open; uptake was fixed by rewording parents and adding the missing children. The verifier read every file by hand because `headcanon` was not on its path (fixed in the agent file).
+- Attending the open canvas: `headcanon_changes` with a ten-minute wait, backgrounded by Claude Code after two minutes; idle attendance costs two model turns per ten minutes, about 345k cached input tokens, with the cache warm throughout.
 
 ## Not yet exercised on a real project
 
 Pushed earlier by the sixth run's flow (they now happen during drafting and the review loop, before any commit):
 
-- The requirement layer of refine, where the ladder has to go deepest into artifacts.
-- `requires` links written by refine, `headcanon next` order, cycles as lifts, deadlock handling.
-- The verifier's consistency pass on a whole drafted canon: contradiction, reiteration, drift, uptake findings and their resolutions (contested, merge, open).
-- The attend loop: reworking children after an approval, a rewrite or a deletion; answering a ? question; a refine request from the card; the working indicator; the Finish check.
+- The continuous draft written after run 6 (DEC-017): the canvas opening after the domains; refiner agents cutting the ready nodes from `HC next --json` in the background, several at once, while the human reviews; the attend loop integrating their returns beside the human's clicks; the verifier per finished branch; the cutting going on after Finish with branches committed as assumed. Nothing of this has run yet.
+- Leaf contracts: `kind` plus a `## Check` sentence on every leaf, the `leaves to cut` count in the check summary, the session context and the overview tiles, and the `check-missing` and `kind-missing` findings; covered by unit tests only.
+- Dependency descent: a `requires` edge moving down to the child that holds the concept when its target is cut.
+- The requirement layer of refine, where the ladder has to go deepest into artifacts and the code counts as a thread; `HC next` order, cycles as lifts, deadlock handling: run 6 drafted everything at once, so nothing was ever ordered.
+- The attend loop: reworking children after an approval, a rewrite or a deletion; answering a question about a highlighted passage; a refine request from the card; the working indicator; the Finish check.
 - Resuming an unfinished adoption in a new session.
 - The "enough to guess" rule: whether it guesses too much or too little.
 - Mocks (REQ-6.8, REQ-3.16, REQ-8.8, REQ-12.1.9), nothing of which a run has met: a visual node refined from its mock, the mock question with a draft picture, the walk of states, a designer's SVG export with ids, a revision accepted element by element, the attend loop over a changed mock, and the Mocks view with lit elements. Checked only on the fixture and on this canon's MOCK-1.
-- The canvas on a canon of real size: the lanes simulation, the radial view (rings per dot, dendrogram forks, the sibling swaps that pull dependency lines apart), the tree view (columns as wide as their longest row, one row per leaf), and the view keeping a selected or dropped box on screen. Checked only on the eight-node fixture.
+- Approving, rewriting or deleting a principle from its own card; principles carry their own state since 2026-10-18.
+- The reach limit (DEC-018): nothing drafted more than two levels below the deepest approved box; `HC next` reporting what waits and which approval releases it; whether two levels is the right distance.
+- The canvas on a canon of real size: the lanes simulation, the radial view (rings per dot, dendrogram forks, the sibling swaps that pull dependency lines apart), the tree view (columns as wide as their longest row, one row per leaf), and the view keeping a selected or dropped box on screen. Run 6 rendered the 187-node draft; the fixture checks cover eight nodes.
 
 Still at the end of the pipeline, untouched until a run finishes:
 

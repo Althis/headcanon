@@ -22,7 +22,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
       "",
       `This project has no canon yet (expected at ${canonDir}).`,
       "",
-      "Before doing any implementation work, run `/headcanon:adopt`. It reads the repository silently, then walks the human top-down through premise, principles, domains, capabilities and requirements, each approved before the next, with the refine skill cutting every node into its children. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
+      "Before doing any implementation work, run `/headcanon:adopt`. It reads the repository silently, drafts the premise, the principles and the domains as guesses, opens the canvas, and keeps cutting the layers below while the human approves, rewrites or deletes boxes there; their time goes to the premise, the principles and every red box. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
       "",
       RULES,
     ].join("\n");
@@ -34,7 +34,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
     "# HeadCanon",
     "",
     `Canon: ${canonDir}`,
-    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.mocks ? `${stats.mocks} mocks, ` : ""}${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings.`,
+    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.mocks ? `${stats.mocks} mocks, ` : ""}${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings. ${stats.unrefined} leaves still to cut.`,
     "",
   ];
 
@@ -55,7 +55,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
 
   if (canon.principles.length) {
     const first = (s: string) => (/^(.*?[.!?])(\s|$)/.exec(s)?.[1] ?? s).slice(0, 160);
-    head.push("## Principles", "", ...canon.principles.map((p) => `- **${p.id} ${p.title}**: ${first(p.statement)}`), "");
+    head.push("## Principles", "", ...canon.principles.map((p) => `- **${p.id} ${p.title}**${p.state === "stated" ? "" : ` [${p.state}]`}: ${first(p.statement)}`), "");
   }
   if (canon.terms.length) {
     const def = (d: string) => (d.length > 110 ? d.slice(0, 109) + "…" : d);

@@ -16,7 +16,7 @@ state: stated
 Every imported file is kept beside what was made from it. A reader can always go back to the source.
 Source: docs/design.md:12-15
 
-**PRN-2 Explain every number**: a figure in a report links to the transactions behind it. Source: conversation, 2026-01-01
+**PRN-2 Explain every number** [assumed]: a figure in a report links to the transactions behind it. Source: conversation, 2026-01-01
 
 ## Glossary [assumed]
 

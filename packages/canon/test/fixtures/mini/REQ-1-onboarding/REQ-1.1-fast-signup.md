@@ -18,6 +18,10 @@ baseline: 45
 
 Measured from landing to first project.
 
+## Check
+
+The time from landing to the first project, in seconds, is under 60.
+
 ## Not this [contested]
 
 Removing the email step.

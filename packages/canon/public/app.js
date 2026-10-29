@@ -100,8 +100,8 @@ function overview() {
   const groups = [
     ["Requirements", "What the tree holds", [
       tile(stats.nodes, `in ${health.length} branches`),
-      tile(stats.nodes - stats.unrefined, "measurable leaves"),
-      tile(stats.unrefined, "not yet measurable"),
+      tile(stats.measurable, "leaves with a check"),
+      tile(stats.unrefined, "leaves to cut"),
     ]],
     ["Certainty", "Who has confirmed each node", STATES.map((s) => tile(stats.counts[s], `${s} · ${pct(stats.counts[s], stats.nodes)}%`, `s-${s}`, `#/tree`))],
     ["Findings", "From headcanon check", [
@@ -571,13 +571,30 @@ function setToggle(collapsed) {
 }
 function openSession() { $session.classList.remove("collapsed"); setToggle(false); }
 document.getElementById("session-toggle").addEventListener("click", () => setToggle($session.classList.toggle("collapsed")));
-document.getElementById("msg-send").addEventListener("click", async () => {
-  const ta = document.getElementById("msg");
-  if (!ta.value.trim()) return;
-  await post("/api/message", { text: ta.value }).catch(showToast);
-  showToast(`Sent: ${ta.value.trim().slice(0, 80)}`);
-  ta.value = "";
-});
+// A message carries the passage the human highlighted in a card, when they did: the chip above the box names
+// the node and the words, and both go with the text. Enter sends; Shift+Enter breaks a line.
+const $msg = document.getElementById("msg"), $quote = document.getElementById("quote");
+let quote = null;
+function setQuote(q) {
+  quote = q;
+  $quote.hidden = !q;
+  if (q) {
+    $quote.innerHTML = `<span class="muted">about</span> ${idLink(q.id)} <q>${esc(q.text)}</q><button class="btn small" id="quote-x" title="Drop the passage">✕</button>`;
+    $quote.querySelector("#quote-x").addEventListener("click", () => setQuote(null));
+    $msg.placeholder = "Ask about the highlighted passage…";
+  } else { $msg.placeholder = "Message the session…"; window.CSS?.highlights?.delete("quote"); }
+}
+async function sendMessage() {
+  const text = $msg.value.trim();
+  if (!text) return;
+  const q = quote;
+  try { await post("/api/message", { text, nodeId: q?.id, quote: q?.text }); } catch (e) { showToast(e); return; }
+  $msg.value = "";
+  setQuote(null);
+  if (q) startWorking("you asked about a passage"); else showToast(`Sent: ${text.slice(0, 80)}`);
+}
+document.getElementById("msg-send").addEventListener("click", sendMessage);
+$msg.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 async function pollSession() {
   try {
     const s = await fetch("/api/session", { cache: "no-store" }).then((r) => r.json());
@@ -588,7 +605,7 @@ async function pollSession() {
       lastFocusSeq = s.focus.seq;
       if (s.focus.id) {
         if (s.focus.id.startsWith("MOCK-")) location.hash = `#/mock/${s.focus.id.split("#")[0]}`;
-        else if (route().view === "adopt") { adoptState.selected = s.focus.id; if (s.focus.id !== "ROOT") expandTo(s.focus.id); location.hash = `#/adopt/${s.focus.id}`; render(); if (s.focus.open) openPopup(s.focus.id); }
+        else if (route().view === "adopt") focusOnCanvas(s.focus.id, !!s.focus.open);
         else location.hash = s.focus.id === "ROOT" ? "#/" : `#/node/${s.focus.id}`;
       }
     }
@@ -722,13 +739,15 @@ document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && 
 // Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
 // human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
 // Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
-const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "lanes", menu: true, view: null, focus: new Set() };
+const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "dendro", menu: true, prn: true, view: null, focus: new Set() };
 function colorOf(id) {
-  if (id === "ROOT" || id === "PRINCIPLES" || id.startsWith("PRN-")) { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  if (id === "ROOT" || id === "PRINCIPLES") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
+  if (id.startsWith("PRN-")) { const s = snap.canon.principles.find((p) => p.id === id)?.state ?? "assumed"; return s === "open" || s === "contested" ? "red" : s === "stated" || s === "resolved" ? "green" : "yellow"; }
   const n = node(id);
   if (!n) return "yellow";
   if (n.state === "open" || n.state === "contested") return "red";
-  if (findingsFor(id).some((f) => f.level !== "info")) return "red";
+  // a finding about the branch under a box (branch-unconfirmed) is the normal state of a draft and never paints the box itself
+  if (findingsFor(id).some((f) => f.level !== "info" && f.code !== "branch-unconfirmed")) return "red";
   return n.state === "stated" || n.state === "resolved" ? "green" : "yellow";
 }
 function ensureExpanded() {
@@ -737,8 +756,7 @@ function ensureExpanded() {
 }
 function adoptScope() {
   ensureExpanded();
-  const show = ["ROOT", "PRINCIPLES", ...snap.canon.roots];
-  if (adoptState.expanded.has("PRINCIPLES")) for (const p of snap.canon.principles) show.push(p.id);
+  const show = ["ROOT", ...snap.canon.roots];
   const visit = (id) => { if (!adoptState.expanded.has(id)) return; for (const c of node(id).children) { show.push(c); visit(c); } };
   for (const r of snap.canon.roots) visit(r);
   return show;
@@ -746,6 +764,7 @@ function adoptScope() {
 function adoptCounts() {
   const c = { green: 0, yellow: 0, red: 0 };
   for (const id of Object.keys(snap.canon.nodes)) c[colorOf(id)]++;
+  for (const p of snap.canon.principles) c[colorOf(p.id)]++;
   return c;
 }
 function adopt(selectedId) {
@@ -754,7 +773,7 @@ function adopt(selectedId) {
   return `<div class="adopt">
     <div class="toolbar adopt-bar">
       <span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw red"></i>needs you ${c.red}</span></span>
-      <span class="muted">click a circle for its name; double-click or ↗ opens it; the handle below shows its children; drag to pan, wheel to zoom</span>
+      <span class="muted">double-click a box to open it; the handle beside it shows its children; drag to pan, wheel to zoom</span>
       <button class="btn ${c.red ? "" : "primary"}" data-finish="1" title="${c.red ? `${c.red} still need you` : "Nothing red is left"}">Finish adoption</button>
     </div>
     ${progressStrip()}
@@ -762,27 +781,18 @@ function adopt(selectedId) {
   </div>`;
 }
 // Progress of a draft: the agent writes one file per node in dependency order, so the canon on disk says
-// how far it is. Phases: premise, domains, capabilities, requirements, consistency pass, review, finished.
+// how far it is. Phases: reading, premise, then reviewing while the draft goes on under the reach rule, finished.
 function adoptProgress() {
   const nodes = Object.values(snap.canon.nodes);
   const finished = snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
   if (finished) return { phase: "Adoption finished", fraction: 1, detail: `${nodes.length} nodes committed` };
   if (!snap.canon.root && nodes.length === 0) return { phase: "Reading the repository", fraction: 0.03, detail: "the premise comes first" };
-  const roots = snap.canon.roots.map(node);
-  if (roots.length === 0) return { phase: "Drafting the premise and principles", fraction: 0.1, detail: "then the domains" };
-  const cut = (n) => n.children.length > 0 || n.state === "open";
-  const domains = roots.filter((n) => n.layer === "domain");
-  const caps = nodes.filter((n) => n.layer === "capability");
-  if (domains.length && !domains.some(cut)) return { phase: "Drafting the domains", fraction: 0.2, detail: `${domains.length} so far` };
-  const domainsCut = domains.filter(cut).length;
-  if (domains.length && domainsCut < domains.length) return { phase: "Drafting the capabilities", fraction: 0.25 + 0.3 * (domainsCut / domains.length), detail: `${domainsCut} of ${domains.length} domains cut · ${nodes.length} nodes` };
-  const capsCut = caps.filter(cut).length;
-  if (caps.length && capsCut < caps.length) return { phase: "Drafting the requirements", fraction: 0.55 + 0.35 * (capsCut / caps.length), detail: `${capsCut} of ${caps.length} capabilities cut · ${nodes.length} nodes` };
-  const spoke = chatCursor > 0 && [...document.querySelectorAll("#activity li.say")].length > 0;
-  if (!spoke) return { phase: "Consistency pass, then the canvas opens", fraction: 0.93, detail: `${nodes.length} nodes drafted` };
+  if (snap.canon.roots.length === 0) return { phase: "Drafting the premise and principles", fraction: 0.1, detail: "the canvas opens with the domains" };
+  // from the domains on, the human reviews while refiners cut what lies within reach of their approvals
   const c = adoptCounts();
   const total = c.green + c.yellow + c.red || 1;
-  return { phase: "Reviewing", fraction: 0.93 + 0.07 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you` };
+  const toCut = snap.stats?.unrefined ?? 0;
+  return { phase: "Reviewing while the draft goes on", fraction: 0.2 + 0.8 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you · ${toCut} box${toCut === 1 ? "" : "es"} still to cut` };
 }
 function progressStrip() {
   const p = adoptProgress();
@@ -840,6 +850,8 @@ function buildAdoptCanvas() {
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#60a5fa", "target-arrow-color": "#60a5fa" } },
       { selector: "edge.conflicts", style: { "line-style": "dotted", "line-color": "#ef4444", "target-arrow-shape": "tee", "source-arrow-shape": "tee", "source-arrow-color": "#ef4444", "target-arrow-color": "#ef4444" } },
       { selector: "edge.fork", style: { "curve-style": "round-segments", "segment-radii": 14, "edge-distances": "node-position", "target-arrow-shape": "none" } },
+      { selector: "edge.straight", style: { "curve-style": "straight", width: 2 } },
+      { selector: "edge.faded", style: { opacity: 0.12 } },
       { selector: "edge.dim", style: { opacity: 0.18 } },
       { selector: ".hidden", style: { display: "none" } },
     ],
@@ -898,7 +910,7 @@ function buildAdoptCanvas() {
     const rings = ringGeom();
     const radius = (id) => rings[ringOf(cy.getElementById(id))]?.c ?? 0;
     const kids = new Map();
-    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, (id === "ROOT" ? ["PRINCIPLES", ...info("ROOT").children] : info(id).children).filter((c) => cy.getElementById(c).length)); return kids.get(id); };
+    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, info(id).children.filter((c) => cy.getElementById(c).length)); return kids.get(id); };
     const size = new Map();
     const count = (id) => { let s = 1; for (const c of kidsOf(id)) s += count(c); size.set(id, s); return s; };
     count("ROOT");
@@ -971,13 +983,13 @@ function buildAdoptCanvas() {
     place();
     if (animated) follow(380);
   };
-  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
+  const unfork = () => { cy.edges(".fork").removeClass("fork").removeStyle("segment-weights segment-distances"); cy.edges(".straight").removeClass("straight"); if (cy.nodes(".dendro").length) { cy.nodes().removeClass("dendro"); makeOverlays(); } cy.nodes().grabify(); };
   // A fork as a segment line: the points are given relative to the straight line from parent to child.
-  const fork = (e, S, T, pts) => {
+  const fork = (e, S, T, pts, cls = "fork") => {
     const vx = T.x - S.x, vy = T.y - S.y, L = Math.hypot(vx, vy) || 1;
     const ws = [], ds = [];
     for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
-    e.addClass("fork").style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
+    e.addClass(cls).style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
   };
   // Dendrogram: left to right, one column per level, every box a single row showing its number and its
   // whole title; a column is as wide as its widest row. A leaf takes one row, a parent as many as its
@@ -1002,7 +1014,7 @@ function buildAdoptCanvas() {
   })();
   const layoutDendro = (animated) => {
     const kids = new Map();
-    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, (id === "ROOT" ? ["PRINCIPLES", ...info("ROOT").children] : info(id).children).filter((c) => cy.getElementById(c).length)); return kids.get(id); };
+    const kidsOf = (id) => { if (!kids.has(id)) kids.set(id, info(id).children.filter((c) => cy.getElementById(c).length)); return kids.get(id); };
     const depth = new Map(), order = [];
     const walk = (id, d) => { depth.set(id, d); order.push(id); for (const c of kidsOf(id)) walk(c, d + 1); };
     walk("ROOT", 0);
@@ -1038,6 +1050,9 @@ function buildAdoptCanvas() {
         const fx = cols[depth.get(t)].left - 26;
         fork(e, S, T, [{ x: S.x + widths.get(s) / 2 + 18, y: S.y }, { x: fx, y: S.y }, { x: fx, y: T.y }, { x: T.x - widths.get(t) / 2 - 18, y: T.y }]);
       }
+      // in the tree a dependency is a straight line, drawn only while one of its ends is selected
+      cy.edges(".dep").addClass("straight");
+      applyDeps();
       cy.nodes().ungrabify();
       for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated) n.animate({ position: p }, { duration: 320, easing: "ease-in-out", queue: false }); else n.position(p); }
     });
@@ -1316,6 +1331,15 @@ function buildAdoptCanvas() {
   for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) menu.addEventListener(ev, (e) => e.stopPropagation());
   menu.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.menu = !adoptState.menu; menu.classList.toggle("closed", !adoptState.menu); });
   const labelButton = () => { const b = menu.querySelector("[data-labels]"); b.classList.toggle("on", adoptState.labels); b.textContent = adoptState.labels ? "Collapse" : "Expand"; };
+  // The principles keep one place in every view, the canvas's top left corner; each row opens its card.
+  const prnBox = document.createElement("div");
+  prnBox.className = "menu principles" + (adoptState.prn ? "" : " closed");
+  const prnRows = snap.canon.principles.map((p) => `<button class="btn small prn-row" data-prn="${esc(p.id)}" title="${esc(p.statement)}"><i class="sw ${colorOf(p.id)}"></i><span class="tag">${esc(p.id)}</span><span>${esc(p.title)}</span></button>`).join("") || `<span class="muted">none yet</span>`;
+  prnBox.innerHTML = `<div class="menu-head"><b>Principles</b><button class="btn small caret" data-collapse="1" title="Fold or unfold the principles">▾</button></div><div class="menu-body">${prnRows}</div>`;
+  el.appendChild(prnBox);
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) prnBox.addEventListener(ev, (e) => e.stopPropagation());
+  prnBox.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.prn = !adoptState.prn; prnBox.classList.toggle("closed", !adoptState.prn); });
+  for (const b of prnBox.querySelectorAll("[data-prn]")) b.addEventListener("click", () => openPopup(b.dataset.prn));
   const setMode = (mode) => {
     if (adoptState.mode === mode) return;
     adoptState.mode = mode;
@@ -1323,6 +1347,7 @@ function buildAdoptCanvas() {
     for (const b of menu.querySelectorAll(".mode button")) b.classList.toggle("on", b.dataset.mode === mode);
     cancelAnimationFrame(sim.raf); sim.alpha = 0; sim.heavy.clear();
     unfork();
+    applyDeps();
     if (mode !== "lanes") { const root = cy.getElementById("ROOT"); sim.centre = root.length ? { ...root.position() } : { x: 0, y: 0 }; relayout(true); setTimeout(() => cy.fit(undefined, 40), 340); return; }
     const before = new Map(cy.nodes().map((n) => [n.id(), { ...n.position() }]));
     seed();
@@ -1336,8 +1361,10 @@ function buildAdoptCanvas() {
   window.__sim.layoutRadial = layoutRadial; window.__sim.layoutDendro = layoutDendro;
   // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
   const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
-  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); place(); keepInView(id); };
-  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); place(); } });
+  // The dependency lines follow the Dependencies and Edges switches; in the tree only the selected row's show.
+  const applyDeps = () => { const on = adoptState.deps && adoptState.edges, sel = adoptState.selected; for (const e of cy.edges(".dep")) e.toggleClass("hidden", !on || (adoptState.mode === "dendro" && e.source().id() !== sel && e.target().id() !== sel)); };
+  const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); applyDeps(); place(); keepInView(id); };
+  cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); applyDeps(); place(); } });
   // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
   const cardSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
   const showLabel = (id) => {
@@ -1378,6 +1405,15 @@ function buildAdoptCanvas() {
   };
   adoptState.sync = sync;
   let lastTap = { id: null, at: 0 };
+  cy.on("mouseover", "edge.dep", (e) => cy.edges(".dep").not(e.target).addClass("faded"));
+  cy.on("mouseout", "edge.dep", () => cy.edges(".dep").removeClass("faded"));
+  cy.on("tap", "edge.dep", (e) => {
+    const s = e.target.source().id(), t = e.target.target().id();
+    const other = s === adoptState.selected ? t : t === adoptState.selected ? s : t;
+    cy.edges(".dep").removeClass("faded");
+    select(other);
+    if (adoptState.mode !== "dendro") showLabel(other);
+  });
   cy.on("tap", "node", (e) => {
     const id = e.target.id(), now = Date.now();
     if (lastTap.id === id && now - lastTap.at < 400) { lastTap = { id: null, at: 0 }; select(id); openPopup(id); return; }
@@ -1433,36 +1469,36 @@ function buildAdoptCanvas() {
     makeOverlays();
     settle(0.8);
   });
-  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); cy.edges(".dep").toggleClass("hidden", !(adoptState.deps && adoptState.edges)); });
-  $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); if (adoptState.edges) cy.edges(".dep").toggleClass("hidden", !adoptState.deps); });
+  $main.querySelector("[data-deps]")?.addEventListener("click", (ev) => { adoptState.deps = !adoptState.deps; ev.currentTarget.classList.toggle("on", adoptState.deps); applyDeps(); });
+  $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); applyDeps(); });
   $main.querySelector("[data-bands]")?.addEventListener("click", (ev) => { adoptState.bands = !adoptState.bands; ev.currentTarget.classList.toggle("on", adoptState.bands); laneLines(); settle(0.6); });
   $main.querySelector("[data-order]")?.addEventListener("click", (ev) => { adoptState.order = !adoptState.order; ev.currentTarget.classList.toggle("on", adoptState.order); settle(0.5); });
   $main.querySelector("[data-expand-all]")?.addEventListener("click", () => { for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id); adoptState.focus.clear(); sync(); });
   $main.querySelector("[data-finish]")?.addEventListener("click", async () => { try { await post("/api/finish", {}); startWorking("you asked to finish the adoption"); } catch (e) { showToast(e); } });
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
+// The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
+function focusOnCanvas(id, open) { adoptState.selected = id; if (id !== "ROOT") expandTo(id); location.hash = `#/adopt/${id}`; render(); if (open) openPopup(id); }
 function expandTo(id) { ensureExpanded(); if (id.startsWith("PRN-")) { adoptState.expanded.add("PRINCIPLES"); return; } let p = node(id)?.parent; while (p) { adoptState.expanded.add(p); p = node(p)?.parent; } }
 
 // The node card: what the node says, why it has its colour, and the actions on it.
 const $popup = document.getElementById("popup");
-const $why = document.getElementById("ask-why");
 function openPopup(id) {
   const isRoot = id === "ROOT";
   const isPrinciples = id === "PRINCIPLES";
   const prn = id.startsWith("PRN-") ? snap.canon.principles.find((p) => p.id === id) : null;
-  const n = isRoot || isPrinciples || prn ? null : node(id);
-  if (!n && !isRoot && !isPrinciples && !prn) return;
-  if (isPrinciples || prn) { openTextCard(id, isPrinciples ? "Principles" : prn.title, isPrinciples
-    ? snap.canon.principles.map((p) => `<p><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")
-    : `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}`); return; }
+  // a principle is its own card: its statement, its own state, and the same actions as a node
+  const n = isRoot || isPrinciples ? null : prn ? { title: prn.title, state: prn.state, children: [] } : node(id);
+  if (!n && !isRoot && !isPrinciples) return;
+  if (isPrinciples) { openTextCard(id, "Principles", snap.canon.principles.map((p) => `<p><i class="sw ${colorOf(p.id)}"></i><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")); return; }
   const color = colorOf(id);
   const state = isRoot ? snap.canon.root?.state : n.state;
   const because = color === "red"
     ? (state === "open" ? "The session would not guess this; it needs your words." : state === "contested" ? "Two statements pull against each other; keep one or rewrite." : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
-  const fs = isRoot ? [] : findingsFor(id).filter((f) => f.level !== "info");
+  const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
-  const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : snap.html[id];
+  const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : prn ? `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}` : snap.html[id];
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
@@ -1473,9 +1509,9 @@ function openPopup(id) {
       <button class="btn" id="pp-edit" title="Say it in your own words">Rewrite</button>
       ${isRoot ? "" : `<button class="btn" id="pp-delete" title="Remove this node and everything under it">Delete</button>`}
       ${kids && !isRoot ? `<button class="btn" id="pp-toggle">${adoptState.expanded?.has(id) ? "Hide children" : `Show ${kids} children`}</button>` : ""}
-      ${isRoot ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
+      ${isRoot || prn ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
     </div>
-    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <p class="sub">Select any words above to ask the session about them in the chat.</p>
     <div id="pp-editor" class="editor"></div>
     <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
   const wasHidden = $popup.hidden;
@@ -1495,8 +1531,8 @@ function openPopup(id) {
   $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
   $popup.querySelector("#pp-edit").addEventListener("click", async () => {
     const editor = $popup.querySelector("#pp-editor");
-    const raw = await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
-    const intent = (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
+    const raw = prn ? { text: "" } : await fetch(`/api/node/${encodeURIComponent(id)}/raw`).then((r) => r.json()).catch(() => ({ text: "" }));
+    const intent = prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
     editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
       ${isRoot ? "" : `<input id="pp-title" value="${esc(n.title)}" placeholder="Title, in plain words" />`}
       <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
@@ -1508,7 +1544,7 @@ function openPopup(id) {
     });
   });
 }
-function closePopup() { $popup.hidden = true; $why.hidden = true; delete $popup.dataset.id; }
+function closePopup() { $popup.hidden = true; delete $popup.dataset.id; window.CSS?.highlights?.delete("quote"); }
 /** Remove one rendered `<h2>` section from a node's HTML. */
 function stripHtmlSection(html, heading) {
   const re = new RegExp(`<h2>${heading}\\b[^<]*(?:<[^h][^>]*>[^<]*)*</h2>[\\s\\S]*?(?=<h2>|$)`, "i");
@@ -1518,10 +1554,10 @@ function stripHtmlSection(html, heading) {
 function openTextCard(id, title, html) {
   const wasHidden = $popup.hidden;
   $popup.innerHTML = `
-    <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(snap.canon.root?.state ?? "assumed")} <span><i class="sw ${colorOf(id)}"></i><span class="muted">Direction the whole canon is judged against; rewrite it in the premise card.</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
+    <div class="popup-head"><span class="id">${esc(id)}</span> <span class="muted">Each principle has its own card and approval; open one from the panel.</span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(title)}</h2>
     <div class="popup-body body" id="pp-body">${html}</div>
-    <p class="sub">Select any words above and press the ? that appears to ask the session what they mean.</p>
+    <p class="sub">Select any words above to ask the session about them in the chat.</p>
     <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
   $popup.hidden = false;
   $popup.dataset.id = id;
@@ -1567,38 +1603,49 @@ function wirePopupMoves() {
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
   });
 }
-// The ? tool: select words in the card, press ?, and the session explains them in the chat.
+// Asking about a passage: select words in a card and the chat is ready with them. The words stay lit in the
+// card, the chip above the message box names the node and the words, and the cursor is in the box.
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
-    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode)) { if (!$why.matches(":hover")) $why.hidden = true; return; }
-    const r = sel.getRangeAt(0).getBoundingClientRect();
-    $why.style.left = `${Math.min(window.innerWidth - 34, r.right + 6)}px`; $why.style.top = `${Math.max(8, r.top - 30)}px`;
-    $why.dataset.text = text.slice(0, 300);
-    $why.hidden = false;
+    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) return;
+    if (window.CSS?.highlights && window.Highlight) CSS.highlights.set("quote", new Highlight(sel.getRangeAt(0).cloneRange()));
+    setQuote({ id: $popup.dataset.id, text: text.slice(0, 300) });
+    openSession();
+    $msg.focus();
   }, 0);
-});
-$why.addEventListener("click", async () => {
-  const text = $why.dataset.text, id = $popup.dataset.id;
-  $why.hidden = true;
-  try { await post("/api/message", { text: `What do you mean by "${text}"?`, nodeId: id }); appendChat([{ kind: "message", text: `What do you mean by "${text}"?`, id }]); startWorking("you asked about a passage"); } catch (e) { showToast(e); }
 });
 
 // The chat: what the session says and what the human sends, with the actions between them as quiet lines.
 let chatCursor = 0;
+// Ids named in a chat line are links; a line about a box carries the box as a chip; every line has its time.
+const ID_RE = /\b(REQ-\d+(?:\.\d+)*|PRN-\d+|DEC-\d+)\b/g;
+const linkIds = (text) => esc(text).replace(ID_RE, (id) => `<a class="id" data-id="${id}" href="#/node/${id}">${id}</a>`);
+const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
 function appendChat(entries) {
   const list = document.getElementById("activity");
   for (const e of entries) {
     const li = document.createElement("li");
-    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${esc(e.text ?? "")}${e.id ? ` ${idLink(e.id)}` : ""}`; }
-    else if (e.kind === "message") { li.className = "message"; li.textContent = e.text ?? ""; }
-    else { li.className = "sys"; li.textContent = e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind; }
+    const t = timeOf(e.at);
+    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; }
+    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; }
+    else { li.className = "sys"; li.title = `${t} · ${e.text ?? e.kind}`; li.innerHTML = linkIds(e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind); }
     list.appendChild(li);
   }
   while (list.children.length > 60) list.firstChild.remove();
   list.lastElementChild?.scrollIntoView({ block: "nearest" });
 }
+// While the canvas is up, a box named in the chat is focused there rather than opened as a page; a principle opens its card.
+document.getElementById("activity").addEventListener("click", (ev) => {
+  const a = ev.target.closest("a[data-id]");
+  if (!a || !document.body.classList.contains("adopt-mode")) return;
+  const id = a.dataset.id;
+  if (id.startsWith("PRN-")) { ev.preventDefault(); openPopup(id); return; }
+  if (!snap?.canon.nodes[id]) return;
+  ev.preventDefault();
+  focusOnCanvas(id, false);
+});
 function startWorking(what) { working = { since: Date.now(), answer: "" }; if (shownQuestionId === null) showWorking(what); }
 
 load().then(render).catch(showError).finally(pollSession);

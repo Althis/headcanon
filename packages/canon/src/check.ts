@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { branchOf, descendants } from "./load.js";
-import { refinementOrder } from "./next.js";
+import { isUnrefined, refinementOrder } from "./next.js";
 import { STATES, type Canon, type Finding, type Level, type State } from "./types.js";
 
 function finding(level: Level, code: string, message: string, extra: Partial<Finding> = {}): Finding {
@@ -80,6 +80,12 @@ export function checkCanon(canon: Canon): Finding[] {
     // A set of one usually restates its parent or hides its siblings (REQ-3.14).
     if (n.children.length === 1)
       out.push(finding("info", "single-child", `${n.id} has one child, ${n.children[0]}; a set of one usually restates its parent or hides siblings`, at));
+    // A leaf's contract (REQ-3.3): `kind` says how it is measured and `## Check` what is observed.
+    const hasCheck = n.sections.some((s) => /^Check$/i.test(s.heading));
+    if (n.kind && !hasCheck)
+      out.push(finding("warn", "check-missing", `${n.id} has kind ${n.kind} but no ## Check section saying what is observed`, at));
+    if (hasCheck && !n.kind)
+      out.push(finding("warn", "kind-missing", `${n.id} has a ## Check section but no kind (binary, numeric or open-ended)`, at));
   }
   const inferred = Object.values(canon.nodes).filter((n) => !n.layerExplicit).length;
   if (inferred > 0)
@@ -192,7 +198,7 @@ export function branchHealth(canon: Canon, findings: Finding[]): BranchHealth[] 
     const ids = [r, ...descendants(canon, r)];
     const counts = countStates(canon, ids);
     const mine = findings.filter((f) => f.branch === r);
-    const unrefined = ids.filter((id) => !canon.nodes[id]?.kind).length;
+    const unrefined = ids.filter((id) => isUnrefined(canon.nodes[id]!)).length;
     const root = canon.nodes[r]!;
     return {
       id: r,

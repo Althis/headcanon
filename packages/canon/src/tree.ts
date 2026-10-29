@@ -20,7 +20,7 @@ export function renderTextTree(canon: Canon, findings: Finding[] = [], opts: Tre
     const flags = flagged.get(id);
     const hidden = depth >= maxDepth ? countBelow(id) : 0;
     const layer = n.layerExplicit && n.layer !== "requirement" ? n.layer : "";
-    const note = [layer, n.kind ? n.kind : "· unrefined", flags ? `! ${flags} finding${flags > 1 ? "s" : ""}` : "", hidden ? `(+${hidden} below)` : ""].filter(Boolean).join("  ");
+    const note = [layer, n.kind ? n.kind : n.children.length || n.state === "open" || n.state === "contested" ? "" : "· unrefined", flags ? `! ${flags} finding${flags > 1 ? "s" : ""}` : "", hidden ? `(+${hidden} below)` : ""].filter(Boolean).join("  ");
     rows.push({ prefix: branch, id: n.id, title: n.title, state: n.state, note });
     if (depth >= maxDepth) return;
     const childPrefix = isRoot ? "" : `${prefix}${isLast ? "   " : "│  "}`;

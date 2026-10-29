@@ -229,8 +229,8 @@ export async function main(argv: string[]): Promise<number> {
       if (args.json) out(JSON.stringify(snap.findings, null, 2) + "\n");
       else {
         for (const f of snap.findings) out(`${f.level.padEnd(5)} ${f.code.padEnd(20)} ${f.message}\n`);
-        const { errors, warnings, infos, nodes } = snap.stats;
-        out(`\n${nodes} requirements, ${errors} errors, ${warnings} warnings, ${infos} notes\n`);
+        const { errors, warnings, infos, nodes, unrefined } = snap.stats;
+        out(`\n${nodes} requirements, ${errors} errors, ${warnings} warnings, ${infos} notes, ${unrefined} leaves to cut\n`);
       }
       return snap.stats.errors > 0 ? 1 : 0;
     }

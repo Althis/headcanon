@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
-import { approveNode, editNode } from "../edits.js";
+import { approveNode, deletePrinciple, editNode, editPrinciple, setPrincipleState } from "../edits.js";
 import { addGlossaryTerm } from "../glossary.js";
 import { descendants, loadCanon } from "../load.js";
 import { parseFrontMatter, str } from "../parse.js";
@@ -104,9 +104,9 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     return json(200, await session.waitChanges(since, timeout * 1000));
   }
   if (p === "/api/message" && method === "POST") {
-    const body = (await readJson(req)) as { text?: string; nodeId?: string };
+    const body = (await readJson(req)) as { text?: string; nodeId?: string; quote?: string };
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
-    return json(200, session.push("message", { text: body.text.trim(), id: body.nodeId }));
+    return json(200, session.push("message", { text: body.text.trim(), id: body.nodeId, quote: body.quote?.trim() || undefined }));
   }
   // The session speaks to the human: a line in the page's chat, optionally about a node.
   if (p === "/api/say" && method === "POST") {
@@ -135,6 +135,27 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   // ---- nodes: read raw, edit, approve, delete, create ----
   const nodeMatch = /^\/api\/node\/([^/]+)(\/raw|\/approve)?$/.exec(p);
   const today = () => new Date().toISOString().slice(0, 10);
+  // A principle lives in the root README with its own marker; the page approves, rewrites and deletes it there.
+  if (nodeMatch && nodeMatch[2] !== "/raw" && /^PRN-\d+$/.test(decodeURIComponent(nodeMatch[1] ?? ""))) {
+    const id = decodeURIComponent(nodeMatch[1] ?? "");
+    const readme = join(canonDir, "README.md");
+    if (!existsSync(readme) || !loadCanon(canonDir).principles.some((x) => x.id === id)) return json(404, { error: "no such principle" });
+    const text = readFileSync(readme, "utf8");
+    if (method === "POST" && nodeMatch[2] === "/approve") {
+      writeFileSync(readme, setPrincipleState(text, id, "resolved"));
+      return json(200, { ok: true, path: "README.md", feed: session.push("node-approved", { id, path: "README.md", text: `${id} approved as written` }) });
+    }
+    if (method === "PUT") {
+      const body = (await readJson(req)) as { title?: string; intent?: string };
+      if (typeof body?.intent !== "string" || !body.intent.trim()) return json(400, { error: "intent is required" });
+      writeFileSync(readme, editPrinciple(text, id, { title: body.title?.trim() || undefined, statement: body.intent }, today()));
+      return json(200, { ok: true, path: "README.md", feed: session.push("node-edited", { id, path: "README.md", text: `${id} rewritten: ${body.intent.trim().slice(0, 120)}` }) });
+    }
+    if (method === "DELETE") {
+      writeFileSync(readme, deletePrinciple(text, id));
+      return json(200, { ok: true, removed: [id], feed: session.push("node-deleted", { id, path: "README.md", text: `${id} deleted in the page` }) });
+    }
+  }
   if (nodeMatch && method === "GET" && nodeMatch[2] === "/raw") {
     const file = fileOf(canonDir, decodeURIComponent(nodeMatch[1] ?? ""));
     if (!file) return json(404, { error: "no such node" });

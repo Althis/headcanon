@@ -78,15 +78,32 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(kinds).toEqual(["node-approved", "node-edited", "say", "finish-request", "node-deleted"]);
   });
 
+  it("approves, rewrites and deletes a principle in the root README from the page", async () => {
+    expect(loadCanon(join(dir, "canon")).principles.map((p) => p.state)).toEqual(["stated", "assumed"]);
+    const before = (await get("/api/changes"))["cursor"] as number;
+    expect((await send("/api/node/PRN-2/approve", {})).status).toBe(200);
+    expect(loadCanon(join(dir, "canon")).principles.find((p) => p.id === "PRN-2")?.state).toBe("resolved");
+    expect((await send("/api/node/PRN-1", { title: "Keep every original", intent: "Nothing imported is ever thrown away." }, "PUT")).status).toBe(200);
+    const p = loadCanon(join(dir, "canon")).principles.find((x) => x.id === "PRN-1")!;
+    expect([p.title, p.state, p.statement]).toEqual(["Keep every original", "stated", "Nothing imported is ever thrown away."]);
+    expect((await send("/api/node/PRN-2", {}, "DELETE")).status).toBe(200);
+    expect(loadCanon(join(dir, "canon")).principles.map((x) => x.id)).toEqual(["PRN-1"]);
+    const kinds = ((await get(`/api/changes?since=${before}`))["entries"] as Array<{ kind: string }>).map((e) => e.kind);
+    expect(kinds).toEqual(["node-approved", "node-edited", "node-deleted"]);
+  });
+
   it("enshrines a kept term, records a message and a refine request, and reports them as changes", async () => {
     const before = (await get("/api/changes"))["cursor"] as number;
     const kept = await send("/api/term", { term: "Widget", definition: "a small part", decision: "keep" });
     expect(kept.body["id"]).toBe("TERM-widget");
     expect(loadCanon(join(dir, "canon")).terms.map((t) => t.id)).toContain("TERM-widget");
     await send("/api/message", { text: "please go deeper on REQ-1" });
+    await send("/api/message", { text: "what does this mean?", nodeId: "REQ-1", quote: "productive without help" });
     await send("/api/refine", { id: "REQ-1" });
     const changes = await get(`/api/changes?since=${before}`);
-    expect((changes["entries"] as Array<Record<string, unknown>>).map((e) => e["kind"])).toEqual(["term-enshrined", "message", "refine-request"]);
+    const entries = changes["entries"] as Array<Record<string, unknown>>;
+    expect(entries.map((e) => e["kind"])).toEqual(["term-enshrined", "message", "message", "refine-request"]);
+    expect(entries[2]).toMatchObject({ kind: "message", id: "REQ-1", quote: "productive without help", text: "what does this mean?" });
   });
 
   it("edits a node and creates a child, turning a leaf parent into a folder", async () => {
