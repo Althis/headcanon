@@ -72,10 +72,10 @@ Source: conversation, <date>
 Source: <path:lines or conversation, date>
 
 ## Glossary [assumed]
-**<term>** (`TERM-<slug>`): <definition>
+**<term>** (`TERM-<slug>`) [assumed]: <definition>
 ```
 
-`state` is `stated` when the purpose was typed by the human, `resolved` when approved as written. Remove `[assumed]` from the Glossary heading only when every term was approved. A principle carries its own marker on its title line: `[assumed]` while it is the session's guess, `[open]` when only the human can state it; the page writes `[resolved]` when they approve it and no marker when they rewrite it, and a line without a marker is the human's own (stated).
+`state` is `stated` when the purpose was typed by the human, `resolved` when approved as written. A term's own marker sits after its id, never inside the definition: `[assumed]` while guessed, `[stated]` for the human's own words; the page writes `[resolved]` on approval. The heading's `[assumed]` is the default for unmarked terms; remove it only when every term is approved. A principle carries its own marker on its title line: `[assumed]` while it is the session's guess, `[open]` when only the human can state it; the page writes `[resolved]` when they approve it and no marker when they rewrite it, and a line without a marker is the human's own (stated).
 
 ## 2. Requirement node
 

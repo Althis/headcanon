@@ -92,6 +92,18 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(kinds).toEqual(["node-approved", "node-edited", "node-deleted"]);
   });
 
+  it("approves, rewrites and deletes a glossary term from the page", async () => {
+    const before = (await get("/api/changes"))["cursor"] as number;
+    expect((await send("/api/node/TERM-skip/approve", {})).status).toBe(200);
+    expect(loadCanon(join(dir, "canon")).terms.find((t) => t.id === "TERM-skip")?.state).toBe("resolved");
+    expect((await send("/api/node/TERM-widget", { title: "widget", intent: "A small part of a machine." }, "PUT")).status).toBe(200);
+    expect(loadCanon(join(dir, "canon")).terms.find((t) => t.id === "TERM-widget")?.definition).toBe("A small part of a machine.");
+    expect((await send("/api/node/TERM-skip", {}, "DELETE")).status).toBe(200);
+    expect(loadCanon(join(dir, "canon")).terms.map((t) => t.id)).toEqual(["TERM-widget"]);
+    const kinds = ((await get(`/api/changes?since=${before}`))["entries"] as Array<{ kind: string }>).map((e) => e.kind);
+    expect(kinds).toEqual(["node-approved", "node-edited", "node-deleted"]);
+  });
+
   it("enshrines a kept term, records a message and a refine request, and reports them as changes", async () => {
     const before = (await get("/api/changes"))["cursor"] as number;
     const kept = await send("/api/term", { term: "Widget", definition: "a small part", decision: "keep" });

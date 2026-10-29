@@ -26,7 +26,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
    - **message** otherwise: a question is answered in the chat; an instruction is followed; wording about a node is applied as a rewrite of that node.
    - **refine-request**: a refiner for that node with `draft`; say what was added when it returns.
    - **edit-conflict**: you rewrote a box the human was writing in. "keeps their own": leave that box alone until their node-edited arrives, then treat it as theirs. "took yours": nothing to do.
-   - **term-enshrined**, **term-dropped**: the glossary changed; reword every node that uses a dropped term with its replacement.
+   - **term-enshrined**, **term-dropped**: the glossary changed; reword every node that uses a dropped term with its replacement. A node-approved, node-edited or node-deleted entry with a TERM id comes from the Glossary tab: a rewritten term is the human's meaning now, a deleted one is dropped.
    - **answer**: belongs to a question you asked; handle it by the adopt skill's Asking rules.
    - **finish-request**: `HC check`; count the red boxes (open, contested, flagged). Some left: say which and open the first with `headcanon_focus`. None left: return to the caller, which is adopt step 6, or `/headcanon:commit` when nothing called you.
 5. After every change of yours: `HC check` and fix every error; then read the touched node's parent, siblings, children and `requires` neighbours for a contradiction or a duplicate, and mark what you find as the Consistency rules say.

@@ -91,6 +91,8 @@ export interface Term {
   id: string;
   term: string;
   definition: string;
+  /** From the term's own `[state]` marker after its id, else the Glossary heading's; none means stated. */
+  state: State;
 }
 
 export interface CanonRoot {

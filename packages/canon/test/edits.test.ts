@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { approveNode, clearMarkers, editNode, setField, upsertSection, deletePrinciple, editPrinciple, setPrincipleState } from "../src/edits.js";
-import { parsePrinciples } from "../src/parse.js";
+import { approveNode, clearMarkers, editNode, setField, upsertSection, deletePrinciple, editPrinciple, setPrincipleState, deleteTerm, editTerm, setTermState } from "../src/edits.js";
+import { parseGlossary, parsePrinciples } from "../src/parse.js";
 
 const NODE = `---
 id: REQ-1.2
@@ -64,5 +64,15 @@ describe("node edits from the page [REQ-12.1.8]", () => {
     const gone = deletePrinciple(readme, "PRN-1");
     expect(parsePrinciples(gone).map((x) => x.id)).toEqual(["PRN-2"]);
     expect(gone).toContain("## Principles\n\n**PRN-2");
+  });
+  it("a glossary term keeps its own marker: the heading's by default, its own after its id, or one left at the end of the definition", () => {
+    const readme = "# X canon\n\n## Glossary [assumed]\n\n**widget** (`TERM-widget`): a small part\n\n**gadget** (`TERM-gadget`): a bigger part [stated]\n";
+    expect(parseGlossary(readme).map((t) => [t.id, t.state, t.definition])).toEqual([["TERM-widget", "assumed", "a small part"], ["TERM-gadget", "stated", "a bigger part"]]);
+    const approved = setTermState(readme, "TERM-widget", "resolved");
+    expect(approved).toContain("**widget** (`TERM-widget`) [resolved]: a small part");
+    expect(parseGlossary(approved)[0]?.state).toBe("resolved");
+    const edited = editTerm(approved, "TERM-widget", { term: "Widget", definition: "the smallest part that\nstill works" });
+    expect(parseGlossary(edited)[0]).toMatchObject({ term: "Widget", state: "stated", definition: "the smallest part that still works" });
+    expect(parseGlossary(deleteTerm(edited, "TERM-widget")).map((t) => t.id)).toEqual(["TERM-gadget"]);
   });
 });

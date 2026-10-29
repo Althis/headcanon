@@ -409,10 +409,26 @@ function decisions(focus) {
     <table class="list"><thead><tr><th>ID</th><th>Decision</th><th>State</th><th>Origin</th><th>Serves</th><th>Date</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function glossary() {
-  return `<h1>Glossary</h1><p class="lede">What the human means when they say X. Every term here is assumed until confirmed.</p>
-    <table class="list"><thead><tr><th>Term</th><th>ID</th><th>Definition</th></tr></thead><tbody>
-    ${snap.canon.terms.map((t) => `<tr><td><b>${esc(t.term)}</b></td><td class="id">${esc(t.id)}</td><td>${esc(t.definition)}</td></tr>`).join("")}
+  const green = (t) => t.state === "stated" || t.state === "resolved";
+  return `<h1>Glossary</h1><p class="lede">What the human means when they say X. A term is the session's guess until you approve it, rewrite it in your words, or delete it.</p>
+    <table class="list glossary"><thead><tr><th>Term</th><th>ID</th><th>Definition</th><th></th></tr></thead><tbody>
+    ${snap.canon.terms.map((t) => `<tr data-term="${esc(t.id)}"><td><b>${esc(t.term)}</b><div>${badge(t.state)}</div></td><td class="id">${esc(t.id)}</td><td class="def">${esc(t.definition)}</td><td class="acts"><span class="row">${green(t) ? "" : `<button class="btn small primary" data-term-approve="${esc(t.id)}" title="Keep it as written; it becomes approved by you">Approve</button>`}<button class="btn small" data-term-edit="${esc(t.id)}" title="Say it in your own words">Rewrite</button><button class="btn small" data-term-delete="${esc(t.id)}">Delete</button></span></td></tr>`).join("")}
     </tbody></table>`;
+}
+// The glossary's rows act like boxes: approve, rewrite in place, delete; each reaches the session as a change.
+function wireGlossary() {
+  const after = async (what) => { await load(); render(); startWorking(what); };
+  for (const b of $main.querySelectorAll("[data-term-approve]")) b.addEventListener("click", async () => { const id = b.dataset.termApprove; try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); after(`you approved ${id}`); } catch (e) { showToast(e); } });
+  for (const b of $main.querySelectorAll("[data-term-delete]")) b.addEventListener("click", async () => { const id = b.dataset.termDelete; if (!confirm(`Delete ${id}? The session re-reads the boxes that use the word.`)) return; try { await fetch(`/api/node/${encodeURIComponent(id)}`, { method: "DELETE" }); after(`you deleted ${id}`); } catch (e) { showToast(e); } });
+  for (const b of $main.querySelectorAll("[data-term-edit]")) b.addEventListener("click", () => {
+    const id = b.dataset.termEdit, tr = $main.querySelector(`tr[data-term="${CSS.escape(id)}"]`), t = snap.canon.terms.find((x) => x.id === id);
+    if (!tr || !t) return;
+    tr.querySelector(".def").innerHTML = `<div class="editor"><input id="term-word" value="${esc(t.term)}" placeholder="The term" /><textarea id="term-def" rows="3" placeholder="What it means, in your words">${esc(t.definition)}</textarea><div class="row"><button class="btn primary" id="term-save">Save</button><button class="btn" id="term-cancel">Cancel</button></div></div>`;
+    tr.querySelector(".acts").hidden = true;
+    tr.querySelector("#term-def").focus();
+    tr.querySelector("#term-cancel").addEventListener("click", () => render());
+    tr.querySelector("#term-save").addEventListener("click", async () => { try { await post(`/api/node/${encodeURIComponent(id)}`, { title: tr.querySelector("#term-word").value, intent: tr.querySelector("#term-def").value }, "PUT"); after(`you rewrote ${id}`); } catch (e) { showToast(e); } });
+  });
 }
 
 // ---------------------------------------------------------------- events
@@ -435,6 +451,7 @@ function afterRender(view) {
   if (view === "health") for (const b of $main.querySelectorAll("[data-level]")) b.addEventListener("click", () => { const l = b.dataset.level; ui.levels.has(l) ? ui.levels.delete(l) : ui.levels.add(l); render(); });
   if ((view === "tree" || view === "node") && ui.graph) buildGraph(route().arg);
   if (view === "adopt") { buildAdoptCanvas(); openSession(); }
+  if (view === "glossary") wireGlossary();
   const diagrams = $main.querySelectorAll(".mermaid");
   if (diagrams.length && window.mermaid) {
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
@@ -765,6 +782,7 @@ function adoptCounts() {
   const c = { green: 0, yellow: 0, red: 0 };
   for (const id of Object.keys(snap.canon.nodes)) c[colorOf(id)]++;
   for (const p of snap.canon.principles) c[colorOf(p.id)]++;
+  for (const t of snap.canon.terms) c[t.state === "stated" || t.state === "resolved" ? "green" : t.state === "open" || t.state === "contested" ? "red" : "yellow"]++;
   return c;
 }
 function adopt(selectedId) {

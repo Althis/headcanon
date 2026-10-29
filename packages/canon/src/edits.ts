@@ -93,3 +93,27 @@ export function deletePrinciple(text: string, id: string): string {
   b.lines.splice(b.start, end - b.start);
   return b.lines.join("\n");
 }
+
+// ---- glossary terms: lines of the root README's Glossary section, each with its own marker ----
+
+const TERM_LINE = (id: string) => new RegExp(`^(\\*\\*)(.+?)(\\*\\*\\s*\\(\`${id}\`\\))\\s*(?:\\[(?:stated|assumed|open|contested|resolved)\\]\\s*)?[:—-]\\s*(.*)$`, "m");
+const stripTailMarker = (def: string) => def.replace(/\s*\[(?:stated|assumed|open|contested|resolved)\]\s*$/, "").trim();
+
+/** Mark one term with a state; the marker is always written, since an unmarked term takes the heading's. */
+export function setTermState(text: string, id: string, state: State): string {
+  return text.replace(TERM_LINE(id), (_m, open: string, term: string, idPart: string, def: string) => `${open}${term}${idPart} [${state}]: ${stripTailMarker(def)}`);
+}
+
+/** The human rewrote a term in their own words: the word when given, the definition; stated. */
+export function editTerm(text: string, id: string, edit: { term?: string | undefined; definition: string }): string {
+  return text.replace(TERM_LINE(id), (_m, open: string, term: string, idPart: string) => `${open}${edit.term?.trim() || term}${idPart} [stated]: ${edit.definition.trim().replace(/\s+/g, " ")}`);
+}
+
+/** Remove one term's line, and the blank line after it. */
+export function deleteTerm(text: string, id: string): string {
+  const lines = text.split(/\r?\n/);
+  const i = lines.findIndex((l) => TERM_LINE(id).test(l));
+  if (i < 0) return text;
+  lines.splice(i, i + 1 < lines.length && !(lines[i + 1] ?? "").trim() ? 2 : 1);
+  return lines.join("\n");
+}

@@ -39,6 +39,7 @@ describe("load [REQ-6.1, REQ-6.3]", () => {
   it("builds the tree, journeys, decisions and glossary from the folder", () => {
     expect(canon.root?.title).toBe("Mini canon");
     expect(canon.terms.map((t) => t.id)).toEqual(["TERM-widget", "TERM-skip"]);
+    expect(canon.terms.map((t) => t.state)).toEqual(["assumed", "assumed"]);
     expect(canon.nodes["REQ-1"]?.children).toEqual(["REQ-1.1"]);
     expect(canon.nodes["REQ-1.1"]?.depth).toBe(1);
     expect(canon.journeys[0]?.steps).toHaveLength(2);
