@@ -19,8 +19,15 @@ export interface TermGuess {
   definition: string;
 }
 
+/** An issue is the session's explicit request for help: a question, or a contradiction to settle. */
+export type IssueKind = "question" | "contradiction";
+
 export interface AskRequest {
   question: string;
+  /** What kind of issue this is; a contradiction's statements come from the node's Contested section. */
+  kind?: IssueKind;
+  /** Why it matters, in one or two sentences, shown as the issue's summary. */
+  why?: string;
   header?: string;
   options?: AskOption[];
   multiSelect?: boolean;
@@ -48,6 +55,8 @@ export interface AskAnswer {
 export interface PendingQuestion {
   id: string;
   askedAt: string;
+  kind: IssueKind;
+  why: string | undefined;
   question: string;
   header: string;
   options: AskOption[];
@@ -123,9 +132,12 @@ export class SessionState {
     const q: PendingQuestion = {
       id: randomUUID().slice(0, 8),
       askedAt: new Date().toISOString(),
+      kind: req.kind === "contradiction" ? "contradiction" : "question",
+      why: req.why,
       question: req.question,
-      header: req.header ?? "Question",
-      options: req.options && req.options.length ? req.options : DEFAULT_OPTIONS,
+      header: req.header ?? (req.kind === "contradiction" ? "Contradiction" : "Question"),
+      // a contradiction's choices are the node's statements, read by the page; the default pair is for drafts
+      options: req.kind === "contradiction" ? req.options ?? [] : req.options && req.options.length ? req.options : DEFAULT_OPTIONS,
       multiSelect: req.multiSelect ?? false,
       nodeId: req.nodeId,
       terms: req.terms ?? [],
@@ -145,8 +157,8 @@ export class SessionState {
   }
 
   /** Every queued question in brief, for the page's Issues panel. */
-  queued(): Array<{ id: string; header: string; nodeId: string | undefined; askedAt: string }> {
-    return this.queue.map((q) => ({ id: q.id, header: q.header, nodeId: q.nodeId, askedAt: q.askedAt }));
+  queued(): Array<{ id: string; kind: IssueKind; header: string; nodeId: string | undefined; askedAt: string }> {
+    return this.queue.map((q) => ({ id: q.id, kind: q.kind ?? "question", header: q.header, nodeId: q.nodeId, askedAt: q.askedAt }));
   }
 
   find(id: string): PendingQuestion | undefined {

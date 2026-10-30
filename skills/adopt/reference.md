@@ -86,7 +86,7 @@ A node with children is a folder: `canon/REQ-1-<slug>/README.md`. A leaf is a fi
 id: REQ-1.2
 parent: REQ-1            # omit on a top-level node
 title: "Plain-language title"
-state: stated | resolved | assumed | open | contested
+state: stated | resolved | assumed | open | contested   # open: a draft, the session's provisional name for a thing it could not define, drawn dashed; its question is an issue
 layer: domain | capability | requirement
 source: "path:lines, or: conversation, <date>, or: archetype"
 kind: binary            # on a leaf, with its Check: binary | numeric | open-ended
@@ -99,7 +99,7 @@ kind: binary            # on a leaf, with its Check: binary | numeric | open-end
 Source: conversation, <date>
 
 ## Intent [assumed]
-<one or two sentences; drop "[assumed]" from the heading when the node is not stated; on an open node, the question itself, in bold>
+<one or two sentences; drop "[assumed]" from the heading when the node is not stated; on a draft node, one line of what is known so far>
 
 ## Resolution
 <option chosen and date, when approved as written>
@@ -109,10 +109,6 @@ Source: conversation, <date>
 
 ## Not this
 <when an artifact or the human made one clear>
-
-## Options
-<on an open node: up to three suggestions the human can pick, one bullet each with its sources; picking one makes it the node's stated text>
-- <suggestion> (<path:lines>)
 
 ## Contested
 <when two statements disagree: one or two sentences on what they cannot both hold and what choosing decides, then one bullet per statement with its sources>
