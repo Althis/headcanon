@@ -105,7 +105,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const q = session.current();
     const rev = canonRev(canonDir);
     if (rev !== undefined) canonRevLast.set(canonDir, rev);
-    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queued(), focus: session.focus(), cursor: session.changes().cursor, rev: canonRevLast.get(canonDir) ?? "" });
+    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queuedFull().map(presentQuestion), focus: session.focus(), cursor: session.changes().cursor, rev: canonRevLast.get(canonDir) ?? "" });
   }
   if (p === "/api/ask" && method === "POST") {
     const body = (await readJson(req)) as AskRequest;

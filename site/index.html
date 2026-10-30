@@ -275,15 +275,18 @@
   <section id="try">
     <div class="wrap">
       <h2>Try it on a project</h2>
-      <p class="muted" style="max-width: 640px">Node 20 or newer, and Claude Code. Build the plugin from a checkout and load it into the project you want to align.</p>
-      <pre><code>git clone https://github.com/Althis/headcanon.git
+      <p class="muted" style="max-width: 640px">There is no packaged release yet: the plugin runs from a checkout of the repository. You need Node 20 or newer and Claude Code. The build output is not committed, so build once after cloning and again after every <code>git pull</code>.</p>
+      <pre><code># 1. get the plugin and build it
+git clone https://github.com/Althis/headcanon.git
 cd headcanon
 npm install
 npm run build
 
-# in the project you want to align
+# 2. start Claude Code inside the project you want to align,
+#    pointing at the checkout you just built
+cd /path/to/your-project
 claude --plugin-dir /path/to/headcanon</code></pre>
-      <p style="margin-top: 16px">Then run <code>/headcanon:adopt</code>. The skills it adds:</p>
+      <p style="margin-top: 16px">The plugin loads for that session only. Then run <code>/headcanon:adopt</code>. It installs a commit-msg hook in your repository that asks every commit for the intent it serves, and the first session is a long one: adoption is what the current test runs exercise. The skills it adds:</p>
       <table>
         <tr><td><code>/headcanon:adopt</code></td><td>Start the canon from the project's existing artifacts and your words, then review the draft on the canvas.</td></tr>
         <tr><td><code>/headcanon:attend</code></td><td>Keep refining the tree in the background while you work in the page.</td></tr>

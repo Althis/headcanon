@@ -161,6 +161,11 @@ export class SessionState {
     return this.queue.map((q) => ({ id: q.id, kind: q.kind ?? "question", header: q.header, nodeId: q.nodeId, askedAt: q.askedAt }));
   }
 
+  /** The queue in full, for a page that lets any of them be answered. */
+  queuedFull(): PendingQuestion[] {
+    return [...this.queue];
+  }
+
   find(id: string): PendingQuestion | undefined {
     return this.queue.find((q) => q.id === id);
   }

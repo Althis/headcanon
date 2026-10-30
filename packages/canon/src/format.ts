@@ -115,7 +115,7 @@ export const START_SEQUENCE: string[] = [
   "Bring every entry the check says does not fit the format into it, as the current version's notes say: a node titled as a question or without an Intent becomes a draft with its question filed as an issue; a section the format does not define is folded into the one that holds its content, or an issue; a glossary heading whose terms inherited the root's approval is marked `[assumed]` again. Every issue goes through `headcanon_ask`, all in one call.",
   "Fix every error the check reports.",
   "When no finding about fit remains, write `format: <current version>` on the root README.",
-  "Say the counts in one line, drafts made, issues filed, sections folded, and the next box to look at.",
+  "Say the counts in one line, drafts made, issues filed, sections folded, and the next box for the human: the first entry of `headcanon next`'s `human` list, ranked by what approving or settling it releases.",
 ];
 
 /** The check codes that say an entry does not fit the format; the start sequence brings each in. */

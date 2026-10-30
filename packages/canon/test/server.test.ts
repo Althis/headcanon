@@ -105,8 +105,10 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     const a = (await send("/api/ask", { header: "Parsing", question: "Which stands?", options: [{ label: "A" }, { label: "B" }] })).body["questionId"] as string;
     const b = (await send("/api/ask", { header: "Billing", nodeId: "REQ-2", question: "Retry how?", options: [{ label: "Daily" }] })).body["questionId"] as string;
     const s = await get("/api/session");
-    const mine = (s["queue"] as Array<{ id: string; header: string; nodeId?: string }>).filter((q) => q.id === a || q.id === b);
+    const mine = (s["queue"] as Array<{ id: string; header: string; nodeId?: string; question?: string }>).filter((q) => q.id === a || q.id === b);
     expect(mine.map((q) => [q.id, q.header, q.nodeId ?? null])).toEqual([[a, "Parsing", null], [b, "Billing", "REQ-2"]]);
+    // every queued question travels whole, so the panel can show and answer any of them, not only the head
+    expect(mine.map((q) => q.question)).toEqual(["Which stands?", "Retry how?"]);
     await send("/api/answer", { questionId: a, selected: ["A"] });
     await send("/api/answer", { questionId: b, selected: ["Daily"] });
     expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((q) => q.id === a || q.id === b)).toBe(false);

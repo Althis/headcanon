@@ -352,6 +352,8 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .left-stack .menu { position: static; max-width: 340px; }
 .menu.issues .menu-body { max-height: 40vh; overflow: auto; }
 .menu.issues .menu-head .pill { margin-left: 2px; }
+.next-for-you { margin: 0 0 6px; font-size: 12px; line-height: 1.35; }
+.next-for-you a { color: var(--accent); font-weight: 600; text-decoration: none; }
 .issue-row { display: flex; align-items: flex-start; gap: 6px; text-align: left; white-space: normal; }
 .issue-row.now { border-color: var(--accent); }
 .issue-row .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); flex: none; }

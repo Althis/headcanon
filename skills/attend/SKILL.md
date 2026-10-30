@@ -20,13 +20,13 @@ On an existing canon, before the loop, the format's start sequence (`HC format` 
 - Every error, fixed as always.
 - No finding about fit left: write `format: <current>`, the version `HC format` prints, on the root README's front matter.
 
-Then one say: the counts (drafts made, issues filed, sections folded) and the next box to look at, which you `headcanon_focus`.
+Then one say: the counts (drafts made, issues filed, sections folded) and the next box for the human, the first of `HC next`'s `human` list with its reason, which you `headcanon_focus`.
 
 ## Loop
 
 Until the human presses Finish with nothing red, or, once they have, until nothing is left to cut; or the human says stop:
 
-1. **Launch.** `HC next --json`: every `ready` node whose parent is not red gets a refiner, green parents before yellow, several at once in the background with the Agent tool, never a workflow, which stops to ask the human, each briefed with the repository, the node, the layer its children get, and the thread file. A node a refiner already holds is not launched twice. The command's `waiting` nodes lie more than two levels below the deepest approved box on their path; they are left alone until the human approves, and named when the human asks what is next.
+1. **Launch.** `HC next --json`: every `ready` node whose parent is not red gets a refiner, green parents before yellow, several at once in the background with the Agent tool, never a workflow, which stops to ask the human, each briefed with the repository, the node, the layer its children get, and the thread file. A node a refiner already holds is not launched twice. The command's `waiting` nodes lie more than two levels below the deepest approved box on their path; they are left alone until the human approves. Its `human` list ranks what the human can approve or settle by what that releases; its first entry is the next box for them, always, never a pick of your own.
 2. **Wait** for the next event: `headcanon_changes` with the last cursor and `waitSeconds` 600, or a refiner's return, whichever comes first.
 3. **A refiner's return.** Apply its set-asides (link, lift, merge) and its moved edges; `HC check` and fix every error; read the new set's parent, siblings and `requires` neighbours for a contradiction or a duplicate and mark it as the adopt skill's Consistency rules say; file each of its `questions` as an issue with `headcanon_ask`, without waiting: `nodeId` the draft node it wrote, the question, `why`, the suggestions as options; say in one line what landed; launch what became ready. A branch with nothing left to cut gets the verifier (adopt, Consistency) and then a say that names it as a key point: how many leaves carry a check, how many boxes are red. A refiner that reports blocked waits for its blocker: a red box is the human's, a prerequisite is in the next wave.
 4. **The human's entries**, in order, by kind:
@@ -42,7 +42,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
    - **answer**: belongs to a question you asked; handle it by the adopt skill's Asking rules. For a refiner's question, define its draft node from the chosen or typed words: the title when the answer names the thing, the Intent from the words, `stated`; then launch it when its layer has children. A contradiction issue is settled by the page itself; its node-edited entry follows.
    - **finish-request**: `HC check`; count the red boxes (open, contested, flagged) and the questions still unanswered. Some left: say which and open the first with `headcanon_focus`. None left: return to the caller, which is adopt step 6, or `/headcanon:commit` when nothing called you.
 5. After every change of yours: `HC check` and fix every error; then read the touched node's parent, siblings, children and `requires` neighbours for a contradiction or a duplicate, and mark what you find as the Consistency rules say.
-6. `headcanon_say` one or two sentences: what you changed, what is red now, and the next box to look at, which you also `headcanon_focus`. A say that reports what you did goes to the page's history; one that asks something of the human, or needs their eyes now (a key point), carries `to: "human"` and lands in their chat.
+6. `headcanon_say` one or two sentences: what you changed, what is red now, and the next box for the human, the first of `HC next`'s `human` list with its reason, which you also `headcanon_focus`. A say that reports what you did goes to the page's history; one that asks something of the human, or needs their eyes now (a key point), carries `to: "human"` and lands in their chat.
 
 ## Rules
 
