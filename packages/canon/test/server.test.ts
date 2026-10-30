@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,15 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
   afterAll(() => {
     close();
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("reports a canon revision that changes with any edit on disk, however it was made", async () => {
+    const a = (await get("/api/session"))["rev"] as string;
+    expect(a).toMatch(/^[0-9a-f]{12}$/);
+    expect((await get("/api/session"))["rev"]).toBe(a);
+    const file = join(dir, "canon", "REQ-2-billing.md");
+    writeFileSync(file, readFileSync(file, "utf8") + "\nEdited on disk, not through the page.\n");
+    expect((await get("/api/session"))["rev"]).not.toBe(a);
   });
 
   it("asks, shows, answers and hands the answer to a waiter", async () => {

@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +42,28 @@ export interface Served {
  * endpoints the page and the MCP server use (REQ-12.1.7). Edits made in the page write canon
  * files; the hook, the check and the verifier see them like any other change.
  */
+/**
+ * The canon's revision: a hash of every file's path, size and modification time under the canon directory. It
+ * changes with any edit however it was made, so the page can re-read the canon without a feed entry. A directory
+ * that cannot be read (the disk dropped) yields undefined, and the caller keeps the last value, so nothing flaps.
+ */
+const canonRevLast = new Map<string, string>();
+function canonRev(canonDir: string): string | undefined {
+  if (!existsSync(canonDir)) return "";
+  try {
+    const h = createHash("sha1");
+    const walk = (dir: string, rel: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+        if (e.name.startsWith(".") || e.name === "node_modules") continue;
+        const abs = join(dir, e.name), r = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) walk(abs, r);
+        else { const st = statSync(abs); h.update(`${r}|${st.size}|${st.mtimeMs}\n`); }
+      }
+    };
+    walk(canonDir, "");
+    return h.digest("hex").slice(0, 12);
+  } catch { return undefined; }
+}
 /** The queue's file: under the repository's git directory, beside the review records; none outside a repository. */
 function questionStore(canonDir: string): string | undefined {
   try {
@@ -80,7 +103,9 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   // ---- session: what the page polls ----
   if (p === "/api/session" && method === "GET") {
     const q = session.current();
-    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queued(), focus: session.focus(), cursor: session.changes().cursor });
+    const rev = canonRev(canonDir);
+    if (rev !== undefined) canonRevLast.set(canonDir, rev);
+    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queued(), focus: session.focus(), cursor: session.changes().cursor, rev: canonRevLast.get(canonDir) ?? "" });
   }
   if (p === "/api/ask" && method === "POST") {
     const body = (await readJson(req)) as AskRequest;

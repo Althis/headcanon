@@ -23,7 +23,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
    - **node-deleted**: nodes that required it lose the edge; a node whose only reason was the deleted one is removed and asked about as an issue; the parent's partition still holds or the parent's line is rewritten `assumed`.
    - **node-created**: the human's node; place it by descent if its parent is wrong, link what it duplicates, and give it a refiner when its layer has children.
    - **message** with a `quote` (words the human highlighted in a node's card; `nodeId` names the node): the text is about that passage. A question gets one or two sentences in the human's words; a glossary term gets its definition and where it is used; wording given with it is applied as a rewrite of that passage, stated.
-   - **message** otherwise: a question is answered in the chat; an instruction is followed; wording about a node is applied as a rewrite of that node.
+   - **message** otherwise: a question is answered in the chat; an instruction is followed; wording about a node is applied as a rewrite of that node; a principle the human asks for is added to the root README's `## Principles` in their words, stated (no marker), with a Source line naming the chat. The page re-reads the canon whenever a file changes, so a direct edit needs no announcement.
    - **refine-request**: a refiner for that node with `draft`; say what was added when it returns.
    - **edit-conflict**: you rewrote a box the human was writing in. "keeps their own": leave that box alone until their node-edited arrives, then treat it as theirs. "took yours": nothing to do.
    - **term-enshrined**, **term-dropped**: the glossary changed; reword every node that uses a dropped term with its replacement. A node-approved, node-edited or node-deleted entry with a TERM id comes from the Glossary tab: a rewritten term is the human's meaning now, a deleted one is dropped.
@@ -36,7 +36,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
 
 - Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`; your questions are issues, never nodes.
 - The human gives this about a quarter of an hour, for the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
-- A red box titled as a question (the check's `title-question`) is a question from before draft nodes: retitle it with a provisional plain name, keep it `open`, and file its question as an issue with the box as `nodeId` and any suggestions it carried.
+- A red box titled as a question (the check's `title-question`) is a question from before draft nodes: retitle it with a provisional plain name, keep it `open`, replace its dated bullet with one line of what is known as Intent, and file its question as an issue with the box as `nodeId`, the reasoning as `why`, and any suggestions it carried as options.
 - A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
 - Write only files under `canon/`; `HC check` after every write; never commit from here.
 
