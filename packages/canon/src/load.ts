@@ -34,6 +34,9 @@ function stateOf(v: unknown, fallback: State = "assumed"): State {
 }
 
 /** Read every Markdown file under `dir` and assemble the canon. Never throws on a bad file; see `unparsed`. */
+/** A whole number from the front matter, written bare or quoted. */
+const numberOf = (v: unknown): number | undefined => (typeof v === "number" && Number.isInteger(v) ? v : typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : undefined);
+
 export function loadCanon(dirInput: string): Canon {
   const dir = resolve(dirInput);
   const canon: Canon = {
@@ -71,7 +74,7 @@ export function loadCanon(dirInput: string): Canon {
 
     const title = str(data["title"]) ?? firstHeading(body) ?? id;
     if (id === "ROOT") {
-      canon.root = { title, state: stateOf(data["state"], "stated"), partition: str(data["partition"]), file, body };
+      canon.root = { title, state: stateOf(data["state"], "stated"), format: numberOf(data["format"]), partition: str(data["partition"]), file, body };
       canon.terms = parseGlossary(body);
       canon.principles = parsePrinciples(body);
     } else if (id.startsWith("REQ-")) {

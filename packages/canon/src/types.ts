@@ -98,6 +98,8 @@ export interface Term {
 export interface CanonRoot {
   title: string;
   state: State;
+  /** The format version the canon was written under (`format` in the front matter); none means the first. */
+  format: number | undefined;
   /** The question the top-level nodes answer, when refine has cut the premise. */
   partition: string | undefined;
   file: string;

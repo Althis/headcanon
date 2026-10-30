@@ -167,4 +167,16 @@ describe("open boxes", () => {
     expect(codes).not.toContain("warn:section-unknown:REQ-2");
     expect(codes.filter((c) => c.startsWith("warn:glossary-inherited"))).toEqual(["warn:glossary-inherited:ROOT"]);
   });
+  it("names the format version a canon was written under: none recorded is the first, a newer one needs a newer HeadCanon", () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "headcanon-format-")), "canon");
+    mkdirSync(dir, { recursive: true });
+    const root = (fm: string) => "---\nid: ROOT\ntitle: \"T canon\"\nstate: assumed\n" + fm + "---\n\n# T canon\n\n## Intent\n\nA thing.\n";
+    writeFileSync(join(dir, "README.md"), root(""));
+    expect(checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`)).toContain("warn:format-version:ROOT");
+    writeFileSync(join(dir, "README.md"), root("format: 2\n"));
+    expect(loadCanon(dir).root?.format).toBe(2);
+    expect(checkCanon(loadCanon(dir)).some((f) => f.code.startsWith("format-"))).toBe(false);
+    writeFileSync(join(dir, "README.md"), root("format: 99\n"));
+    expect(checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`)).toContain("warn:format-newer:ROOT");
+  });
 });

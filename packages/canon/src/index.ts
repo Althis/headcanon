@@ -19,3 +19,4 @@ export { RULES } from "./rules.js";
 export { buildSnapshot, type Snapshot } from "./snapshot.js";
 export { refinementOrder, requiresCycles, describeNext, isRefined, isUnrefined, type RefinementOrder, type NextPick, type Blocked, LOOKAHEAD, reachOf, withinReach } from "./next.js";
 export { serveUi } from "./ui/server.js";
+export { FORMAT, FORMAT_VERSION, HISTORY, START_SEQUENCE, FIT_CODES, canonFormatVersion, changesSince, describeFormat, type TypeRule, type FormatChange } from "./format.js";

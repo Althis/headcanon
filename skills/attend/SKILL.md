@@ -12,12 +12,13 @@ Colours on the canvas: green is approved by the human, yellow is your guess, red
 
 ## Start
 
-On an existing canon, before the loop, `HC check --json`, and bring what does not fit the model into it, in one turn:
+On an existing canon, before the loop, the format's start sequence (`HC format` prints it): `HC check --json`, and bring what does not fit the format into it, in one turn. A `format-newer` finding stops you: say that HeadCanon must be updated first.
 
 - `title-question` or `intent-missing`: the node becomes a draft: `state: open`, a provisional plain title, one line of what is known as Intent (from its title, its bullets or its sources), the dated bullets dropped. Then one issue per draft, all in one `headcanon_ask` with `questions`: the question, `why` from what the node carried, its suggestions as options.
 - `section-unknown`: the section's content moves where the format puts it: what the children will hold to `## Deferred` with its origin, a gap and what would settle it to `## Open`, a question only the human can answer to an issue on the node; the node's state stays.
 - `glossary-inherited`: the heading becomes `## Glossary [assumed]`; the human approves terms in the Glossary tab.
 - Every error, fixed as always.
+- No finding about fit left: write `format: <current>`, the version `HC format` prints, on the root README's front matter.
 
 Then one say: the counts (drafts made, issues filed, sections folded) and the next box to look at, which you `headcanon_focus`.
 

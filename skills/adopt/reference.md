@@ -40,12 +40,15 @@ Nothing is final until you press Finish with no red left.
 
 ## 1. Root README (`canon/README.md`)
 
+The format itself, every type with its fields, states, sections and rules, the start sequence and the versions, is `HC format` (the repository's `docs/format.md`); what follows are the templates to write from.
+
 ```markdown
 ---
 id: ROOT
 title: "<Project> canon"
 state: stated | resolved
 source: "conversation, <date>"
+format: 2                # the format version this canon is written under; `HC format` prints the current one
 ---
 
 # <Project> canon
