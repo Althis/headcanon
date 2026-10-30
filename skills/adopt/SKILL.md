@@ -52,6 +52,10 @@ The few questions left, the briefing, the sweep and a disagreement after an appr
 
 ## Steps
 
+### 0 Where you are
+
+`canon/README.md` exists and `canon/decisions/DEC-001-adoption-scope.md` does not: the adoption is unfinished. Go to 5 with what is on disk; never `HC init`, never redraft the root or the domains. Red boxes titled as questions are the attend skill's to turn into drafts and issues. Otherwise start at 1.
+
 ### 1 Read
 
 Search `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`, the package manifest, test names. Note contradictions and which artifact is newer. Never present the list; never ask about provenance. The thread list is a file the refiners read, so it names its path:lines and stays current.
@@ -83,7 +87,7 @@ Enough to guess. Parent: "Statement import: bank statements in any common format
 </example>
 
 <example>
-Not enough. The same parent implies that a statement imported twice must not double its transactions, but no document says how a duplicate is told apart. Child written open: title "How is a duplicate transaction recognized?", source "REQ-1 (failure of 'one transaction per line')", no Intent.
+Not enough. The same parent implies that a statement imported twice must not double its transactions, but no document says how a duplicate is told apart. Draft written open: title "Duplicate detection", Intent "A statement imported twice must not double its transactions; how a duplicate is told apart is not named anywhere", source "REQ-1 (failure of 'one transaction per line')". Issue filed: "How is a duplicate transaction recognized?", why the importer's retry depends on it, and the suggestions the artifacts allow.
 </example>
 
 <example>

@@ -542,7 +542,7 @@ $issueCard.querySelector(".popup-head").addEventListener("pointerdown", (e) => {
   document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
 });
 const $tooltip = document.getElementById("tooltip");
-let shownQuestionId = null, lastFocusSeq = 0, lastCursor = 0, termState = {};
+let shownQuestionId = null, lastFocusSeq = 0, lastCursor = 0, lastRev = null, termState = {};
 function setToggle(collapsed) {
   const b = document.getElementById("session-toggle");
   b.textContent = collapsed ? "Open" : "✕";
@@ -686,19 +686,31 @@ async function pollSession() {
     renderIssues(s);
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
-    // While a draft is being written there is no feed entry per file; on the Adopt view, re-read the canon
-    // every few seconds and redraw when nodes appeared, so the progress strip and the canvas grow with it.
-    if (route().view === "adopt" && !s.question && (pollSession.tick = (pollSession.tick ?? 0) + 1) % 3 === 0) {
-      const fresh = await fetch("/api/snapshot", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      const ed = editingDraft();
-      if (fresh && (fresh.stats.nodes !== snap.stats.nodes || fresh.canon.decisions.length !== snap.canon.decisions.length || Boolean(fresh.canon.root) !== Boolean(snap.canon.root) || (ed && fresh.html[ed.id] !== snap.html[ed.id]))) { snap = fresh; for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; } if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } checkConflict(); chime(); }
-    }
+    // The feed carries what went through the page and the session's says; the ids it names are not repeated below.
+    const named = new Set();
     if (s.cursor !== lastCursor) {
       lastCursor = s.cursor;
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (c) { chatCursor = c.cursor; appendChat(c.entries); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $issueCard.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
-      if (shownQuestionId === null) { await load().catch(() => {}); checkConflict(); if (route().view !== "tree" && route().view !== "node") render(); }
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); for (const e of c.entries) if (e.id) named.add(e.id); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $issueCard.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
       renderIssues(s);
+    }
+    // The canon's revision changes with any edit on disk, however it was made: a refiner's file, the session's own
+    // tools, an editor. The page then re-reads the canon, says in the chat what changed beyond what the feed named,
+    // redraws (a card stays open; a rewrite in progress is judged by checkConflict), and chimes for the unannounced.
+    if (s.rev !== undefined && s.rev !== lastRev) {
+      const first = lastRev === null;
+      lastRev = s.rev;
+      if (!first) {
+        const was = snap;
+        if (await load().then(() => true).catch(() => false)) {
+          const changes = canonDiff(was, snap).filter((e) => !named.has(e.id));
+          if (changes.length) { appendChat(changes); chime(); }
+          if (route().view === "adopt") { if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
+          else if (route().view !== "tree" && route().view !== "node") render();
+          checkConflict();
+          renderIssues(s);
+        }
+      }
     }
   } catch (e) { /* server away; try again */ }
   setTimeout(pollSession, 2000);
@@ -1846,6 +1858,23 @@ let chatCursor = 0;
 const ID_RE = /\b(REQ-\d+(?:\.\d+)*|PRN-\d+|DEC-\d+)\b/g;
 const linkIds = (text) => esc(text).replace(ID_RE, (id) => `<a class="id" data-id="${id}" href="#/node/${id}">${id}</a>`);
 const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+// What changed between two readings of the canon, as chat lines: boxes, principles, terms and decisions that
+// appeared, changed or went, each naming its id so a click goes there.
+function canonDiff(was, now) {
+  const at = new Date().toISOString(), out = [];
+  const line = (kind, id, text) => out.push({ kind, id, text, at });
+  const byId = (list) => Object.fromEntries((list ?? []).map((x) => [x.id, x]));
+  const a = was.canon.nodes, b = now.canon.nodes;
+  for (const id of Object.keys(b)) { if (!a[id]) line("node-created", id, `${id} appeared on disk · ${b[id].title}`); else if (was.html[id] !== now.html[id] || a[id].title !== b[id].title || a[id].state !== b[id].state) line("node-edited", id, `${id} changed on disk${a[id].state !== b[id].state ? `, now ${b[id].state}` : ""} · ${b[id].title}`); }
+  for (const id of Object.keys(a)) if (!b[id]) line("node-deleted", id, `${id} gone from disk · ${a[id].title}`);
+  const sets = [["principle", byId(was.canon.principles), byId(now.canon.principles), (p) => p.title, (p) => `${p.title}|${p.statement ?? p.text ?? ""}|${p.state}`], ["term", byId(was.canon.terms), byId(now.canon.terms), (t) => t.term, (t) => `${t.term}|${t.definition}|${t.state}`], ["decision", byId(was.canon.decisions), byId(now.canon.decisions), (d) => d.title, (d) => `${d.title}|${d.state ?? ""}`]];
+  for (const [what, x, y, name, sig] of sets) {
+    for (const id of Object.keys(y)) { if (!x[id]) line("node-created", id, `${what} ${id} added on disk · ${name(y[id])}`); else if (sig(x[id]) !== sig(y[id])) line("node-edited", id, `${what} ${id} changed on disk · ${name(y[id])}`); }
+    for (const id of Object.keys(x)) if (!y[id]) line("node-deleted", id, `${what} ${id} dropped on disk · ${name(x[id])}`);
+  }
+  if (!out.length && was.html.ROOT !== now.html.ROOT) line("node-edited", "ROOT", "the premise changed on disk");
+  return out;
+}
 function appendChat(entries) {
   const list = document.getElementById("activity");
   for (const e of entries) {
