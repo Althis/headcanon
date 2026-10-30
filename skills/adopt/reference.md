@@ -115,14 +115,17 @@ Source: conversation, <date>
 - <statement one> (<path:lines>)
 - <statement two> (<path:lines>)
 
+## Deferred
+- <what this node will hold once it is refined, one line each> (<origin>)
+
 ## Assumptions
 - <what you decided> (model assumption)
 
 ## Open
-- <date>: <what would settle it>
+- <date>: <a gap between the artifacts and the intent, and what would settle it; never a question for the human, which is an issue>
 ```
 
-An open domain or capability is a node whose `state` is `open` and whose title is the question, for example "How are duplicate transactions detected?".
+A draft is a node whose `state` is `open`: a provisional plain title such as "Duplicate detection", one line of what is known as Intent, and its question filed as an issue. A title is never a question. No other section exists; the check flags one.
 
 ## 3. Adoption scope decision (`canon/decisions/DEC-001-adoption-scope.md`)
 

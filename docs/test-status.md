@@ -22,7 +22,7 @@ Pushed earlier by the sixth run's flow (they now happen during drafting and the 
 - Dependency descent: a `requires` edge moving down to the child that holds the concept when its target is cut.
 - The requirement layer of refine, where the ladder has to go deepest into artifacts and the code counts as a thread; `HC next` order, cycles as lifts, deadlock handling: run 6 drafted everything at once, so nothing was ever ordered.
 - The attend loop: reworking children after an approval, a rewrite or a deletion; answering a question about a highlighted passage; a refine request from the card; the working indicator; the Finish check.
-- Resuming an unfinished adoption in a new session.
+- Resuming an unfinished adoption in a new session: adopt's step 0, then the attend skill's Start audit (`HC check --json`; drafts and issues from question-titled or empty nodes, stray sections folded, the glossary heading's marker restored), and a canon that only waits for approvals reported as waiting, not deadlocked.
 - The "enough to guess" rule: whether it guesses too much or too little.
 - Approving, rewriting or deleting a principle from its own card; principles carry their own state since 2026-10-18.
 - Issues and draft nodes (2026-10-30): a refiner writing a draft node (`open`, a provisional title, drawn dashed) for what it could not define and returning its question; the attend loop filing it with `headcanon_ask` (`nodeId`, `why`, the suggestions) and defining the node on the answer; a contradiction filed with `kind: contradiction` and settled from its card into the node, the other side brought in line by the session; the Issues panel on a real canon. The cards were checked on the fixture with the viewer alone, no session.

@@ -142,7 +142,7 @@ export function refinementOrder(canon: Canon): RefinementOrder {
   ready.sort((a, b) => a.depth - b.depth || b.dependents - a.dependents || compareIds(a.id, b.id));
   blocked.sort((a, b) => compareIds(a.id, b.id));
   waiting.sort((a, b) => compareIds(a.id, b.id));
-  return { next: ready[0], ready, blocked, waiting, deadlock: ready.length === 0 && blocked.length > 0, cycles: requiresCycles(canon) };
+  return { next: ready[0], ready, blocked, waiting, deadlock: ready.length === 0 && blocked.length > 0 && waiting.length === 0, cycles: requiresCycles(canon) };
 }
 
 /** One paragraph for the terminal and the session context. */
