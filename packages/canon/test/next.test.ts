@@ -73,6 +73,24 @@ describe("refinement order [REQ-3.15]", () => {
     expect(reachOf(loadCanon(dir), loadCanon(dir).nodes["REQ-1.1"]!)).toEqual({ level: 2, anchor: "REQ-1", reach: 3 });
   });
 
+  it("a canon that only waits for an approval is not a deadlock", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-waiting-"));
+    dirs.push(dir);
+    // the premise approved: level 1 is within reach, level 2's children are not; REQ-2 needs the box that waits
+    writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"R\"\nstate: resolved\n---\n\n# R\n");
+    node(dir, "REQ-1", "");
+    node(dir, "REQ-1.1", "");
+    node(dir, "REQ-2", "requires: [REQ-1.1]\n");
+    const canon = loadCanon(dir);
+    const order = refinementOrder(canon);
+    expect(order.ready).toEqual([]);
+    expect(order.blocked.map((b) => `${b.id}<${b.waitingOn.join("+")}`)).toEqual(["REQ-2<REQ-1.1"]);
+    expect(order.waiting.map((w) => w.id)).toEqual(["REQ-1.1"]);
+    expect(order.deadlock).toBe(false);
+    expect(checkCanon(canon).some((f) => f.code === "refine-deadlock")).toBe(false);
+    expect(describeNext(order, canon)).toContain("Nothing within reach");
+  });
+
   it("reports a cycle as an error and a deadlock as a warning", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-cycle-"));
     dirs.push(dir);

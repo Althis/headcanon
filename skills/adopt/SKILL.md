@@ -54,7 +54,7 @@ The few questions left, the briefing, the sweep and a disagreement after an appr
 
 ### 0 Where you are
 
-`canon/README.md` exists and `canon/decisions/DEC-001-adoption-scope.md` does not: the adoption is unfinished. Go to 5 with what is on disk; never `HC init`, never redraft the root or the domains. Red boxes titled as questions are the attend skill's to turn into drafts and issues. Otherwise start at 1.
+`canon/README.md` exists and `canon/decisions/DEC-001-adoption-scope.md` does not: the adoption is unfinished. Go to 5 with what is on disk, where the attend skill's Start step brings what does not fit the model into it; never `HC init`, never redraft the root or the domains. Otherwise start at 1.
 
 ### 1 Read
 

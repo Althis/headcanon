@@ -154,4 +154,17 @@ describe("open boxes", () => {
     const codes = checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`);
     expect(codes).toContain("warn:title-question:REQ-1");
   });
+  it("flags what does not fit the model: no Intent, a section the format lacks, terms that inherited the root's approval", () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "headcanon-fit-")), "canon");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: resolved\n---\n\n# T canon\n\n## Intent\n\nA thing.\n\n## Glossary\n\n**widget** (`TERM-widget`): a small part.\n**gadget** (`TERM-gadget`) [assumed]: a larger part.\n");
+    writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Empty\"\nstate: assumed\n---\n\n# Empty\n\n## Intent\n\n## Options\n\n- one\n");
+    writeFileSync(join(dir, "REQ-2-y.md"), "---\nid: REQ-2\ntitle: \"Full\"\nstate: assumed\n---\n\n# Full\n\n## Intent\n\nIt holds.\n\n## Deferred\n\n- later (REQ-2)\n");
+    const codes = checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`);
+    expect(codes).toContain("warn:intent-missing:REQ-1");
+    expect(codes).toContain("warn:section-unknown:REQ-1");
+    expect(codes).not.toContain("warn:intent-missing:REQ-2");
+    expect(codes).not.toContain("warn:section-unknown:REQ-2");
+    expect(codes.filter((c) => c.startsWith("warn:glossary-inherited"))).toEqual(["warn:glossary-inherited:ROOT"]);
+  });
 });

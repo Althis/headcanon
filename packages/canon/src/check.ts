@@ -9,6 +9,18 @@ function finding(level: Level, code: string, message: string, extra: Partial<Fin
 }
 
 /** Deterministic checks: structure, links, files, and certainty states that need a human. */
+/** The sections a requirement node may carry (adopt/reference.md section 2). */
+const KNOWN_SECTIONS = new Set(["stated", "intent", "resolution", "check", "not this", "contested", "assumptions", "open", "deferred"]);
+
+/** The text under one `## Heading`, up to the next heading; empty when the section is absent or blank. */
+function sectionText(body: string, heading: string): string {
+  const lines = body.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^##\s+/.test(l) && l.replace(/^##\s+/, "").replace(/\s*\[[a-z]+\]\s*$/, "").trim().toLowerCase() === heading.toLowerCase());
+  if (start < 0) return "";
+  const end = lines.findIndex((l, i) => i > start && /^##\s/.test(l));
+  return lines.slice(start + 1, end < 0 ? undefined : end).join("\n").trim();
+}
+
 export function checkCanon(canon: Canon): Finding[] {
   const out: Finding[] = [];
   const repoRoot = dirname(canon.dir);
@@ -47,7 +59,7 @@ export function checkCanon(canon: Canon): Finding[] {
       for (const t of targets)
         if (!canon.nodes[t]) out.push(finding("error", "link-unknown", `${n.id} ${field} ${t}, which does not exist`, at));
     if (n.state === "contested") out.push(finding("warn", "contested", `${n.id} is contested: ${n.title}`, at));
-    if (n.state === "open") out.push(finding("info", "open", `${n.id} is an open question: ${n.title}`, at));
+    if (n.state === "open") out.push(finding("info", "open", `${n.id} is a draft, defined by its issue: ${n.title}`, at));
 
     const deps = decisionsByIntent.get(n.id) ?? [];
     if (n.state === "assumed" && deps.length >= 2)
@@ -75,7 +87,14 @@ export function checkCanon(canon: Canon): Finding[] {
       out.push(finding("info", "single-child", `${n.id} has one child, ${n.children[0]}; a set of one usually restates its parent or hides siblings`, at));
     // A title names a thing: a question belongs in the open node's Intent, in bold, not in its title.
     if (/\?\s*$/.test(n.title))
-      out.push(finding("warn", "title-question", `${n.id} is titled as a question; give it a feature title and put the question in bold under Intent`, at));
+      out.push(finding("warn", "title-question", `${n.id} is titled as a question; a draft takes a provisional feature title, and the question is an issue`, at));
+    // A node is content: an Intent, or the human's Stated words, it cannot do without; a draft keeps one line of what is known.
+    if (!sectionText(n.body, "Intent") && !n.sections.some((x) => /^Stated$/i.test(x.heading)))
+      out.push(finding("warn", "intent-missing", `${n.id} has no Intent; a draft keeps one line of what is known, and its question is an issue`, at));
+    // The format's sections only; a stray one holds content that belongs elsewhere, or in an issue.
+    for (const x of n.sections)
+      if (!KNOWN_SECTIONS.has(x.heading.trim().toLowerCase()))
+        out.push(finding("warn", "section-unknown", `${n.id} has a section the format does not define, "${x.heading}"; its content belongs under Intent, Deferred, Check, Contested, Assumptions or Open, or in an issue`, at));
     // A leaf's contract (REQ-3.3): `kind` says how it is measured and `## Check` what is observed.
     const hasCheck = n.sections.some((s) => /^Check$/i.test(s.heading));
     if (n.kind && !hasCheck)
@@ -87,6 +106,12 @@ export function checkCanon(canon: Canon): Finding[] {
   if (inferred > 0)
     out.push(finding("info", "layer-inferred", `${inferred} node(s) have no layer field; their layer is inferred from depth (domain, capability, requirement)`));
   // Refinement order (REQ-3.15): a cycle in requires can never be refined; a deadlock needs a human.
+  // Terms are approved one by one in the Glossary tab; after the root's approval a heading without a marker would
+  // hand every unmarked term the human's own state.
+  if (canon.root && (canon.root.state === "stated" || canon.root.state === "resolved") && /^##[ \t]+Glossary[ \t]*$/m.test(canon.root.body)) {
+    const unmarked = canon.root.body.split(/\r?\n/).filter((l) => /^\*\*[^*]+\*\*\s*\(`TERM-/.test(l) && !/\[(stated|assumed|open|contested|resolved)\]/.test(l));
+    if (unmarked.length) out.push(finding("warn", "glossary-inherited", `${unmarked.length} glossary term(s) carry no marker under an unmarked heading, so they read as the human's own; mark the heading [assumed], or each term`, { id: "ROOT", file: canon.root.file }));
+  }
   const refine = refinementOrder(canon);
   for (const c of refine.cycles)
     out.push(finding("error", "requires-cycle", `${c.join(" requires ")}: a concept both need belongs at their common ancestor; lift it or ask which direction stands`, { id: c[0], file: canon.nodes[c[0]!]?.file, branch: branchOf(canon, c[0]!) }));

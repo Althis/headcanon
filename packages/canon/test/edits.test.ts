@@ -40,6 +40,11 @@ describe("node edits from the page [REQ-12.1.8]", () => {
     expect(a).toContain("## Intent\n\nThe old reading.");
     expect(a).toContain("## Resolution\n\nApproved in the viewer, 2026-10-17.");
     expect(approveNode(NODE.replace("state: assumed", "state: stated"), "2026-10-17")).toContain("state: stated");
+    // the root's approval clears its own markers, never the glossary's: terms are approved one by one
+    const root = "---\nid: ROOT\nstate: assumed\n---\n\n# R\n\n## Intent [assumed]\n\nA thing.\n\n## Glossary [assumed]\n\n**widget** (`TERM-widget`): a part.\n";
+    const approved = approveNode(root, "2026-10-30");
+    expect(approved).toContain("## Intent\n");
+    expect(approved).toContain("## Glossary [assumed]");
   });
 
   it("editing records the typed text as stated and as the entry, with the new title", () => {

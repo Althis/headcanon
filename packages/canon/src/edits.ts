@@ -34,7 +34,11 @@ export function clearMarkers(text: string): string {
 /** The human approved the node as it stands: resolved unless it was their own words already. */
 export function approveNode(text: string, date: string): string {
   const state = /^state:\s*stated\s*$/m.test(text.split(/\r?\n---/)[0] ?? "") ? "stated" : "resolved";
-  return upsertSection(clearMarkers(setField(text, "state", state)), "Resolution", `Approved in the viewer, ${date}.`);
+  // the glossary's terms are approved one by one in the Glossary tab, so its heading keeps its marker
+  const glossary = /^##[ \t]+Glossary[ \t]*\[(?:stated|assumed|open|contested|resolved)\][ \t]*$/m.exec(text)?.[0];
+  let out = clearMarkers(setField(text, "state", state));
+  if (glossary) out = out.replace(/^##[ \t]+Glossary[ \t]*$/m, glossary);
+  return upsertSection(out, "Resolution", `Approved in the viewer, ${date}.`);
 }
 
 /**

@@ -10,6 +10,17 @@ when_to_use: "The viewer is open and the human is working in it; adopt has draft
 
 Colours on the canvas: green is approved by the human, yellow is your guess, red needs them before adoption can finish: an `open` node, a `contested` node, or one the check flagged. Red is yours to explain, never to clear by approving.
 
+## Start
+
+On an existing canon, before the loop, `HC check --json`, and bring what does not fit the model into it, in one turn:
+
+- `title-question` or `intent-missing`: the node becomes a draft: `state: open`, a provisional plain title, one line of what is known as Intent (from its title, its bullets or its sources), the dated bullets dropped. Then one issue per draft, all in one `headcanon_ask` with `questions`: the question, `why` from what the node carried, its suggestions as options.
+- `section-unknown`: the section's content moves where the format puts it: what the children will hold to `## Deferred` with its origin, a gap and what would settle it to `## Open`, a question only the human can answer to an issue on the node; the node's state stays.
+- `glossary-inherited`: the heading becomes `## Glossary [assumed]`; the human approves terms in the Glossary tab.
+- Every error, fixed as always.
+
+Then one say: the counts (drafts made, issues filed, sections folded) and the next box to look at, which you `headcanon_focus`.
+
 ## Loop
 
 Until the human presses Finish with nothing red, or, once they have, until nothing is left to cut; or the human says stop:
@@ -36,14 +47,13 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
 
 - Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`; your questions are issues, never nodes.
 - The human gives this about a quarter of an hour, for the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
-- A red box titled as a question (the check's `title-question`) is a question from before draft nodes: retitle it with a provisional plain name, keep it `open`, replace its dated bullet with one line of what is known as Intent, and file its question as an issue with the box as `nodeId`, the reasoning as `why`, and any suggestions it carried as options.
 - A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
 - Write only files under `canon/`; `HC check` after every write; never commit from here.
 
 <example>
-Entry node-edited REQ-2 "Categorization: every transaction lands in exactly one tax category, by rule or by hand." Children REQ-2.1 by rule and REQ-2.2 by hand still follow; REQ-2.3 "a transaction may carry two categories" no longer does and becomes open, titled "Can a transaction carry two categories?". Say: "REQ-2 is yours now; REQ-2.3 contradicts it and is red. Open it next." Focus REQ-2.3.
+Entry node-edited REQ-2 "Categorization: every transaction lands in exactly one tax category, by rule or by hand." Children REQ-2.1 by rule and REQ-2.2 by hand still follow; REQ-2.3 "a transaction may carry two categories" no longer does: it is removed, and an issue on REQ-2 asks whether two categories can ever apply, with its sources. Say: "REQ-2 is yours now; REQ-2.3 contradicted it and is gone; one issue asks about it." Focus REQ-2.
 </example>
 
 <example>
-A refiner returns for REQ-1.2 with three children, one open, and a merge of its fourth candidate into REQ-3.1. Apply the merge, `HC check`, read REQ-1.1 and REQ-1.3 against the new set, then say: "REQ-1.2 has its three parts; one is a question, in red." REQ-1.2.1 is now ready: launch it.
+A refiner returns for REQ-1.2 with three children, one a draft with its question, and a merge of its fourth candidate into REQ-3.1. Apply the merge, file the question as an issue, `HC check`, read REQ-1.1 and REQ-1.3 against the new set, then say: "REQ-1.2 has its three parts; one is a draft, dashed, with its question under Issues." REQ-1.2.1 is now ready: launch it.
 </example>
