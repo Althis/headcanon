@@ -220,7 +220,6 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     if (typeof body?.intent !== "string" || !body.intent.trim()) return json(400, { error: "text or intent is required" });
     // settling an issue with these words also drops the section the issue came from
     let out = editNode(readFileSync(file.abs, "utf8"), { title: body.title?.trim() || undefined, intent: body.intent }, today());
-    if (body.resolve === "open") out = dropSection(out, "Options");
     if (body.resolve === "contested") out = dropSection(out, "Contested");
     writeFileSync(file.abs, out);
     return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: `${id} ${body.resolve ? "settled" : "rewritten"}: ${body.intent.trim().slice(0, 120)}` }) });

@@ -48,4 +48,11 @@ describe("session state [REQ-12.1.7]", () => {
     b.answer({ questionId: q.id, selected: ["yes"], other: "", terms: [] });
     expect(new SessionState(store).queued().map((x) => x.header)).toEqual(["Also"]);
   });
+  it("an issue has a kind and a why; a contradiction carries no default options", () => {
+    const s = new SessionState();
+    const q = s.ask({ kind: "contradiction", nodeId: "REQ-2", question: "Which stands?", why: "Billing depends on it." });
+    expect([q.kind, q.why, q.header, q.options]).toEqual(["contradiction", "Billing depends on it.", "Contradiction", []]);
+    expect(s.queued()[0]).toMatchObject({ kind: "contradiction", nodeId: "REQ-2" });
+    expect(s.ask({ question: "Plain?" }).kind).toBe("question");
+  });
 });
