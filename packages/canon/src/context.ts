@@ -1,3 +1,4 @@
+import { FIT_CODES, FORMAT_VERSION, canonFormatVersion, changesSince } from "./format.js";
 import { describeNext, refinementOrder } from "./next.js";
 import { RULES } from "./rules.js";
 import type { Snapshot } from "./snapshot.js";
@@ -47,8 +48,14 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (c.open) waiting.push(`${c.open} open question(s)`);
   const unconfirmedDecisions = canon.decisions.filter((d) => d.state === "assumed").length;
   if (unconfirmedDecisions) waiting.push(`${unconfirmedDecisions} decision(s) not yet confirmed`);
+  const fit = new Set(snap.findings.filter((f) => FIT_CODES.has(f.code)).map((f) => f.id ?? f.file)).size;
+  if (fit) waiting.push(`${fit} entr(ies) that do not fit the format; the start sequence (headcanon format) brings them in`);
   if (c.assumed) waiting.push(`${c.assumed} assumed requirement(s); \`/headcanon:review\` walks them`);
   head.push("## Waiting on the human", "", waiting.length ? waiting.map((w) => `- ${w}`).join("\n") : "- nothing", "");
+  // A canon written under an older format is brought up first, by the start sequence; a newer one stops canon work.
+  const written = canonFormatVersion(canon);
+  if (written > FORMAT_VERSION) head.push("## Format", "", `This canon was written under format ${written}; this HeadCanon knows ${FORMAT_VERSION}. Update HeadCanon before touching the canon.`, "");
+  else if (written < FORMAT_VERSION) head.push("## Format", "", `Written under format ${written}; the current is ${FORMAT_VERSION}. Before other canon work, run the start sequence (\`headcanon format\` prints it): ${changesSince(written).flatMap((x) => x.broughtUp).join(" ")}`, "");
   // The next node to refine, so the agent follows the dependency order without computing it (REQ-3.15).
   const order = refinementOrder(canon);
   if (order.next || order.deadlock || order.cycles.length) head.push(describeNext(order, canon).split("\n").slice(0, 2).join(" "), "");

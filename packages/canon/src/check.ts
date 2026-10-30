@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { branchOf, descendants } from "./load.js";
 import { isUnrefined, refinementOrder } from "./next.js";
+import { FORMAT, FORMAT_VERSION, canonFormatVersion, changesSince } from "./format.js";
 import { STATES, type Canon, type Finding, type Level, type State } from "./types.js";
 
 function finding(level: Level, code: string, message: string, extra: Partial<Finding> = {}): Finding {
@@ -9,8 +10,8 @@ function finding(level: Level, code: string, message: string, extra: Partial<Fin
 }
 
 /** Deterministic checks: structure, links, files, and certainty states that need a human. */
-/** The sections a requirement node may carry (adopt/reference.md section 2). */
-const KNOWN_SECTIONS = new Set(["stated", "intent", "resolution", "check", "not this", "contested", "assumptions", "open", "deferred"]);
+/** The sections a requirement node may carry, from the format. */
+const KNOWN_SECTIONS = new Set([...FORMAT.node.needsOneOf, ...FORMAT.node.sections].map((x) => x.toLowerCase()));
 
 /** The text under one `## Heading`, up to the next heading; empty when the section is absent or blank. */
 function sectionText(body: string, heading: string): string {
@@ -106,6 +107,12 @@ export function checkCanon(canon: Canon): Finding[] {
   if (inferred > 0)
     out.push(finding("info", "layer-inferred", `${inferred} node(s) have no layer field; their layer is inferred from depth (domain, capability, requirement)`));
   // Refinement order (REQ-3.15): a cycle in requires can never be refined; a deadlock needs a human.
+  // The version the canon was written under: older is brought up by the start sequence, newer needs a newer HeadCanon.
+  if (canon.root) {
+    const written = canonFormatVersion(canon);
+    if (written > FORMAT_VERSION) out.push(finding("warn", "format-newer", `the canon was written under format ${written}; this HeadCanon knows ${FORMAT_VERSION}; update HeadCanon before changing the canon`, { id: "ROOT", file: canon.root.file }));
+    else if (written < FORMAT_VERSION) out.push(finding("warn", "format-version", `the canon was written under format ${written}${canon.root.format === undefined ? " (none recorded)" : ""}; the current is ${FORMAT_VERSION}, ${changesSince(written).length} version(s) on: the start sequence brings it up, then writes format: ${FORMAT_VERSION} on the root`, { id: "ROOT", file: canon.root.file }));
+  }
   // Terms are approved one by one in the Glossary tab; after the root's approval a heading without a marker would
   // hand every unmarked term the human's own state.
   if (canon.root && (canon.root.state === "stated" || canon.root.state === "resolved") && /^##[ \t]+Glossary[ \t]*$/m.test(canon.root.body)) {

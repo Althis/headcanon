@@ -1,3 +1,4 @@
+import { FORMAT_VERSION } from "./format.js";
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -30,6 +31,7 @@ id: ROOT
 title: "${projectName.replace(/"/g, "'")} canon"
 state: open
 source: "headcanon init, ${today}"
+format: ${FORMAT_VERSION}
 ---
 
 # ${projectName} canon

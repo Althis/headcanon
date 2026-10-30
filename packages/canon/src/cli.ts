@@ -10,6 +10,7 @@ import { detectTerms, nameWords } from "./terms.js";
 import { describeNext, refinementOrder } from "./next.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
+import { describeFormat } from "./format.js";
 import { loadCanon } from "./load.js";
 import { renderMermaidIndex } from "./render.js";
 import { buildSnapshot } from "./snapshot.js";
@@ -27,6 +28,7 @@ Commands
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
   review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
   review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
+  format         Print the canon format: every type, the start sequence, the versions (--out writes it to a file).
   session-start  Print the session context as a Claude Code SessionStart hook result.
   ui             Serve the local viewer.
   mcp            Serve the MCP tools for Claude Code over stdio (starts the viewer when none runs).
@@ -218,7 +220,7 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   // The viewer serves an empty canon before init, as the MCP server does; every other command needs one.
-  if (!existsSync(canonDir) && args.command !== "ui") {
+  if (!existsSync(canonDir) && args.command !== "ui" && args.command !== "format") {
     err(`No canon at ${canonDir}. Run \`headcanon init\`, or pass --canon <dir>.\n`);
     return 2;
   }
@@ -238,6 +240,11 @@ export async function main(argv: string[]): Promise<number> {
       const snap = buildSnapshot(canonDir);
       const { renderTextTree } = await import("./tree.js");
       out((args.depth === undefined ? snap.textTree : renderTextTree(snap.canon, snap.findings, { maxDepth: args.depth })) + "\n");
+      return 0;
+    }
+    case "format": {
+      const doc = describeFormat() + "\n";
+      if (args.out) { writeFileSync(resolve(args.out), doc); out(`wrote ${resolve(args.out)}\n`); } else out(doc);
       return 0;
     }
     case "render": {
