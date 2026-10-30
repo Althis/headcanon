@@ -1,4 +1,4 @@
-import { compareIds } from "./load.js";
+import { compareIds, descendants } from "./load.js";
 import type { Canon, ReqNode, State } from "./types.js";
 
 /**
@@ -69,12 +69,34 @@ export interface Waiting {
   approveOneOf: string[];
 }
 
+/**
+ * Something the human can do that releases work: approve a box that brings waiting boxes within reach, or settle
+ * a red box that others wait on. Ranked by what it releases; the first is the next box for the human wherever a
+ * skill or the page names one, so no reader keeps a ranking of its own.
+ */
+export interface HumanPick {
+  id: string;
+  title: string;
+  state: State;
+  action: "approve" | "settle";
+  /** Waiting boxes this brings within reach. */
+  releases: string[];
+  /** Blocked boxes that can then be cut. */
+  unblocks: string[];
+  /** Unrefined boxes under a red box, frozen until it is settled. */
+  frozen: number;
+  depth: number;
+  score: number;
+}
+
 export interface RefinementOrder {
   next: NextPick | undefined;
   ready: NextPick[];
   blocked: Blocked[];
   /** Unrefined boxes beyond reach: they wait for an approval above them, not for a prerequisite. */
   waiting: Waiting[];
+  /** What the human can do, ranked by what it releases; the first is the next box for them. */
+  human: HumanPick[];
   /** True when unrefined nodes remain and none is ready. */
   deadlock: boolean;
   cycles: string[][];
@@ -139,10 +161,30 @@ export function refinementOrder(canon: Canon): RefinementOrder {
     if (waitingOn.length) blocked.push({ id: n.id, title: n.title, waitingOn: waitingOn.sort(compareIds) });
     else ready.push(pick(n));
   }
+  // What the human can do that releases the most: approve a box that brings waiting boxes within reach, or settle
+  // a red box that others wait on.
+  const human: HumanPick[] = [];
+  const releasesOf = new Map<string, string[]>();
+  for (const w of waiting) for (const b of w.approveOneOf) (releasesOf.get(b) ?? releasesOf.set(b, []).get(b))!.push(w.id);
+  const unblockedBy = (released: Set<string>) => blocked.filter((x) => x.waitingOn.some((t) => released.has(t))).map((x) => x.id).sort(compareIds);
+  for (const [id, rel] of releasesOf) {
+    const n = canon.nodes[id];
+    const state: State | undefined = id === "ROOT" ? canon.root?.state : n?.state;
+    if (!state || state === "stated" || state === "resolved") continue;
+    const red = state === "open" || state === "contested";
+    human.push({ id, title: id === "ROOT" ? canon.root?.title ?? "the premise" : n!.title, state, action: red ? "settle" : "approve", releases: [...rel].sort(compareIds), unblocks: unblockedBy(new Set(rel)), frozen: 0, depth: n ? n.depth : -1, score: rel.length + unblockedBy(new Set(rel)).length });
+  }
+  for (const n of Object.values(canon.nodes)) {
+    if ((n.state !== "open" && n.state !== "contested") || releasesOf.has(n.id)) continue;
+    const unblocks = blocked.filter((x) => x.waitingOn.includes(n.id)).map((x) => x.id).sort(compareIds);
+    const frozen = descendants(canon, n.id).filter((d) => canon.nodes[d] && isUnrefined(canon.nodes[d]!)).length;
+    human.push({ id: n.id, title: n.title, state: n.state, action: "settle", releases: [], unblocks, frozen, depth: n.depth, score: 1 + unblocks.length + frozen });
+  }
+  human.sort((a, b) => b.score - a.score || a.depth - b.depth || compareIds(a.id, b.id));
   ready.sort((a, b) => a.depth - b.depth || b.dependents - a.dependents || compareIds(a.id, b.id));
   blocked.sort((a, b) => compareIds(a.id, b.id));
   waiting.sort((a, b) => compareIds(a.id, b.id));
-  return { next: ready[0], ready, blocked, waiting, deadlock: ready.length === 0 && blocked.length > 0 && waiting.length === 0, cycles: requiresCycles(canon) };
+  return { next: ready[0], ready, blocked, waiting, human, deadlock: ready.length === 0 && blocked.length > 0 && waiting.length === 0, cycles: requiresCycles(canon) };
 }
 
 /** One paragraph for the terminal and the session context. */
@@ -158,6 +200,10 @@ export function describeNext(order: RefinementOrder, canon: Canon): string {
     lines.push("Deadlock: every unrefined node waits on an unrefined prerequisite. Ask the human which prerequisite to refine first, or which edge to drop.");
   } else if (order.waiting.length) lines.push(`Nothing within reach: ${order.waiting.length} node(s) wait for an approval above them.`);
   else lines.push("Nothing left to refine: every node has children or a kind, or waits on a human.");
+  if (order.human.length) {
+    const why = (h: HumanPick) => (h.action === "approve" ? `releases ${h.releases.length} box${h.releases.length === 1 ? "" : "es"}${h.unblocks.length ? `, then ${h.unblocks.length} more can be cut` : ""}` : `${h.state}${h.unblocks.length ? `; ${h.unblocks.length} wait on it` : ""}${h.frozen ? `; ${h.frozen} under it` : ""}`);
+    lines.push(`For the human: ${order.human.slice(0, 3).map((h) => `${h.action} ${h.id} (${why(h)})`).join("; ")}${order.human.length > 3 ? `; … ${order.human.length - 3} more` : ""}.`);
+  }
   if (order.waiting.length) lines.push(`Reach: a draft goes no deeper than ${LOOKAHEAD} levels below the deepest approved box on its path. ${order.waiting.slice(0, 3).map((w) => `${w.id} once ${w.approveOneOf.join(" or ")} is approved`).join("; ")}${order.waiting.length > 3 ? `; … ${order.waiting.length - 3} more` : ""}.`);
   for (const b of order.blocked.slice(0, 5)) lines.push(`Blocked: ${b.id} waits on ${b.waitingOn.map((w) => `${w}${canon.nodes[w]?.state === "open" ? " (open)" : ""}`).join(", ")}.`);
   if (order.blocked.length > 5) lines.push(`… ${order.blocked.length - 5} more blocked.`);

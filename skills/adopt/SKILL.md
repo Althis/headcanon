@@ -91,5 +91,5 @@ Not enough. The same parent implies that a statement imported twice must not dou
 </example>
 
 <example>
-Resuming. The session starts, `canon/README.md` exists and DEC-001 does not. Step 0 sends you to 5: open the canvas as step 4 ends, say "12 approved, 31 guessed, 4 need you; REQ-2.3 is the first red box", focus it, and attend.
+Resuming. The session starts, `canon/README.md` exists and DEC-001 does not. Step 0 sends you to 5: open the canvas as step 4 ends, say "12 approved, 31 guessed, 4 need you; approving REQ-2 releases the most", focus REQ-2, the first of `HC next`'s `human` list, and attend.
 </example>

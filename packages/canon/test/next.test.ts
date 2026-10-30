@@ -91,6 +91,24 @@ describe("refinement order [REQ-3.15]", () => {
     expect(describeNext(order, canon)).toContain("Nothing within reach");
   });
 
+  it("ranks what the human can do by what it releases: an approval that frees waiting boxes first, then a red box others wait on", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-human-"));
+    dirs.push(dir);
+    writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"R\"\nstate: resolved\n---\n\n# R\n");
+    node(dir, "REQ-1", "");
+    node(dir, "REQ-1.1", "");
+    node(dir, "REQ-1.2", "");
+    node(dir, "REQ-2", "requires: [REQ-1.1, REQ-1.2]\n");
+    writeFileSync(join(dir, "REQ-3-x.md"), "---\nid: REQ-3\ntitle: \"Draft\"\nstate: open\n---\n\n# Draft\n\n## Intent\n\nKnown so far.\n");
+    node(dir, "REQ-4", "requires: [REQ-3]\n");
+    const canon = loadCanon(dir);
+    const order = refinementOrder(canon);
+    expect(order.human.map((h) => `${h.action} ${h.id}`)).toEqual(["approve REQ-1", "settle REQ-3", "approve REQ-1.1", "approve REQ-1.2"]);
+    expect(order.human[0]).toMatchObject({ releases: ["REQ-1.1", "REQ-1.2"], unblocks: ["REQ-2"], score: 3 });
+    expect(order.human[1]).toMatchObject({ state: "open", unblocks: ["REQ-4"], frozen: 0, score: 2 });
+    expect(describeNext(order, canon)).toContain("For the human: approve REQ-1 (releases 2 boxes, then 1 more can be cut); settle REQ-3 (open; 1 wait on it)");
+  });
+
   it("reports a cycle as an error and a deadlock as a warning", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-cycle-"));
     dirs.push(dir);

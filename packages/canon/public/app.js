@@ -593,29 +593,38 @@ let lastSession = null;
 const ISSUE_MARK = { question: "?", contradiction: "≠" };
 function issuesOf(s) {
   const out = [];
-  const queue = s?.queue ?? (s?.question ? [{ id: s.question.id, kind: s.question.kind, header: s.question.header, nodeId: s.question.nodeId }] : []);
-  const qTitle = (q) => { const draft = q.id === s?.question?.id ? /"([^"\n]{3,90}?)\./.exec(s.question.question ?? "")?.[1] : undefined; return (q.nodeId && node(q.nodeId)?.title) || draft || q.header; };
+  const queue = s?.queue ?? (s?.question ? [s.question] : []);
+  const qTitle = (q) => { const draft = /"([^"\n]{3,90}?)\./.exec(q.question ?? "")?.[1]; return (q.nodeId && node(q.nodeId)?.title) || draft || q.header; };
   const named = new Set();
-  queue.forEach((q, i) => { if (q.nodeId) named.add(q.nodeId); out.push({ kind: q.kind === "contradiction" ? "contradiction" : "question", key: q.id, id: q.id, nodeId: q.nodeId, title: qTitle(q), sub: q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? q.header : "", current: i === 0 }); });
+  queue.forEach((q) => { if (q.nodeId) named.add(q.nodeId); out.push({ kind: q.kind === "contradiction" ? "contradiction" : "question", key: q.id, id: q.id, nodeId: q.nodeId, title: qTitle(q), sub: q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? q.header : "", current: q.id === s?.question?.id }); });
   for (const n of Object.values(snap.canon.nodes)) {
     if (named.has(n.id)) continue;
     if (n.state === "contested") out.push({ kind: "contradiction", key: "c:" + n.id, nodeId: n.id, title: n.title, standIn: true });
     else if (n.state === "open") out.push({ kind: "question", key: "o:" + n.id, nodeId: n.id, title: n.title, standIn: true });
   }
+  // in the order of what settling the box releases (the next command's human list); the rest keep their order
+  const rank = new Map((snap.next?.human ?? []).map((h, i) => [h.id, i]));
+  out.forEach((i, k) => { i.order = k; });
+  out.sort((a, b) => (rank.get(a.nodeId) ?? 1e9) - (rank.get(b.nodeId) ?? 1e9) || a.order - b.order);
   return out;
 }
 function renderIssues(s) {
   const body = document.getElementById("issues-body"), count = document.getElementById("issues-count");
   if (!body || !snap) return;
   const issues = issuesOf(s);
-  const key = JSON.stringify(issues.map((i) => i.key));
+  const top = snap.next?.human?.[0];
+  const key = JSON.stringify([top?.id, top?.score, ...issues.map((i) => i.key)]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
   count.textContent = issues.length; count.hidden = issues.length === 0;
-  const hint = (i) => i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : i.current ? "Open this question" : "Waits behind the question above";
-  body.innerHTML = (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
+  const hint = (i) => i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
+  // the one line that says what releases the most: the first of the next command's human list, with its reason
+  const reason = (h) => h.action === "approve" ? `releases ${h.releases.length} box${h.releases.length === 1 ? "" : "es"}${h.unblocks.length ? `, then ${h.unblocks.length} more can be cut` : ""}` : `${h.state}${h.unblocks.length ? `; ${h.unblocks.length} wait on it` : ""}${h.frozen ? `; ${h.frozen} under it` : ""}`;
+  body.innerHTML = (top ? `<p class="next-for-you"><span class="muted">Next for you:</span> <a href="#" data-next="${esc(top.id)}" title="Select it on the canvas">${esc(top.action)} ${esc(top.id)}</a> <span class="muted">· ${esc(reason(top))}</span></p>` : "") +
+    (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
     issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
   for (const b of body.querySelectorAll("[data-issue]")) b.addEventListener("click", () => openIssue(issues[Number(b.dataset.issue)]));
+  body.querySelector("[data-next]")?.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; if (id === "ROOT" || node(id)) focusOnCanvas(id, false, true); });
 }
 // A statement's words without their source references, and the references themselves.
 const REF_RE = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/g;
@@ -649,11 +658,10 @@ function contradictionCard(nodeId, q) {
   });
 }
 function openIssue(issue) {
-  if (issue.id && !issue.current) { showToast("Answer the question above it first."); return; }
   // The card keeps what the human typed across a close and reopen of the same question; a stand-in, which
   // carries no term decisions, is redrawn from the node whenever it is reopened.
   if ($question.dataset.issue !== issue.key || (!issue.id && $issueCard.hidden)) {
-    if (issue.id) { const q = lastSession?.question; if (!q) return; shownQuestionId = q.id; termState = {}; renderQuestion(q, lastSession?.pending ?? 1); }
+    if (issue.id) { const q = (lastSession?.queue ?? []).find((x) => x.id === issue.id && x.question !== undefined) ?? (lastSession?.question?.id === issue.id ? lastSession.question : null); if (!q) return; shownQuestionId = q.id; termState = {}; renderQuestion(q, lastSession?.pending ?? 1); }
     else if (issue.kind === "contradiction") contradictionCard(issue.nodeId, null);
     else {
       // a draft node the session filed no question for: the human defines it in their words

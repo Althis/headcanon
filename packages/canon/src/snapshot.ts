@@ -2,7 +2,7 @@ import { marked } from "marked";
 import { gitAttention, type GitAttention } from "./attention.js";
 import { branchHealth, checkCanon, countStates, type BranchHealth, type StateCounts } from "./check.js";
 import { loadCanon } from "./load.js";
-import { isUnrefined } from "./next.js";
+import { isUnrefined, refinementOrder, type RefinementOrder } from "./next.js";
 import { renderTextTree } from "./tree.js";
 import type { Canon, Finding } from "./types.js";
 
@@ -14,6 +14,8 @@ export interface Snapshot {
   findings: Finding[];
   health: BranchHealth[];
   git: GitAttention;
+  /** The refinement order, with what the human can do ranked by what it releases. */
+  next: RefinementOrder;
   stats: {
     nodes: number;
     counts: StateCounts;
@@ -56,6 +58,7 @@ export function buildSnapshot(canonDir: string): Snapshot {
     findings,
     health,
     git,
+    next: refinementOrder(canon),
     stats: {
       nodes: ids.length,
       counts,
