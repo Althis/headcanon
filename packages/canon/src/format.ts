@@ -46,7 +46,7 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
     ],
   },
   node: {
-    what: "One requirement: a thing that must hold, at one of three layers, in one or two sentences that read as an encyclopedia entry.",
+    what: "One entry of the tree, in one or two sentences that read as an encyclopedia entry. There is one node type; its layer, domain, capability or requirement, is a field on it, not a type of its own.",
     where: "`canon/REQ-1-<slug>/README.md` when it has children, `canon/REQ-1-<slug>/REQ-1.1-<slug>.md` when it is a leaf; the id mirrors the path.",
     required: ["id", "title", "state"],
     optional: ["parent", "layer", "source", "kind", "partition", "relates", "conflicts", "requires", "steps", "files", "baseline"],
@@ -57,8 +57,8 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
       "The title names a thing, never a question [title-question]; the ids are unique [duplicate-id], the parent exists [parent-missing], and the id's path matches its parent's [parent-mismatch].",
       "An Intent, or the human's Stated words, is never missing [intent-missing]; a draft (`state: open`) keeps one line of what is known, and its question is an issue, never a section.",
       "Only the sections named here [section-unknown]: `## Open` holds a dated note of a gap between the artifacts and the intent and what would settle it; `## Deferred` what the node will hold once refined, one line each with its origin; `## Contested` a one-paragraph summary and one bullet per statement with its sources; `## Assumptions` what the session decided alone.",
-      "`layer` is domain, capability or requirement, never above its parent's [layer-order]; without the field it is inferred from depth [layer-inferred].",
-      "A leaf carries `kind` (binary, numeric or open-ended) and a one-sentence `## Check` [kind-missing, check-missing]; a capability has requirements under it [uncovered-capability].",
+      "`layer` is one of three, never above the parent's [layer-order]. A domain is an area the product must have to operate: the top level under the premise, drawn from the premise and from what every software project needs (documentation, verification), never from artifacts alone. A capability is what a domain must be able to do, drawn from what every system of its kind needs; it has requirements under it [uncovered-capability] and never a check of its own. A requirement is a thing that must hold, drawn mostly from artifacts, nested as deep as the thing needs. A project with fewer than about eight areas has no domain layer: its top level is capabilities. Without the field the layer is inferred from depth, for display only [layer-inferred].",
+      "A node with children or a `kind` is refined; every other node is a leaf still to cut, which the check counts. Cutting ends at a requirement that carries `kind` (binary, numeric or open-ended) and a one-sentence `## Check` of what is observed and what counts as yes [kind-missing, check-missing].",
       "`relates`, `conflicts` and `requires` name existing nodes [link-unknown]; `requires` has no cycle [requires-cycle]; a node with two or more children records `partition` [no-partition].",
       "`source` names where the entry came from: `path:lines`, `conversation, <date>`, or `archetype`; a human's typed words are `stated` and quoted under `## Stated`.",
     ],
@@ -184,7 +184,7 @@ export function describeFormat(): string {
     "## Types",
     "",
   ];
-  const names: Record<keyof typeof FORMAT, string> = { root: "Root README", node: "Requirement node", journey: "Journey", decision: "Decision record", principle: "Principle", term: "Glossary term" };
+  const names: Record<keyof typeof FORMAT, string> = { root: "Root README", node: "Node (domain, capability or requirement)", journey: "Journey", decision: "Decision record", principle: "Principle", term: "Glossary term" };
   for (const key of Object.keys(FORMAT) as Array<keyof typeof FORMAT>) {
     const t = FORMAT[key];
     out.push(`### ${names[key]}`, "", t.what, "", `Where: ${t.where}`, "");
