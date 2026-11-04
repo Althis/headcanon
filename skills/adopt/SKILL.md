@@ -30,8 +30,8 @@ Read only this repository, reference.md and what the human does in the page. The
 
 ## Guessing
 
-- **Enough to guess**: the entry's line can be written from its chain to the parent plus a thread or the archetype of its kind. Write it `assumed`, with the chain and the thread in `source`.
-- **Not enough**: only the chain exists and nothing in the project says what the thing concretely is. Write a draft node: a provisional title in plain words, `state: open`, an Intent of one line saying what is known; it stands in the tree dashed. Then file an issue with `headcanon_ask`: `nodeId` the draft, the question in one or two sentences, `why` it matters, and up to three suggestions the artifacts allow as options, each with its sources. The answer defines the node, `stated`.
+- **Decide by precedence** (DEC-022): the human's approvals in this run, then their typed words, then the newest artifact, then what the code does today, then the archetype of the thing's kind. Whatever speaks first is the entry's line, written `assumed` with the chain and the thread in `source`; when the artifacts allowed alternatives, one line under `## Open` names the choice and them, so review overturns it in one click.
+- **Ask only** for a contradiction (two artifacts, or an artifact against an approval or a principle), for a thing no artifact and no archetype speaks to, or for a choice that would change a box the human approved. Then write a draft node: a provisional title in plain words, `state: open`, an Intent of one line saying what is known; it stands in the tree dashed. File it with `headcanon_ask`: `nodeId` the draft, the question in one or two sentences, `why` it matters, and up to three suggestions as options, each with its sources. The answer defines the node, `stated`.
 - **Prefer the guess** whenever a thread speaks to the entry at all: the human corrects a wrong guess in one click, but cannot answer a question that was never asked.
 - The premise, the glossary and the principles are guessed the same way, from the newest artifacts that state them; a document the human did not watch being written never makes an entry stated.
 

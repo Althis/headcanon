@@ -186,4 +186,10 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(typeof (await get("/api/session"))["agentSeenAgo"]).toBe("number");
     expect(before === null || typeof before === "number").toBe(true);
   });
+  it("withdraws a box's questions at the session's word", async () => {
+    const q = (await send("/api/ask", { nodeId: "REQ-2", question: "Decided after all?", header: "Draft" })).body["questionId"] as string;
+    expect((await send("/api/withdraw", { nodeId: "REQ-2", reason: "decided by precedence" })).body["withdrawn"]).toBe(1);
+    expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((x) => x.id === q)).toBe(false);
+    expect((await send("/api/withdraw", {})).status).toBe(400);
+  });
 });

@@ -158,6 +158,11 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
     return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId, to: body.to === "human" ? "human" : undefined }));
   }
+  if (p === "/api/withdraw" && method === "POST") {
+    const body = (await readJson(req)) as { nodeId?: string; reason?: string };
+    if (!body?.nodeId) return json(400, { error: "nodeId is required" });
+    return json(200, { withdrawn: session.supersede(body.nodeId, body.reason?.trim() || "the session decided it") });
+  }
   if (p === "/api/finish" && method === "POST") {
     return json(200, session.push("finish-request", { text: "The human asked to finish the adoption." }));
   }

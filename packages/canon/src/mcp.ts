@@ -205,6 +205,16 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   );
 
   server.registerTool(
+    "headcanon_withdraw",
+    {
+      title: "Withdraw your pending questions on a box",
+      description: "Withdraws every pending question you filed on a box: you decided it yourself by the Guessing rules, or it no longer applies. The page drops the issue and the history says so; nothing is asked of the human.",
+      inputSchema: { nodeId: z.string().describe("The box whose questions are withdrawn."), reason: z.string().optional().describe("Why, in a few words; shown in the history.") },
+    },
+    async ({ nodeId, reason }) => text(await api(base, "/api/withdraw", { method: "POST", body: JSON.stringify({ nodeId, reason }) })),
+  );
+
+  server.registerTool(
     "headcanon_changes",
     {
       title: "What the human did in the page",

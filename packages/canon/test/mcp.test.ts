@@ -27,9 +27,9 @@ describe("mcp server over stdio [REQ-12.1.7]", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("lists the five tools and answers through the viewer it started", async () => {
+  it("lists the tools and answers through the viewer it started", async () => {
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(["headcanon_ask", "headcanon_changes", "headcanon_focus", "headcanon_open", "headcanon_say", "headcanon_wait"]);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(["headcanon_ask", "headcanon_changes", "headcanon_focus", "headcanon_open", "headcanon_say", "headcanon_wait", "headcanon_withdraw"]);
 
     // The session speaks, and a waiting changes call wakes on the human's next action.
     const said = await client.callTool({ name: "headcanon_say", arguments: { text: "Hello from the session.", nodeId: "REQ-1" } });

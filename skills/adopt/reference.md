@@ -125,7 +125,7 @@ Source: conversation, <date>
 - <what you decided> (model assumption)
 
 ## Open
-- <date>: <a gap between the artifacts and the intent, and what would settle it; never a question for the human, which is an issue>
+- <date>: <a gap between the artifacts and the intent and what would settle it, or the choice a guess made and its alternatives; never a question for the human, which is an issue>
 ```
 
 A draft is a node whose `state` is `open`: a provisional plain title such as "Duplicate detection", one line of what is known as Intent, and its question filed as an issue. A title is never a question. No other section exists; the check flags one.
