@@ -151,9 +151,9 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   }
   // The session speaks to the human: a line in the page's chat, optionally about a node.
   if (p === "/api/say" && method === "POST") {
-    const body = (await readJson(req)) as { text?: string; nodeId?: string };
+    const body = (await readJson(req)) as { text?: string; nodeId?: string; to?: string };
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
-    return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId }));
+    return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId, to: body.to === "human" ? "human" : undefined }));
   }
   if (p === "/api/finish" && method === "POST") {
     return json(200, session.push("finish-request", { text: "The human asked to finish the adoption." }));

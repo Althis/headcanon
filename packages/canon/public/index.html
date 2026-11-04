@@ -43,7 +43,9 @@
       <button class="btn small" id="session-toggle" title="Open the session panel">Open</button>
     </div>
     <div class="session-body">
+      <div class="panel-tabs"><button class="btn small on" data-panel="activity">Chat</button><button class="btn small" data-panel="history">History <span class="pill" id="history-new" hidden></span></button></div>
       <ul id="activity" class="chat"></ul>
+      <ul id="history" class="chat history" hidden></ul>
       <div id="quote" class="quote-chip" hidden></div>
       <div class="session-msg"><textarea id="msg" rows="2" placeholder="Message the session…"></textarea><button class="btn" id="msg-send">Send</button></div>
     </div>

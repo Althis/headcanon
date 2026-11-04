@@ -42,7 +42,7 @@ Until the human presses Finish with nothing red, or, once they have, until nothi
    - **answer**: belongs to a question you asked; handle it by the adopt skill's Asking rules. For a refiner's question, define its draft node from the chosen or typed words: the title when the answer names the thing, the Intent from the words, `stated`; then launch it when its layer has children. A contradiction issue is settled by the page itself; its node-edited entry follows.
    - **finish-request**: `HC check`; count the red boxes (open, contested, flagged) and the questions still unanswered. Some left: say which and open the first with `headcanon_focus`. None left: return to the caller, which is adopt step 6, or `/headcanon:commit` when nothing called you.
 5. After every change of yours: `HC check` and fix every error; then read the touched node's parent, siblings, children and `requires` neighbours for a contradiction or a duplicate, and mark what you find as the Consistency rules say.
-6. `headcanon_say` one or two sentences: what you changed, what is red now, and the next box for the human, the first of `HC next`'s `human` list with its reason, which you also `headcanon_focus`.
+6. `headcanon_say` one or two sentences: what you changed, what is red now, and the next box for the human, the first of `HC next`'s `human` list with its reason, which you also `headcanon_focus`. A say that reports what you did goes to the page's history; one that asks something of the human, or needs their eyes now (a key point), carries `to: "human"` and lands in their chat.
 
 ## Rules
 

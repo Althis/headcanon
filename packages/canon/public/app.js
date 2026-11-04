@@ -1676,8 +1676,12 @@ function openPopup(id) {
     panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${text}</p>${refs.length ? `<div class="sources"><span class="muted">Where it comes from</span>${refs.map((r) => `<code>${esc(r)}</code>`).join("")}</div>` : `<p class="muted">No source recorded for this statement.</p>`}` });
   });
   for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
+  // the Deferred list, the parts not yet cut, lives in a tab of its own so the intent stands alone
+  const deferredHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Deferred");
+  if (deferredHtml) panes.push({ label: `Deferred (${(deferredHtml.match(/<li/g) || []).length})`, html: deferredHtml });
   let mainHtml = bodyHtml ?? "";
   if (statements.length >= 2) mainHtml = stripHtmlSection(mainHtml, "Contested");
+  if (deferredHtml) mainHtml = stripHtmlSection(mainHtml, "Deferred");
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
@@ -1685,6 +1689,7 @@ function openPopup(id) {
     ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
     <div class="popup-body body" id="pp-body">${markSections(mainHtml || "<p class='muted'>No text yet.</p>")}</div>
     ${panes.map((p, i) => `<div class="popup-body body pp-pane" data-pane="${i}" hidden>${markSections(p.html)}</div>`).join("")}
+    <div id="pp-editor" class="editor" hidden></div>
     ${fs.length ? `<ul class="pp-findings">${fs.map((f) => `<li>${badge(f.level)} ${esc(f.message)}</li>`).join("")}</ul>` : ""}
     <div class="row pp-actions">
       ${color !== "green" && state !== "open" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
@@ -1694,7 +1699,6 @@ function openPopup(id) {
       ${isRoot || prn ? "" : `<button class="btn" id="pp-define" title="Ask the session to define this branch further">Define further</button>`}
     </div>
     <p class="sub">Select any words above to ask the session about them in the chat.</p>
-    <div id="pp-editor" class="editor"></div>
     <i class="pp-resize nw"></i><i class="pp-resize ne"></i><i class="pp-resize sw"></i><i class="pp-resize se"></i>`;
   const wasHidden = $popup.hidden;
   $popup.hidden = false;
@@ -1720,10 +1724,14 @@ function openPopup(id) {
     const intent = keep ? keep.intent : prn ? prn.statement : (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
     editor.innerHTML = `<p class="sub">Your words replace the session's and are recorded as stated.</p>
       ${isRoot ? "" : `<input id="pp-title" value="${esc(keep?.title ?? n.title)}" placeholder="Title, in plain words" />`}
-      <textarea id="pp-intent" rows="5" placeholder="What must hold, in your words">${esc(intent)}</textarea>
+      <textarea id="pp-intent" rows="${Math.max(6, Math.min(18, intent.split("\n").length + 2))}" placeholder="What must hold, in your words">${esc(intent)}</textarea>
       <div class="row"><button class="btn primary" id="pp-save">Save</button><button class="btn" id="pp-cancel">Cancel</button></div>`;
     if (!keep) editBase = { id, html: snap.html[id] ?? "" };
-    editor.querySelector("#pp-cancel").addEventListener("click", () => { editor.innerHTML = ""; editBase = null; });
+    // the text gives way to the editor, in its place; Cancel brings the card back as it was
+    editor.hidden = false;
+    for (const sel of ["#pp-body", ".pp-pane", ".pp-tabs", ".conflict-summary", "#pp-approve", "#pp-edit", "#pp-delete", "#pp-toggle", "#pp-define"]) for (const el of $popup.querySelectorAll(sel)) el.hidden = true;
+    editor.querySelector("#pp-intent").focus();
+    editor.querySelector("#pp-cancel").addEventListener("click", () => { editor.innerHTML = ""; editBase = null; openPopup(id); });
     editor.querySelector("#pp-save").addEventListener("click", async () => {
       const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
       try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
@@ -1866,6 +1874,11 @@ let chatCursor = 0;
 const ID_RE = /\b(REQ-\d+(?:\.\d+)*|PRN-\d+|DEC-\d+)\b/g;
 const linkIds = (text) => esc(text).replace(ID_RE, (id) => `<a class="id" data-id="${id}" href="#/node/${id}">${id}</a>`);
 const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+// Two lists. The chat holds what the session asks of the human (a say marked `to: human`, or one that ends in a
+// question) and what they write. The history holds the rest: what the session did, and what the human did on
+// the canvas. A history line opens its box on a double-click, or the nearest box above it if it is gone.
+const KIND_LABELS = { "node-approved": "approved", "node-edited": "rewritten", "node-deleted": "deleted", "node-created": "created", "term-enshrined": "term kept", "term-dropped": "term dropped", "refine-request": "asked to define", "finish-request": "finish", "edit-conflict": "conflict", answer: "you answered", say: "session" };
+let historyNew = 0;
 // What changed between two readings of the canon, as chat lines: boxes, principles, terms and decisions that
 // appeared, changed or went, each naming its id so a click goes there.
 function canonDiff(was, now) {
@@ -1884,18 +1897,39 @@ function canonDiff(was, now) {
   return out;
 }
 function appendChat(entries) {
-  const list = document.getElementById("activity");
+  const chat = document.getElementById("activity"), history = document.getElementById("history");
   for (const e of entries) {
     const li = document.createElement("li");
     const t = timeOf(e.at);
-    if (e.kind === "say") { li.className = "say"; li.innerHTML = `${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; }
-    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; }
-    else { li.className = "sys"; li.title = `${t} · ${e.text ?? e.kind}`; li.innerHTML = linkIds(e.kind === "answer" ? `You answered: ${e.text ?? ""}` : e.text ?? e.kind); }
-    list.appendChild(li);
+    const toHuman = e.kind === "message" || (e.kind === "say" && (e.to === "human" || /\?\s*$/.test(e.text ?? "")));
+    if (toHuman && e.kind === "say") { li.className = "say"; li.innerHTML = `${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; chat.appendChild(li); }
+    else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; chat.appendChild(li); }
+    else {
+      li.className = `ev ${e.kind}`; if (e.id) li.dataset.id = e.id; li.title = "Double-click to go to this box";
+      li.innerHTML = `<span class="kind">${esc(KIND_LABELS[e.kind] ?? e.kind)}</span>${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<span class="ref">${esc(e.id)}</span>` : ""}<time>${t}</time></div>`;
+      li.addEventListener("dblclick", () => goToEvent(e.id));
+      history.appendChild(li);
+      if (history.hidden) { historyNew++; const pill = document.getElementById("history-new"); pill.textContent = historyNew; pill.hidden = false; }
+    }
   }
-  while (list.children.length > 60) list.firstChild.remove();
-  list.lastElementChild?.scrollIntoView({ block: "nearest" });
+  for (const list of [chat, history]) { while (list.children.length > 80) list.firstChild.remove(); if (!list.hidden) list.lastElementChild?.scrollIntoView({ block: "nearest" }); }
 }
+function goToEvent(id) {
+  if (!id || !snap) return;
+  if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; }
+  if (id.startsWith("PRN-")) { openPopup(id); return; }
+  let target = id;
+  while (target !== "ROOT" && !snap.canon.nodes[target]) target = target.includes(".") ? target.slice(0, target.lastIndexOf(".")) : "ROOT";
+  if (target !== id) showToast(`${id} is gone; showing ${target}.`);
+  closePopup();
+  if (document.body.classList.contains("adopt-mode")) focusOnCanvas(target, false); else location.hash = target === "ROOT" ? "#/" : `#/node/${target}`;
+}
+for (const b of document.querySelectorAll(".panel-tabs button")) b.addEventListener("click", () => {
+  for (const o of document.querySelectorAll(".panel-tabs button")) o.classList.toggle("on", o === b);
+  for (const id of ["activity", "history"]) document.getElementById(id).hidden = id !== b.dataset.panel;
+  if (b.dataset.panel === "history") { historyNew = 0; document.getElementById("history-new").hidden = true; }
+  document.getElementById(b.dataset.panel).lastElementChild?.scrollIntoView({ block: "nearest" });
+});
 // While the canvas is up, a box named in the chat is focused there rather than opened as a page; a principle opens its card.
 document.getElementById("activity").addEventListener("click", (ev) => {
   const a = ev.target.closest("a[data-id]");
