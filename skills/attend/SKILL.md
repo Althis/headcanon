@@ -37,7 +37,7 @@ Then one say: the counts (drafts made, issues filed, sections folded) and the ne
 
 ## Loop
 
-Until the human presses Finish, and after it until nothing is left to cut; or the human says stop:
+Until the human presses Finish, and after it until nothing is left to cut; or the human says stop. The loop is your whole turn: a wait that returns nothing is followed by another wait, never by a reply that ends the turn; a Stop hook sends you back otherwise. When the human asks you to stop, say the words "stopping attend" and stop.
 
 1. **Launch.** `HC next --json`, then:
    - the `ready` nodes whose parent is not red get refiners in the command's order, green parents before yellow, at most as many at once as the knobs allow and never two siblings together (DEC-022), the rest as returns come;

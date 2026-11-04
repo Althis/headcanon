@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkCommitMessage, gitAppendOnlyFiles } from "./commit-msg.js";
@@ -30,6 +30,7 @@ Commands
   review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
   format         Print the canon format: every type, the start sequence, the versions (--out writes it to a file).
   session-start  Print the session context as a Claude Code SessionStart hook result.
+  stop-hook      As a Claude Code Stop hook: refuse to end the turn while an adoption is unfinished and the viewer is up.
   ui             Serve the local viewer.
   mcp            Serve the MCP tools for Claude Code over stdio (starts the viewer when none runs).
   terms          List candidate jargon in a draft (--text or stdin) that the glossary does not define.
@@ -104,6 +105,33 @@ export async function main(argv: string[]): Promise<number> {
   const err = (s: string) => process.stderr.write(s);
   if (!args.command || args.command === "help" || argv.includes("--help")) {
     out(HELP);
+    return 0;
+  }
+
+  // stop-hook: a session that attends an unfinished adoption never ends its turn by accident. It may stop when the
+  // adoption is finished (DEC-001 exists), when no viewer answers, or when its last words say "stopping attend".
+  if (args.command === "stop-hook") {
+    let input: { cwd?: string; transcript_path?: string } = {};
+    try { input = JSON.parse((await readStdin()) || "{}") as typeof input; } catch { /* no hook input */ }
+    const cwd = process.env["CLAUDE_PROJECT_DIR"] ?? input.cwd ?? process.cwd();
+    const canonDir = resolve(cwd, args.canon ?? "canon");
+    const decisions = join(canonDir, "decisions");
+    const unfinished = existsSync(join(canonDir, "README.md")) && !(existsSync(decisions) && readdirSync(decisions).some((x) => x.startsWith("DEC-001")));
+    if (!unfinished) return 0;
+    try { const r = await fetch(`http://127.0.0.1:${args.port}/api/health`, { signal: AbortSignal.timeout(1500) }); if (!r.ok) return 0; } catch { return 0; }
+    if (input.transcript_path && existsSync(input.transcript_path)) {
+      const lines = readFileSync(input.transcript_path, "utf8").split(/\r?\n/).filter(Boolean);
+      for (let i = lines.length - 1; i >= 0 && i > lines.length - 60; i--) {
+        try {
+          const j = JSON.parse(lines[i]!) as { type?: string; message?: { content?: Array<{ type: string; text?: string }> } };
+          if (j.type !== "assistant") continue;
+          const said = (j.message?.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join(" ");
+          if (/stopping attend/i.test(said)) return 0;
+          break;
+        } catch { /* not a message line */ }
+      }
+    }
+    out(JSON.stringify({ decision: "block", reason: "The adoption is unfinished and the viewer is up, so the attend loop does not end its turn: call headcanon_changes again with waitSeconds 600 and keep attending. Say the words 'stopping attend' only when the human asked you to stop." }) + "\n");
     return 0;
   }
 
