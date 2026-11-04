@@ -260,6 +260,7 @@ ${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: `${id ==
       { selector: "node.selected", style: { "border-width": 4 } },
       { selector: "node.draft", style: { "border-style": "dashed" } },
       { selector: "node.done", style: { "border-style": "double", "border-width": 3 } },
+      { selector: "node.pending", style: { "border-style": "dotted" } },
       { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.9, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
       { selector: "edge.relates", style: { "line-style": "dotted", "target-arrow-shape": "none", "line-color": "#7c3aed" } },
@@ -571,7 +572,7 @@ function setQuote(q) {
   quote = q;
   $quote.hidden = !q;
   if (q) {
-    $quote.innerHTML = `<span class="muted">about</span> ${idLink(q.id)} <q>${esc(q.text)}</q><button class="btn small" id="quote-x" title="Drop the passage">✕</button>`;
+    $quote.innerHTML = `<span class="muted">about</span> ${q.id ? idLink(q.id) : `<span class="muted">${esc(q.about ?? "the issue")}</span>`} <q>${esc(q.text)}</q><button class="btn small" id="quote-x" title="Drop the passage">✕</button>`;
     $quote.querySelector("#quote-x").addEventListener("click", () => setQuote(null));
     $msg.placeholder = "Ask about the highlighted passage…";
   } else { $msg.placeholder = "Message the session…"; window.CSS?.highlights?.delete("quote"); }
@@ -599,9 +600,9 @@ function issuesOf(s) {
   const named = new Set();
   queue.forEach((q) => { if (q.nodeId) named.add(q.nodeId); out.push({ kind: q.kind === "contradiction" ? "contradiction" : "question", key: q.id, id: q.id, nodeId: q.nodeId, title: qTitle(q), sub: q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? q.header : "", current: q.id === s?.question?.id }); });
   for (const n of Object.values(snap.canon.nodes)) {
-    if (named.has(n.id)) continue;
+    if (named.has(n.id) || pendingNodes.has(n.id)) continue; // a pending box is the session's for now; its line says so
     if (n.state === "contested") out.push({ kind: "contradiction", key: "c:" + n.id, nodeId: n.id, title: n.title, standIn: true });
-    else if (n.state === "open") out.push({ kind: "question", key: "o:" + n.id, nodeId: n.id, title: n.title, standIn: true });
+    else if (n.state === "open") out.push({ kind: "question", key: "o:" + n.id, nodeId: n.id, title: n.title, standIn: true, preparing: agentLive(s) });
   }
   // in the order of what settling the box releases (the next command's human list); the rest keep their order
   const rank = new Map((snap.next?.human ?? []).map((h, i) => [h.id, i]));
@@ -612,20 +613,27 @@ function issuesOf(s) {
 function renderIssues(s) {
   const body = document.getElementById("issues-body"), count = document.getElementById("issues-count");
   if (!body || !snap) return;
+  for (const [id, p] of pendingNodes) if (Date.now() - p.since > 15 * 60 * 1000) pendingNodes.delete(id);
   const issues = issuesOf(s);
-  const top = snap.next?.human?.[0];
-  const key = JSON.stringify([top?.id, top?.score, ...issues.map((i) => i.key)]);
+  const notReady = new Set([...issues.filter((i) => i.preparing).map((i) => i.nodeId), ...pendingNodes.keys()]);
+  const top = (snap.next?.human ?? []).find((h) => !notReady.has(h.id));
+  const minutes = (p) => Math.floor((Date.now() - p.since) / 60000);
+  const pendingKey = [...pendingNodes].map(([id, p]) => `${id}:${minutes(p)}`);
+  const key = JSON.stringify([top?.id, top?.score, pendingKey, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
-  count.textContent = issues.length; count.hidden = issues.length === 0;
-  const hint = (i) => i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
+  const open = issues.filter((i) => !i.preparing).length;
+  count.textContent = open; count.hidden = open === 0;
+  const hint = (i) => i.preparing ? "The session is still writing its question for this draft" : i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
   // the one line that says what releases the most: the first of the next command's human list, with its reason
   const reason = (h) => h.action === "approve" ? `releases ${h.releases.length} box${h.releases.length === 1 ? "" : "es"}${h.unblocks.length ? `, then ${h.unblocks.length} more can be cut` : ""}` : `${h.state}${h.unblocks.length ? `; ${h.unblocks.length} wait on it` : ""}${h.frozen ? `; ${h.frozen} under it` : ""}`;
+  const ago = (p) => { const m = minutes(p); return m < 1 ? "just now" : m === 1 ? "a minute ago" : `${m} minutes ago`; };
   body.innerHTML = (top ? `<p class="next-for-you"><span class="muted">Next for you:</span> <a href="#" data-next="${esc(top.id)}" title="Select it on the canvas">${esc(top.action)} ${esc(top.id)}</a> <span class="muted">· ${esc(reason(top))}</span></p>` : "") +
+    [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)} ${esc(ago(p))}</span></p>`).join("") +
     (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
-    issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
+    issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}${i.preparing ? " preparing" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${i.preparing ? "…" : ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.preparing ? ` <span class="muted">· being prepared</span>` : i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
   for (const b of body.querySelectorAll("[data-issue]")) b.addEventListener("click", () => openIssue(issues[Number(b.dataset.issue)]));
-  body.querySelector("[data-next]")?.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; if (id === "ROOT" || node(id)) focusOnCanvas(id, false, true); });
+  for (const a of body.querySelectorAll("[data-next]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; if (id === "ROOT" || node(id)) focusOnCanvas(id, false, true); });
 }
 // A statement's words without their source references, and the references themselves.
 const REF_RE = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/g;
@@ -637,6 +645,7 @@ async function settleNode(id, text, resolve, q, selected) {
     await post(`/api/node/${encodeURIComponent(id)}`, resolve ? { intent: text, resolve } : { intent: text }, "PUT");
     if (q) await post("/api/answer", { questionId: q.id, selected: selected ?? [], other: selected?.length ? "" : text, terms: Object.values(termState) }).catch(() => {});
     $issueCard.hidden = true; shownIssue = null; $question.dataset.issue = ""; if (q) shownQuestionId = null;
+    markPending(id, "you defined it");
     await load(); render(); startWorking(`you settled ${id}`);
   } catch (e) { showToast(e); }
 }
@@ -659,6 +668,7 @@ function contradictionCard(nodeId, q) {
   });
 }
 function openIssue(issue) {
+  if (issue.preparing) { if (node(issue.nodeId)) focusOnCanvas(issue.nodeId, false, true); showToast("The session is still writing its question for this draft; open the box if you want to define it yourself."); return; }
   // The card keeps what the human typed across a close and reopen of the same question; a stand-in, which
   // carries no term decisions, is redrawn from the node whenever it is reopened.
   if ($question.dataset.issue !== issue.key || (!issue.id && $issueCard.hidden)) {
@@ -693,6 +703,8 @@ async function pollSession() {
     }
     if (s.question && s.question.id !== shownQuestionId && !(shownIssue && !$issueCard.hidden)) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); $question.dataset.issue = s.question.id; shownIssue = null; chime(); }
     renderIssues(s);
+    for (const q of s.queue ?? []) if (q.nodeId && pendingNodes.has(q.nodeId)) clearPending(q.nodeId);
+    renderIssues(s); // every poll: what is pending, prepared or live changes with time; the key guard keeps the DOM still
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     // The feed carries what went through the page and the session's says; the ids it names are not repeated below.
@@ -700,7 +712,7 @@ async function pollSession() {
     if (s.cursor !== lastCursor) {
       lastCursor = s.cursor;
       const c = await fetch(`/api/changes?since=${chatCursor}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (c) { chatCursor = c.cursor; appendChat(c.entries); for (const e of c.entries) if (e.id) named.add(e.id); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $issueCard.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
+      if (c) { chatCursor = c.cursor; appendChat(c.entries); for (const e of c.entries) if (e.id) named.add(e.id); for (const e of c.entries) if (e.kind === "say" && e.id) clearPending(e.id); if (c.entries.some((e) => e.kind === "say")) { chime(); working = null; if (!s.question) { $issueCard.hidden = true; document.getElementById("session-status").textContent = "no question waiting"; } openSession(); } }
       renderIssues(s);
     }
     // The canon's revision changes with any edit on disk, however it was made: a refiner's file, the session's own
@@ -713,6 +725,7 @@ async function pollSession() {
         const was = snap;
         if (await load().then(() => true).catch(() => false)) {
           const changes = canonDiff(was, snap).filter((e) => !named.has(e.id));
+          for (const e of changes) clearPending(e.id);
           if (changes.length) { appendChat(changes); chime(); }
           if (route().view === "adopt") { if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
           else if (route().view !== "tree" && route().view !== "node") render();
@@ -726,6 +739,13 @@ async function pollSession() {
 }
 // Between questions: the session is reading, writing or thinking; show that it is, and for how long.
 let working = null;
+// Boxes the session is working on after the human acted on them: answered, defined or rewritten. Cleared when the
+// session says something about the box, changes it on disk, or files a new question for it; dropped after a while.
+const pendingNodes = new Map();
+const paintPending = (id) => { const c = window.__cy; if (c) { const n = c.getElementById(id); if (n.length) n.toggleClass("pending", pendingNodes.has(id)); } };
+const markPending = (id, why) => { if (id) { pendingNodes.set(id, { since: Date.now(), why }); paintPending(id); } };
+const clearPending = (id) => { if (id && pendingNodes.delete(id)) { paintPending(id); renderIssues(lastSession); } };
+const agentLive = (s) => typeof s?.agentSeenAgo === "number" && s.agentSeenAgo < 900;
 const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
 function showWorking(what) {
   if (!working) working = { since: Date.now(), answer: "" };
@@ -742,6 +762,7 @@ function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options
   const opts = options.map((o, i) => `<label class="opt"><input type="${type}" name="opt" value="${i}" ${!multi && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${o.labelHtml}</span>${o.descHtml ? `<span class="opt-desc">${o.descHtml}</span>` : ""}</span></label>`).join("");
   const target = nodeId && (node(nodeId) || nodeId.startsWith("PRN-")) ? nodeId : null;
   const draft = target && node(target)?.state === "open";
+  $question.dataset.nodeId = nodeId ?? "";
   $question.innerHTML = `
     ${more ?? ""}
     <div class="q-head"><span class="badge kind">${esc(badge)}</span>${nodeId ? ` ${idLink(nodeId)}` : ""}${target ? ` <button class="btn small" id="iss-show" title="Select the node on the canvas and bring it into view">${draft ? "Focus the draft node" : "Focus the node"}</button> <button class="btn small" id="iss-card" title="Open the node">Open the node</button>` : ""}</div>
@@ -862,6 +883,7 @@ async function submitAnswer(q, picked, text) {
   try {
     await post("/api/answer", { questionId: q.id, selected, other: text, terms });
     working = { since: Date.now(), answer: text ? `Other: ${text}` : selected.join(", ") };
+    markPending(q.nodeId, "you answered");
     shownQuestionId = null;
     showWorking();
   } catch (e) { showToast(e); }
@@ -947,7 +969,7 @@ function buildAdoptCanvas() {
   // A closed circle shows its number; a long number gets a smaller font, the circle never grows.
   const shortOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? "" : id.replace(/^(REQ|PRN)-/, ""));
   const fsOf = (short) => (short.length <= 3 ? 10 : short.length <= 5 ? 8 : short.length <= 7 ? 6.5 : 5.5);
-  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${node(id)?.state === "open" ? "draft" : ""} ${node(id)?.kind ? "done" : ""} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
+  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${node(id)?.state === "open" ? "draft" : ""} ${node(id)?.kind ? "done" : ""} ${pendingNodes.has(id) ? "pending" : ""} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
   const elementsFor = (show) => {
     const shown = new Set(show);
     const out = [];
@@ -972,6 +994,7 @@ function buildAdoptCanvas() {
       { selector: "node.red", style: { "background-color": "#4c1414", "border-color": "#ef4444" } },
       { selector: "node.draft", style: { "border-style": "dashed" } },
       { selector: "node.done", style: { "border-style": "double", "border-width": 3 } },
+      { selector: "node.pending", style: { "border-style": "dotted" } },
       { selector: "node.premise", style: { shape: "hexagon", width: 44, height: 40 } },
       { selector: "node.principles", style: { shape: "octagon", width: 40, height: 40 } },
       { selector: "node.prn", style: { shape: "diamond", width: 22, height: 22 } },
@@ -980,6 +1003,7 @@ function buildAdoptCanvas() {
       { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48 } },
       { selector: "node.dendro", style: { shape: "round-rectangle", width: "data(dw)", height: 30, label: "", "border-width": 1, "background-opacity": 0.7 } },
       { selector: "node.dendro.done", style: { "border-width": 3 } },
+      { selector: "node.dendro.pending", style: { "border-width": 2 } },
       { selector: "node.selected", style: { "border-width": 2.5 } },
       { selector: "node.dim", style: { opacity: 0.4 } },
       { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": "#6b7280", "target-arrow-shape": "triangle", "target-arrow-color": "#6b7280", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: "#cbd5e1", "text-background-color": "#0f1216", "text-background-opacity": 1, "text-background-padding": "2px" } },
@@ -1747,7 +1771,7 @@ function openPopup(id) {
     editor.querySelector("#pp-cancel").addEventListener("click", () => { editor.innerHTML = ""; editBase = null; openPopup(id); });
     editor.querySelector("#pp-save").addEventListener("click", async () => {
       const body = { intent: editor.querySelector("#pp-intent").value, title: editor.querySelector("#pp-title")?.value };
-      try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
+      try { await post(`/api/node/${encodeURIComponent(id)}`, body, "PUT"); closePopup(); markPending(id, "you rewrote it"); await load(); render(); startWorking(`you rewrote ${id}`); } catch (e) { showToast(e); }
     });
   };
   $popup.querySelector("#pp-edit").addEventListener("click", () => startEdit());
@@ -1873,9 +1897,12 @@ document.addEventListener("mouseup", (ev) => {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
     // a plain click anywhere but the panel drops a highlighted passage; the panel is where the question is typed
-    if (!text || $popup.hidden || !$popup.contains(sel.anchorNode) || !$popup.dataset.id) { if (quote && !document.getElementById("session").contains(target)) setQuote(null); return; }
+    const inPopup = !$popup.hidden && $popup.contains(sel?.anchorNode) && Boolean($popup.dataset.id);
+    const inIssue = !$issueCard.hidden && $issueCard.contains(sel?.anchorNode);
+    if (!text || (!inPopup && !inIssue)) { if (quote && !document.getElementById("session").contains(target)) setQuote(null); return; }
     if (window.CSS?.highlights && window.Highlight) CSS.highlights.set("quote", new Highlight(sel.getRangeAt(0).cloneRange()));
-    setQuote({ id: $popup.dataset.id, text: text.slice(0, 300) });
+    // words from an issue card are about its box when it has one, else about the issue itself
+    setQuote(inPopup ? { id: $popup.dataset.id, text: text.slice(0, 300) } : { id: $question.dataset.nodeId || undefined, about: `the issue "${$question.dataset.label ?? "issue"}"`, text: text.slice(0, 300) });
     openSession();
     $msg.focus();
   }, 0);
@@ -1890,7 +1917,7 @@ const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number
 // Two lists. The chat holds what the session asks of the human (a say marked `to: human`, or one that ends in a
 // question) and what they write. The history holds the rest: what the session did, and what the human did on
 // the canvas. A history line opens its box on a double-click, or the nearest box above it if it is gone.
-const KIND_LABELS = { "node-approved": "approved", "node-edited": "rewritten", "node-deleted": "deleted", "node-created": "created", "term-enshrined": "term kept", "term-dropped": "term dropped", "refine-request": "asked to define", "finish-request": "finish", "edit-conflict": "conflict", answer: "you answered", say: "session" };
+const KIND_LABELS = { "node-approved": "approved", "node-edited": "rewritten", "node-deleted": "deleted", "node-created": "created", "term-enshrined": "term kept", "term-dropped": "term dropped", "refine-request": "asked to define", "finish-request": "finish", "edit-conflict": "conflict", "question-superseded": "question withdrawn", answer: "you answered", say: "session" };
 let historyNew = 0;
 // What changed between two readings of the canon, as chat lines: boxes, principles, terms and decisions that
 // appeared, changed or went, each naming its id so a click goes there.

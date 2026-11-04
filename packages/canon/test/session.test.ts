@@ -55,4 +55,15 @@ describe("session state [REQ-12.1.7]", () => {
     expect(s.queued()[0]).toMatchObject({ kind: "contradiction", nodeId: "REQ-2" });
     expect(s.ask({ question: "Plain?" }).kind).toBe("question");
   });
+  it("keeps one question per box: a newer ask replaces the pending one, and a rewrite withdraws it, waking the waiter", async () => {
+    const s = new SessionState();
+    const a = s.ask({ nodeId: "REQ-9", question: "First?", header: "Draft" });
+    const waited = s.waitFor(a.id, 1000);
+    const b = s.ask({ nodeId: "REQ-9", question: "Second?", header: "Draft" });
+    expect(s.queued().map((q) => q.id)).toEqual([b.id]);
+    expect((await waited)?.other).toBe("superseded: a newer question on the same box");
+    expect(s.supersede("REQ-9", "the human rewrote the box")).toBe(1);
+    expect(s.queued()).toEqual([]);
+    expect(s.changes().entries.filter((e) => e.kind === "question-superseded").map((e) => e.id)).toEqual(["REQ-9", "REQ-9"]);
+  });
 });

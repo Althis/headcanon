@@ -175,4 +175,15 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     const top = await send("/api/node", { title: "Billing is fair" });
     expect(top.body["id"]).toBe("REQ-3");
   });
+  it("withdraws a box's pending question when the human rewrites it, and tells a live session from a dead one", async () => {
+    const q = (await send("/api/ask", { nodeId: "REQ-1.1", question: "Still open?", header: "Draft" })).body["questionId"] as string;
+    expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((x) => x.id === q)).toBe(true);
+    expect((await send("/api/node/REQ-1.1", { intent: "Signing up takes one step." }, "PUT")).status).toBe(200);
+    expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((x) => x.id === q)).toBe(false);
+    expect(((await get(`/api/wait?id=${q}&timeout=1`))["answer"] as { other: string }).other).toMatch(/^superseded:/);
+    const before = (await get("/api/session"))["agentSeenAgo"];
+    await fetch(base + "/api/session", { headers: { "x-headcanon-agent": "mcp" } });
+    expect(typeof (await get("/api/session"))["agentSeenAgo"]).toBe("number");
+    expect(before === null || typeof before === "number").toBe(true);
+  });
 });

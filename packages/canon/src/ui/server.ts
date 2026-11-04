@@ -48,6 +48,8 @@ export interface Served {
  * that cannot be read (the disk dropped) yields undefined, and the caller keeps the last value, so nothing flaps.
  */
 const canonRevLast = new Map<string, string>();
+/** When the session's MCP server last called, per canon: the page tells a live session from a dead one by it. */
+const agentSeenAt = new Map<string, number>();
 function canonRev(canonDir: string): string | undefined {
   if (!existsSync(canonDir)) return "";
   try {
@@ -95,6 +97,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   const json = (status: number, body: unknown) => send(res, status, "application/json; charset=utf-8", JSON.stringify(body));
 
   if (p === "/api/health") return json(200, { ok: true, canon: canonDir });
+  if (req.headers["x-headcanon-agent"]) agentSeenAt.set(canonDir, Date.now());
   if (p === "/api/snapshot") {
     const snap = buildSnapshot(canonDir);
     return send(res, 200, "application/json; charset=utf-8", JSON.stringify(snap));
@@ -105,7 +108,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const q = session.current();
     const rev = canonRev(canonDir);
     if (rev !== undefined) canonRevLast.set(canonDir, rev);
-    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queuedFull().map(presentQuestion), focus: session.focus(), cursor: session.changes().cursor, rev: canonRevLast.get(canonDir) ?? "" });
+    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queuedFull().map(presentQuestion), focus: session.focus(), cursor: session.changes().cursor, rev: canonRevLast.get(canonDir) ?? "", agentSeenAgo: agentSeenAt.has(canonDir) ? Math.round((Date.now() - agentSeenAt.get(canonDir)!) / 1000) : null });
   }
   if (p === "/api/ask" && method === "POST") {
     const body = (await readJson(req)) as AskRequest;
@@ -239,6 +242,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
       const { data } = parseFrontMatter(body.text);
       if (str(data["id"])?.trim() !== id) return json(400, { error: `the front-matter id must stay ${id}` });
       writeFileSync(file.abs, body.text.endsWith("\n") ? body.text : body.text + "\n");
+      session.supersede(id, "the human edited the box");
       return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: "edited in the page" }) });
     }
     // Fields from the popup: the typed text is the human's wording, stated, and becomes the entry.
@@ -247,6 +251,8 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     let out = editNode(readFileSync(file.abs, "utf8"), { title: body.title?.trim() || undefined, intent: body.intent }, today());
     if (body.resolve === "contested") out = dropSection(out, "Contested");
     writeFileSync(file.abs, out);
+    // the human's words make every pending question on the box stale
+    session.supersede(id, "the human rewrote the box");
     return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: `${id} ${body.resolve ? "settled" : "rewritten"}: ${body.intent.trim().slice(0, 120)}` }) });
   }
   if (nodeMatch && method === "DELETE" && !nodeMatch[2]) {
@@ -257,6 +263,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const removed = [id, ...descendants(canon, id)];
     if (basename(file.abs) === "README.md") rmSync(dirname(file.abs), { recursive: true, force: true });
     else rmSync(file.abs, { force: true });
+    for (const r of removed) session.supersede(r, "the box was deleted");
     return json(200, { ok: true, removed, feed: session.push("node-deleted", { id, path: file.rel, text: `${removed.join(", ")} deleted in the page` }) });
   }
   if (p === "/api/node" && method === "POST") {

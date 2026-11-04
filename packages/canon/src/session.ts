@@ -68,6 +68,7 @@ export interface PendingQuestion {
 
 export type FeedKind =
   | "answer"
+  | "question-superseded"
   | "message"
   | "edit-conflict"
   | "say"
@@ -143,9 +144,26 @@ export class SessionState {
       terms: req.terms ?? [],
       notice: req.notice,
     };
+    // one question per box: a newer one on the same box replaces the one pending
+    if (q.nodeId) this.supersede(q.nodeId, "a newer question on the same box");
     this.queue.push(q);
     this.save();
     return q;
+  }
+
+  /** Withdraw every pending question on a box: the human rewrote or deleted it, or a newer question replaced it. */
+  supersede(nodeId: string, reason: string): number {
+    const stale = this.queue.filter((q) => q.nodeId === nodeId);
+    for (const q of stale) {
+      this.queue.splice(this.queue.indexOf(q), 1);
+      const ans: AskAnswer = { questionId: q.id, selected: [], other: `superseded: ${reason}`, terms: [], answeredAt: new Date().toISOString() };
+      this.answers.set(q.id, ans);
+      this.push("question-superseded", { id: nodeId, text: `${q.header} on ${nodeId} withdrawn: ${reason}` });
+      for (const w of this.waiters.get(q.id) ?? []) w(ans);
+      this.waiters.delete(q.id);
+    }
+    if (stale.length) this.save();
+    return stale.length;
   }
 
   current(): PendingQuestion | undefined {

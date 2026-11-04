@@ -69,7 +69,7 @@ async function attachViewer(canonDir: string, firstPort: number): Promise<string
 }
 
 async function api<T>(base: string, path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${base}${path}`, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
+  const r = await fetch(`${base}${path}`, { ...init, headers: { "content-type": "application/json", "x-headcanon-agent": "mcp", ...(init?.headers ?? {}) } });
   const text = await r.text();
   if (!r.ok) throw new Error(`${path}: ${r.status} ${text.slice(0, 300)}`);
   return JSON.parse(text) as T;

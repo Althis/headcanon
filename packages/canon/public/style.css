@@ -353,6 +353,11 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .menu.issues .menu-body { max-height: 40vh; overflow: auto; }
 .menu.issues .menu-head .pill { margin-left: 2px; }
 .next-for-you { margin: 0 0 6px; font-size: 12px; line-height: 1.35; }
+.pending-line { margin: 0 0 6px; font-size: 12px; line-height: 1.35; }
+.pending-line a { color: var(--fg); font-family: var(--mono); font-size: 11px; text-decoration: none; }
+.pending-line .spin { display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--accent); border-top-color: transparent; animation: hc-spin 1s linear infinite; vertical-align: -1px; }
+@keyframes hc-spin { to { transform: rotate(360deg); } }
+.issue-row.preparing { opacity: 0.6; }
 .next-for-you a { color: var(--accent); font-weight: 600; text-decoration: none; }
 .issue-row { display: flex; align-items: flex-start; gap: 6px; text-align: left; white-space: normal; }
 .issue-row.now { border-color: var(--accent); }
