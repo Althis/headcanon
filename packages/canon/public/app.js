@@ -508,11 +508,14 @@ function wireNodeActions() {
   });
 }
 function showToast(msg) {
+  // a passing line at the end of the chat, gone after a while; it never pushes a real line out
   const li = document.createElement("li");
+  li.className = "sys toast";
   li.textContent = typeof msg === "string" ? msg : (msg.message || String(msg));
   const list = document.getElementById("activity");
-  list.prepend(li);
-  while (list.children.length > 6) list.lastChild.remove();
+  list.appendChild(li);
+  li.scrollIntoView({ block: "nearest" });
+  setTimeout(() => li.remove(), 8000);
   openSession();
 }
 
@@ -705,6 +708,17 @@ async function pollSession() {
     renderIssues(s);
     for (const q of s.queue ?? []) if (q.nodeId && pendingNodes.has(q.nodeId)) clearPending(q.nodeId);
     renderIssues(s); // every poll: what is pending, prepared or live changes with time; the key guard keeps the DOM still
+    // A question that vanished under an open card: the session replaced it, withdrew it, or it was answered elsewhere.
+    // The card shows the replacement on the same box, or says the question is gone; typed words are kept in sight.
+    const shownKey = $question.dataset.issue;
+    if (!$issueCard.hidden && shownKey && !shownKey.includes(":") && !(s.queue ?? []).some((q) => q.id === shownKey)) {
+      const typed = $question.querySelector("#q-other")?.value?.trim();
+      const kept = typed ? ` What you had typed: “${esc(typed)}”` : "";
+      const next = (s.queue ?? []).find((q) => q.nodeId && q.nodeId === $question.dataset.nodeId);
+      if (next) { shownQuestionId = next.id; termState = {}; renderQuestion(next, s.pending); $question.dataset.issue = next.id; $question.insertAdjacentHTML("afterbegin", `<p class="notice"><b>The session replaced its question on this box;</b> this is the new one.${kept}</p>`); }
+      else { $question.innerHTML = `<p class="notice"><b>This question is no longer open:</b> it was answered, withdrawn or replaced.${kept}</p>`; $question.dataset.issue = ""; }
+      chime();
+    }
     if (!s.question && shownQuestionId) { shownQuestionId = null; showWorking(); }
     if (!s.question && working) { document.getElementById("session-status").textContent = `session working · ${elapsed()}`; const el = document.getElementById("work-elapsed"); if (el) el.textContent = elapsed(); }
     // The feed carries what went through the page and the session's says; the ids it names are not repeated below.

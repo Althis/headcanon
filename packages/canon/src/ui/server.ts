@@ -127,7 +127,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const body = (await readJson(req)) as Partial<AskAnswer>;
     if (!body?.questionId) return json(400, { error: "questionId is required" });
     const ok = session.answer({ questionId: body.questionId, selected: body.selected ?? [], other: body.other ?? "", terms: (body.terms ?? []) as TermDecision[] });
-    return json(ok ? 200 : 404, { ok });
+    return json(ok ? 200 : 404, ok ? { ok } : { ok, error: "that question is no longer open: it was answered, withdrawn, or replaced by a newer one on the same box" });
   }
   if (p === "/api/focus" && method === "POST") {
     const body = (await readJson(req)) as { id?: string; open?: boolean };
