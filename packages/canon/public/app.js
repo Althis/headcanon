@@ -757,6 +757,18 @@ function showWorking(what) {
 // One card for every issue: the node's title, the question, a short summary, the options to pick from with
 // "Write it yourself" as the last, and Answer at the bottom. `onAnswer` gets the picked options' indices, or the
 // typed text. `change` names the node the decision rewrites, with each option's resulting text.
+// The path above a box, premise first, so a card says where the box sits in the tree; each crumb focuses its box.
+function pathHtml(id) {
+  const crumbs = [];
+  for (let p = node(id)?.parent; p; p = node(p)?.parent) { const n = node(p); if (!n) break; crumbs.unshift({ id: p, title: n.title }); }
+  if (snap.canon.root) crumbs.unshift({ id: "ROOT", title: snap.canon.root.title });
+  if (!crumbs.length) return "";
+  const cut = (t) => (t.length > 48 ? t.slice(0, 46).trimEnd() + "…" : t);
+  return `<p class="path">${crumbs.map((c) => `<a href="#" data-path="${esc(c.id)}" title="${esc(c.title)}"><span class="id">${esc(c.id === "ROOT" ? "premise" : c.id)}</span> ${esc(cut(c.title))}</a>`).join(`<span class="sep">›</span>`)}</p>`;
+}
+function wirePath(where) {
+  for (const a of where.querySelectorAll("a[data-path]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = a.dataset.path; if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); else location.hash = id === "ROOT" ? "#/" : `#/node/${id}`; });
+}
 function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options, multi, more, change, onAnswer }) {
   const type = multi ? "checkbox" : "radio";
   const opts = options.map((o, i) => `<label class="opt"><input type="${type}" name="opt" value="${i}" ${!multi && i === 0 ? "checked" : ""}/> <span class="opt-text"><span class="opt-head">${o.labelHtml}</span>${o.descHtml ? `<span class="opt-desc">${o.descHtml}</span>` : ""}</span></label>`).join("");
@@ -766,6 +778,7 @@ function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options
   $question.innerHTML = `
     ${more ?? ""}
     <div class="q-head"><span class="badge kind">${esc(badge)}</span>${nodeId ? ` ${idLink(nodeId)}` : ""}${target ? ` <button class="btn small" id="iss-show" title="Select the node on the canvas and bring it into view">${draft ? "Focus the draft node" : "Focus the node"}</button> <button class="btn small" id="iss-card" title="Open the node">Open the node</button>` : ""}</div>
+    ${target && !target.startsWith("PRN-") ? pathHtml(target) : ""}
     ${title ? `<h2 class="q-title">${esc(title)}</h2>` : ""}
     ${questionHtml ? `<p class="q-question"><strong>${questionHtml}</strong></p>` : ""}
     ${summaryHtml ? `<div class="q-body body">${summaryHtml}</div>` : ""}
@@ -774,6 +787,7 @@ function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options
     <div id="q-free" ${options.length ? "hidden" : ""}><textarea id="q-other" rows="3" placeholder="Your own words, or a correction."></textarea></div>
     ${change ? `<p class="q-change"><b>This changes ${esc(change.nodeId)} · ${esc(change.title)}.</b> It will read: <em id="q-change-text"></em></p>` : ""}
     <div class="row"><button class="btn primary" id="q-submit">Answer</button><span class="sub" id="q-hint"></span></div>`;
+  wirePath($question);
   const free = $question.querySelector("#q-free"), writeBox = $question.querySelector('input[name=opt][value="write"]'), textarea = $question.querySelector("#q-other");
   const preview = () => { const el = $question.querySelector("#q-change-text"); if (!el || !change) return; const picked = $question.querySelector("input[name=opt]:checked"); el.textContent = writeBox.checked ? (textarea.value.trim() || "what you write above") : picked ? change.texts[Number(picked.value)] ?? "" : "…"; };
   const sync = () => { free.hidden = !writeBox.checked; if (writeBox.checked) textarea.focus(); preview(); };
@@ -1721,6 +1735,7 @@ function openPopup(id) {
   if (deferredHtml) mainHtml = stripHtmlSection(mainHtml, "Deferred");
   $popup.innerHTML = `
     <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
+    ${isRoot || prn ? "" : pathHtml(id)}
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
     ${state === "contested" ? (conflictSummary ? `<p class="conflict-summary">${conflictSummary}</p>` : `<p class="conflict-summary muted">No summary of the contradiction yet. <button class="btn small" id="pp-explain">Ask the session to explain</button></p>`) : ""}
     ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
@@ -1742,6 +1757,7 @@ function openPopup(id) {
   $popup.dataset.id = id;
   if (wasHidden) centerPopup();
   wirePopupMoves();
+  wirePath($popup);
   $popup.querySelector("#pp-close").addEventListener("click", () => { if (editingDraft() && !confirm("Discard your rewrite?")) return; closePopup(); });
   for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { const k = b.dataset.pane; for (const o of $popup.querySelectorAll(".pp-tabs button")) o.classList.toggle("on", o === b); $popup.querySelector("#pp-body").hidden = k !== "-1"; for (const pane of $popup.querySelectorAll(".pp-pane")) pane.hidden = pane.dataset.pane !== k; });
   $popup.querySelector("#pp-explain")?.addEventListener("click", async () => { try { await post("/api/message", { text: `Explain the contradiction in ${id} in one or two sentences: what the two statements cannot both hold, and what choosing decides. Record it as the first paragraph under its Contested heading.`, nodeId: id }); startWorking(`you asked for an explanation of ${id}`); } catch (e) { showToast(e); } });

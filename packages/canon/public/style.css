@@ -316,6 +316,11 @@ details ul.ops-list { columns: 3; column-gap: 20px; font-family: var(--mono); fo
 .node-actions { margin: 8px 0; }
 .jargon { border-bottom: 2px dotted var(--assumed); cursor: help; }
 .q-title { margin: 6px 0 2px; font-size: 16px; }
+.path { margin: 4px 0 2px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.path a { color: var(--muted); text-decoration: none; }
+.path a:hover { color: var(--fg); }
+.path .id { font-family: var(--mono); font-size: 11px; }
+.path .sep { margin: 0 5px; opacity: 0.6; }
 .q-terms { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-left: 3px solid var(--assumed); border-radius: 8px; }
 .q-terms .sub { margin: 0 0 4px; }
 .term-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); }
