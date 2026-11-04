@@ -45,7 +45,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (git.uncommitted.length) waiting.push(`${git.uncommitted.length} uncommitted canon edit(s)`);
   if (stats.errors) waiting.push(`${stats.errors} structural error(s); run \`headcanon check\``);
   if (c.contested) waiting.push(`${c.contested} contested item(s)`);
-  if (c.open) waiting.push(`${c.open} open question(s)`);
+  if (c.open) waiting.push(`${c.open} draft(s), each with its question under Issues`);
   const unconfirmedDecisions = canon.decisions.filter((d) => d.state === "assumed").length;
   if (unconfirmedDecisions) waiting.push(`${unconfirmedDecisions} decision(s) not yet confirmed`);
   const fit = new Set(snap.findings.filter((f) => FIT_CODES.has(f.code)).map((f) => f.id ?? f.file)).size;

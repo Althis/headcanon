@@ -184,7 +184,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     "headcanon_focus",
     {
       title: "Point at a node on the human's screen, or open it",
-      description: "Navigates the HeadCanon viewer to a canon node so the human sees what you are talking about. With `open`, the node's card opens as well, with its text and its approve, edit and delete actions.",
+      description: "Highlights a canon node on the human's screen so they see what you are talking about, and notes it in the chat. No card opens: the human opens cards.",
       inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("Ignored by the page since 2026-10-29: a card opens only when the human opens it. The focus highlights the box on the canvas and the chat notes it.") },
     },
     async ({ id, open }) => {

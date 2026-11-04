@@ -1,6 +1,6 @@
 ---
 name: attend
-description: "Attends the HeadCanon canvas: keeps refiner agents cutting every ready node in the background and integrates what they return, waits for what the human does in the page, keeps the canon consistent after each approval, rewrite or deletion, answers their questions in the chat, defines the branches they ask for, and returns when they press Finish with nothing red, or after that when nothing is left to cut. Use during adoption once the domains exist, whenever the human works in the page on an existing canon, or when they ask you to watch or follow the page."
+description: "Attends the HeadCanon canvas: keeps refiner agents cutting every ready node in the background and integrates what they return, waits for what the human does in the page, keeps the canon consistent after each approval, rewrite or deletion, answers their questions in the chat, defines the branches they ask for, and returns when they press Finish, or after that when nothing is left to cut. Use during adoption once the domains exist, whenever the human works in the page on an existing canon, or when they ask you to watch or follow the page."
 when_to_use: "The viewer is open and the human is working in it; adopt has drafted the domains; the human asks you to attend, watch or follow the page."
 ---
 
@@ -8,7 +8,7 @@ when_to_use: "The viewer is open and the human is working in it; adopt has draft
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The page's tools: `headcanon_changes` with `waitSeconds` waits for the human's next action; `headcanon_say` speaks in the chat and ends the page's working indicator, so every action of yours ends with one; `headcanon_focus` highlights a box on the canvas, and nothing of yours opens a card, the human does; `headcanon_ask` asks when a choice needs options (adopt/reference.md section 6). The `refiner` agent (`headcanon:refiner`) cuts one node in draft in a context of its own; you never cut a node in this one. Entries follow the adopt skill's Entries and Guessing rules; what the human types in the page is stated.
 
-Colours on the canvas: green is approved by the human, yellow is your guess, red needs them before adoption can finish: an `open` node, a `contested` node, or one the check flagged. Red is yours to explain, never to clear by approving.
+Colours on the canvas, where a box is a node as the canvas shows it: green is approved by the human, yellow is your guess, red needs them before adoption can finish: an `open` node, a `contested` node, or one the check flagged. Red is yours to explain, never to clear by approving.
 
 ## Start
 

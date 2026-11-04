@@ -35,7 +35,7 @@ On the canvas, every box has a colour:
 
 Work top-down: the premise first, then the domains. When you change a box, I rework what hangs from it and tell you in the chat on the right. Select any words in a box's card and the chat is ready for your question about them.
 
-Nothing is final until you press Finish with no red left.
+Press Finish when your time is up: I keep going below it, and anything still red waits for you under Issues.
 ```
 
 ## 1. Root README (`canon/README.md`)
@@ -215,7 +215,7 @@ When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_
 4. The result is the answer, or `{pending: true, questionId}`. When pending, call `headcanon_wait` with the `questionId` and keep calling it until the answer arrives. Never give up on a pending question and never re-ask it.
 5. Read the answer like a terminal answer: `selected` holds the chosen labels; `other` holds typed text, which is wording, a correction or a process instruction as the skill defines.
 6. `headcanon_changes` with the last cursor, and `waitSeconds` to wait for the next action, returns what the human did: `node-approved`, `node-edited`, `node-created` and `node-deleted` (their wording is stated), `term-enshrined` and `term-dropped`, `message` (free text, or a question about a quoted passage with its `id`), `refine-request` naming a branch to define next, and `finish-request`. The attend skill says what each one asks of you.
-7. `headcanon_say` posts a line of yours; with `to: "human"` it lands in their chat, otherwise in the page's history of what you did; the page shows a working indicator from the human's last action until your next say or question, so end every spell of work with one. `headcanon_focus` with `open` opens a box's card on their screen; `headcanon_open` with view `adopt` opens the canvas.
+7. `headcanon_say` posts a line of yours; with `to: "human"` it lands in their chat, otherwise in the page's history of what you did; the page shows a working indicator from the human's last action until your next say or question, so end every spell of work with one. `headcanon_focus` highlights a box on their screen, and nothing of yours opens a card; `headcanon_open` with view `adopt` opens the canvas.
 
 Example call:
 
