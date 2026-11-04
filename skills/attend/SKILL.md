@@ -6,9 +6,21 @@ when_to_use: "The viewer is open and the human is working in it; adopt has draft
 
 # Attend the canvas
 
-`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The page's tools: `headcanon_changes` with `waitSeconds` waits for the human's next action; `headcanon_say` speaks in the chat and ends the page's working indicator, so every action of yours ends with one; `headcanon_focus` highlights a box on the canvas, and nothing of yours opens a card, the human does; `headcanon_ask` asks when a choice needs options (adopt/reference.md section 6). The `refiner` agent (`headcanon:refiner`) cuts one node in draft in a context of its own; you never cut a node in this one. Entries follow the adopt skill's Entries and Guessing rules; what the human types in the page is stated.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The page's tools: `headcanon_changes` with `waitSeconds` waits for the human's next action; `headcanon_say` speaks in the chat and ends the page's working indicator, so every action of yours ends with one; `headcanon_focus` highlights a box on the canvas, and nothing of yours opens a card, the human does; `headcanon_ask` asks when a choice needs options (adopt/reference.md section 6); `headcanon_withdraw` takes a question of yours back. The `refiner` agent (`headcanon:refiner`) cuts one node in draft in a context of its own; you never cut a node in this one. Entries follow the adopt skill's Entries and Guessing rules; what the human types in the page is stated.
 
-Colours on the canvas, where a box is a node as the canvas shows it: green is approved by the human, yellow is your guess, red needs them before adoption can finish: an `open` node, a `contested` node, or one the check flagged. Red is yours to explain, never to clear by approving.
+Colours on the canvas, where a box is a node as the canvas shows it: green is approved by the human, yellow is your guess, red needs them before adoption can finish: an `open` node, a `contested` node, or one with a finding. Red is yours to explain, never to clear by approving.
+
+## Knobs
+
+The human's window, about a quarter of an hour. Refiners at once, four. The reach, two levels below the deepest approved box, `HC next`'s rule. The wait for the human's next action, 600 seconds.
+
+## Rules
+
+- One question per box: a new ask on a box replaces the one pending, the human's rewrite of a box withdraws its questions, and `headcanon_withdraw` takes back one the Guessing rules would no longer ask; ask again only with what their words taught you.
+- Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`; your questions are issues, never nodes.
+- The human's window goes to the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
+- A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
+- Write only files under `canon/`; `HC check` after every write; never commit from here.
 
 ## Start
 
@@ -26,9 +38,20 @@ Then one say: the counts (drafts made, issues filed, sections folded) and the ne
 
 Until the human presses Finish, and after it until nothing is left to cut; or the human says stop:
 
-1. **Launch.** `HC next --json`: the `ready` nodes whose parent is not red get refiners in the command's order, green parents before yellow, at most four at once and never two siblings together (DEC-022), the rest as returns come, in the background with the Agent tool, never a workflow, which stops to ask the human, each briefed with the repository, the node, the layer its children get, and the thread file. A node a refiner already holds is not launched twice. The command's `waiting` nodes lie more than two levels below the deepest approved box on their path; they are left alone until the human approves; after Finish nothing waits, the reach is lifted and the cutting runs to the leaves (DEC-020). Its `human` list ranks what the human can approve or settle by what that releases; its first entry is the next box for them, always, never a pick of your own.
-2. **Wait** for the next event: `headcanon_changes` with the last cursor and `waitSeconds` 600, or a refiner's return, whichever comes first.
-3. **A refiner's return.** Apply its set-asides (link, lift, merge) and its moved edges; `HC check` and fix every error; read the new set's parent, siblings and `requires` neighbours for a contradiction or a duplicate and mark it as the adopt skill's Consistency rules say; file each of its `questions` as an issue with `headcanon_ask`, without waiting: `nodeId` the draft node it wrote, the question, `why`, the suggestions as options; say in one line what landed; launch what became ready. A branch with nothing left to cut gets the verifier (adopt, Consistency) and then a say that names it as a key point: how many leaves carry a check, how many boxes are red. A refiner that reports blocked waits for its blocker: a red box is the human's, a prerequisite is in the next wave.
+1. **Launch.** `HC next --json`, then:
+   - the `ready` nodes whose parent is not red get refiners in the command's order, green parents before yellow, at most as many at once as the knobs allow and never two siblings together (DEC-022), the rest as returns come;
+   - each runs in the background with the Agent tool, never a workflow, which stops to ask the human; its brief names the repository, the node, the layer its children get, and the thread file;
+   - a node a refiner already holds is not launched twice;
+   - the `waiting` nodes lie beyond the reach and are left alone until the human approves; after Finish nothing waits and the cutting runs to the leaves (DEC-020);
+   - the `human` list ranks what the human can approve or settle by what that releases; its first entry is the next box for them, always, never a pick of your own.
+2. **Wait** for the next event: `headcanon_changes` with the last cursor and `waitSeconds` as the knobs say, or a refiner's return, whichever comes first.
+3. **A refiner's return.**
+   - Apply its set-asides (link, lift, merge) and its moved edges; `HC check` and fix every error.
+   - Read the new set's parent, siblings and `requires` neighbours for a contradiction or a duplicate; mark it as the adopt skill's Consistency rules say.
+   - File each of its `questions` as an issue with `headcanon_ask`, without waiting: `nodeId` the draft node it wrote, the question, `why`, the suggestions as options.
+   - Say in one line what landed; launch what became ready.
+   - A branch with nothing left to cut gets the verifier (adopt, Consistency), then a say that names it as a key point: how many leaves carry a check, how many boxes are red.
+   - A refiner that reports blocked waits for its blocker: a red box is the human's, a prerequisite is in the next wave.
 4. **The human's entries**, in order, by kind:
    - **node-approved**: the box is green. Re-read its children: a child whose line no longer follows the approved text is rewritten to follow it, `assumed`; a child that was approved too and now disagrees becomes `contested` with both statements.
    - **node-edited**: the human's words are stated. Children the new text no longer implies are removed and asked about as an issue; children it still implies but words differently are rewritten `assumed`; the parent's line must still describe its children, or it is rewritten `assumed`; every node that `requires` this one is re-read for a concept that changed.
@@ -43,14 +66,6 @@ Until the human presses Finish, and after it until nothing is left to cut; or th
    - **finish-request**: the human's window is over, whatever is red (DEC-020). `HC check` and fix every error; say how many red boxes and unanswered questions remain, which stay as issues for the loop after Finish; then return to the caller, which is adopt step 6, or `/headcanon:commit` when nothing called you.
 5. After every change of yours: `HC check` and fix every error; then read the touched node's parent, siblings, children and `requires` neighbours for a contradiction or a duplicate, and mark what you find as the Consistency rules say.
 6. `headcanon_say` one or two sentences: what you changed, what is red now, and the next box for the human, the first of `HC next`'s `human` list with its reason, which you also `headcanon_focus`. A say that reports what you did goes to the page's history; one that asks something of the human, or needs their eyes now (a key point), carries `to: "human"` and lands in their chat.
-
-## Rules
-
-- One question per box: a new ask on a box replaces the one pending, the human's rewrite of a box withdraws its questions, and `headcanon_withdraw` takes back one the Guessing rules would no longer ask; ask again only with what their words taught you.
-- Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`; your questions are issues, never nodes.
-- The human gives this about a quarter of an hour, for the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
-- A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
-- Write only files under `canon/`; `HC check` after every write; never commit from here.
 
 <example>
 Entry node-edited REQ-2 "Categorization: every transaction lands in exactly one tax category, by rule or by hand." Children REQ-2.1 by rule and REQ-2.2 by hand still follow; REQ-2.3 "a transaction may carry two categories" no longer does: it is removed, and an issue on REQ-2 asks whether two categories can ever apply, with its sources. Say: "REQ-2 is yours now; REQ-2.3 contradicted it and is gone; one issue asks about it." Focus REQ-2.

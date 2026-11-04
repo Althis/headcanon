@@ -14,7 +14,7 @@ Text the adopt skill pastes and formats it writes. Use the Write tool, one file 
 
 ## 0. The briefing
 
-The first question's text is this block, verbatim, with one option, **Let's begin**. The premise draft is the question after it.
+The first question's text is this block, verbatim, with one option, **Let's begin**. The premise's proposed text is the question after it.
 
 ```
 Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
@@ -150,14 +150,14 @@ intents: [ROOT, REQ-1, REQ-2]
 
 ## 4. Question shapes
 
-Single draft. The draft reads as prose; footnote markers sit at the end of sentences and the sources are listed once at the end:
+Single item. The proposed text reads as prose; footnote markers sit at the end of sentences and the sources are listed once at the end:
 
 ```json
-{"questions":[{"header":"<Layer>","question":"<Layer label>: <item>.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1] It runs on the owner's own computer and keeps every file it was given. [2]\"\n\nSources: [1] README.md:3, [2] docs/design.md:40-44","multiSelect":false,
+{"questions":[{"header":"<Layer>","question":"<Layer label>: <item>.\n\nProposed:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1] It runs on the owner's own computer and keeps every file it was given. [2]\"\n\nSources: [1] README.md:3, [2] docs/design.md:40-44","multiSelect":false,
   "options":[{"label":"Approve as written","description":"Enters as resolved."},{"label":"Drop","description":"Left out; recorded in DEC-001 if it came from an artifact."}]}]}
 ```
 
-List first pass. Each option carries its draft as the description, ending with its footnote; the body carries the label, the instruction and the Sources line, so a draft appears once:
+List first pass. Each option carries its proposed text as the description, ending with its footnote; the body carries the label, the instruction and the Sources line, so a proposed text appears once:
 
 ```json
 {"questions":[{"header":"<Layer>","question":"<Layer label>. Tick every item that is right as written; unticked items come back one by one.\n\nSources: [1] docs/design.md:12-15, [2] conversation, <date>","multiSelect":true,
@@ -209,8 +209,8 @@ Right: "Duplicate detection: flags a transaction that appears more than once in 
 
 When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_changes` and `headcanon_open` are present, the human answers in the HeadCanon viewer instead of the terminal. The question content is unchanged; only the channel is.
 
-1. Build the question text exactly as section 4 shows: layer label, the draft as prose with footnotes and the Sources line
-2. Run `HC terms --text "<draft>" --json` and give every listed word a one-sentence guessed definition. Pass them as `terms`. The page marks each one; the human keeps it (it enters the glossary at once) or drops it and names a replacement. The answer's `terms` list says what they decided; reword a dropped term with its replacement before writing anything.
+1. Build the question text exactly as section 4 shows: layer label, the proposed text as prose with footnotes and the Sources line
+2. Run `HC terms --text "<proposed text>" --json` and give every listed word a one-sentence guessed definition. Pass them as `terms`. The page marks each one; the human keeps it (it enters the glossary at once) or drops it and names a replacement. The answer's `terms` list says what they decided; reword a dropped term with its replacement before writing anything.
 3. Call `headcanon_ask` with `header`, `question`, `options` (omit for Approve as written / Drop; one option per item with `multiSelect: true` for a list), `nodeId` when the question is about an existing node, and `terms`. Several questions in one turn, as AskUserQuestion allows: pass them as `questions`; the page shows them one after another and the result holds every answer in order. On the first call the page opens in the browser.
 4. The result is the answer, or `{pending: true, questionId}`. When pending, call `headcanon_wait` with the `questionId` and keep calling it until the answer arrives. Never give up on a pending question and never re-ask it.
 5. Read the answer like a terminal answer: `selected` holds the chosen labels; `other` holds typed text, which is wording, a correction or a process instruction as the skill defines.
@@ -220,5 +220,5 @@ When the tools `headcanon_ask`, `headcanon_wait`, `headcanon_focus`, `headcanon_
 Example call:
 
 ```json
-{"header":"Premise (1 of 5)","question":"Premise (1 of 5): what it is.\n\nDraft:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1]\"\n\nSources: [1] README.md:3","nodeId":"ROOT","terms":[{"term":"OFX","definition":"a file format banks use to export statements"}]}
+{"header":"Premise (1 of 5)","question":"Premise (1 of 5): what it is.\n\nProposed:\n\n\"Ledgerline turns a year of bank statements into the forms an accountant needs. [1]\"\n\nSources: [1] README.md:3","nodeId":"ROOT","terms":[{"term":"OFX","definition":"a file format banks use to export statements"}]}
 ```

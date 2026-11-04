@@ -37,7 +37,11 @@ Read only this repository, reference.md and what the human does in the page. The
 
 ## Asking
 
-The few questions left, the briefing, the sweep and a disagreement after an approval, go through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion. A draft in a question reads as prose; a sentence resting on a thread ends with a footnote [1] and one "Sources:" line lists them. Options are exactly **Approve as written** and **Drop** unless the step names others; an option carries no text; a list gets one multi-select whose options are ID and title with the one-line draft as description. Typed text is wording (stated, quoted verbatim), a correction (applied exactly to the draft it names, which is asked again; in a list only the changed items come back, and items the text approves count as ticked), or a process instruction (followed, recorded nowhere). Anything the human must know travels as a question's `notice` or a `headcanon_say`, never inside a draft and never as free text between tool calls, which may never be read.
+- The few questions left, the briefing, the sweep and a disagreement after an approval, go through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion.
+- A proposed text in a question reads as prose; a sentence resting on a thread ends with a footnote [1] and one "Sources:" line lists them.
+- Options are exactly **Approve as written** and **Drop** unless the step names others; an option carries no text; a list gets one multi-select whose options are ID and title with the one-line proposed text as description.
+- Typed text is wording (stated, quoted verbatim), a correction (applied exactly to the proposed text it names, which is asked again; in a list only the changed items come back, and items the text approves count as ticked), or a process instruction (followed, recorded nowhere).
+- Anything the human must know travels as a question's `notice` or a `headcanon_say`, never inside a proposed text and never as free text between tool calls, which may never be read.
 
 ## Entries
 
@@ -48,7 +52,12 @@ The few questions left, the briefing, the sweep and a disagreement after an appr
 
 ## Consistency
 
-`HC check` at 0 errors after every write. The verifier agent (`headcanon:verifier`) runs on a branch when nothing in it is left to cut, and at Finish on what changed since: `git add canon`, the verifier, its findings applied, `git reset -q canon`. A contradiction between two threads makes both nodes `contested`, with a one-paragraph summary and the two statements with their sources under `## Contested` and a `conflicts` link, and files a contradiction issue (`headcanon_ask` with `kind: contradiction`, the node and `why`), which the page settles into the node from the human's choice; one the draft itself introduced, where the threads agree, is fixed in the draft from them. A reiteration merges the newer node into the older when they say one thing, PRN-1, and otherwise files an issue on the newer node asking whether they are one. Drift goes under the node's `## Open`. Uptake rewrites the parent's line as `assumed`. Nodes are files edited in place; nothing regenerates `canon/`, which would erase what the human has approved.
+- `HC check` at 0 errors after every write.
+- The verifier agent (`headcanon:verifier`) runs on a branch when nothing in it is left to cut, and at Finish on what changed since: `git add canon`, the verifier, its findings applied, `git reset -q canon`.
+- A contradiction between two threads makes both nodes `contested`, with a one-paragraph summary and the two statements with their sources under `## Contested` and a `conflicts` link, and files a contradiction issue (`headcanon_ask` with `kind: contradiction`, the node and `why`), which the page settles into the node from the human's choice; one the draft itself introduced, where the threads agree, is fixed in the draft from them.
+- A reiteration merges the newer node into the older when they say one thing, PRN-1, and otherwise files an issue on the newer node asking whether they are one.
+- Drift goes under the node's `## Open`. Uptake rewrites the parent's line as `assumed`.
+- Nodes are files edited in place; nothing regenerates `canon/`, which would erase what the human has approved.
 
 ## Steps
 

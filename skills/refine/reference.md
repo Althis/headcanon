@@ -45,7 +45,7 @@ The node that was refined gains one front-matter line, `partition: "stage of an 
 
 ## 2. The set question
 
-Each option carries its child's one line as the description, ending with its footnote; the body carries the node's text, the axis, the instruction and the Sources line, so each draft appears once. Through AskUserQuestion, four options or fewer per question, its limit; a longer set is split across questions in the same call. The page takes any number.
+Each option carries its child's one line as the description, ending with its footnote; the body carries the node's text, the axis, the instruction and the Sources line, so each proposed text appears once. Through AskUserQuestion, four options or fewer per question, its limit; a longer set is split across questions in the same call. The page takes any number.
 
 ```json
 {"questions":[{"header":"Capabilities (4 of 5)","question":"Capabilities (4 of 5): REQ-1 Statement import.\n\n\"Bank statements in any common format become transactions, and every file given to the program is kept.\"\n\nIts children, by stage of an import. Tick every item that is right as written; unticked items come back one by one.\n\nSources: [1] prerequisite of 'statements become transactions'; CHANGELOG.md:14. [2] consequence of 'become transactions'; docs/formats.md:3-8. [3] failure of 'one transaction per line'; nothing in the project covers it. [4] consequence of 'every file is kept'.","multiSelect":true,
