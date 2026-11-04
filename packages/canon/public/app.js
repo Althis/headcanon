@@ -765,6 +765,8 @@ const agentLive = (s) => typeof s?.agentSeenAgo === "number" && s.agentSeenAgo <
 let recentChanges = [];
 // The session's live status at the top of the panel: what it says it is running, else what the page sees appearing
 // on disk, else whether a session is attached at all.
+let liveOpen = false;
+document.getElementById("session-live")?.addEventListener("click", (e) => { if (!e.target.closest(".live-toggle")) return; liveOpen = !liveOpen; const list = document.querySelector("#session-live .live-list"); if (list) list.hidden = !liveOpen; });
 function renderLive(s) {
   const el = document.getElementById("session-live");
   if (!el) return;
@@ -775,8 +777,18 @@ function renderLive(s) {
   const doing = s?.doing && now - saidAt < 15 * 60000 ? s.doing.items : [];
   let html;
   if (!agentLive(s)) html = `<span class="muted">No session attached to this page.</span>`;
-  else if (doing.length) html = `<span class="spin"></span><span>${doing.map((d) => linkIds(d)).join(" <span class=\"muted\">·</span> ")} <span class="muted">· said ${ago(now - saidAt)}</span></span>`;
-  else if (recentChanges.length) { const under = [...new Set(recentChanges.map((c) => node(c.id)?.parent ?? c.id))].slice(0, 4); html = `<span class="spin"></span><span>Writing under ${under.map((u) => linkIds(u)).join(", ")} <span class="muted">· last change ${ago(now - recentChanges[recentChanges.length - 1].at)}</span></span>`; }
+  else if (doing.length || recentChanges.length) {
+    // a "Working" button with the spinner; a click opens the list of what runs
+    let items, meta;
+    if (doing.length) { items = doing.map((d) => linkIds(d)); meta = `said ${ago(now - saidAt)}`; }
+    else {
+      const byParent = new Map();
+      for (const c of recentChanges) { const p = node(c.id)?.parent ?? c.id; byParent.set(p, Math.max(byParent.get(p) ?? 0, c.at)); }
+      items = [...byParent].map(([p, at]) => `Writing under ${linkIds(p)}${node(p) ? ` ${esc(node(p).title)}` : ""} <span class="muted">· last change ${ago(now - at)}</span>`);
+      meta = "seen on disk; the session has not said what it runs";
+    }
+    html = `<button class="btn small live-toggle" title="What the session is running"><span class="spin"></span> Working <span class="muted">· ${items.length}</span></button><ul class="live-list" ${liveOpen ? "" : "hidden"}>${items.map((i) => `<li>${i}</li>`).join("")}<li class="muted">${esc(meta)}</li></ul>`;
+  }
   else if (working) html = `<span class="spin"></span><span>Working since your last action <span class="muted">· ${esc(elapsed())}</span></span>`;
   else if (s?.pending) html = `<span>Waiting for you <span class="muted">· ${s.pending} question${s.pending === 1 ? "" : "s"} under Issues</span></span>`;
   else html = `<span class="muted">Session attached, nothing running.</span>`;

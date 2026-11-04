@@ -357,7 +357,10 @@ pre.tree-text { font-size: 12px; line-height: 1.35; }
 .menu.issues .menu-body { max-height: 40vh; overflow: auto; }
 .menu.issues .menu-head .pill { margin-left: 2px; }
 .next-for-you { margin: 0 0 6px; font-size: 12px; line-height: 1.35; }
-.session-live { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 7px 12px; font-size: 12.5px; line-height: 1.4; border-bottom: 1px solid var(--line); }
+.session-live { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 7px 12px; font-size: 12.5px; line-height: 1.4; border-bottom: 1px solid var(--line); }
+.session-live .live-toggle { display: inline-flex; align-items: center; gap: 6px; }
+.session-live .live-list { margin: 2px 0 0 6px; padding-left: 14px; font-size: 12px; }
+.session-live .live-list li { margin: 2px 0; }
 .session-live .spin { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent); border-top-color: transparent; animation: hc-spin 1s linear infinite; flex: none; }
 .pending-line { margin: 0 0 6px; font-size: 12px; line-height: 1.35; }
 .pending-line a { color: var(--fg); font-family: var(--mono); font-size: 11px; text-decoration: none; }
