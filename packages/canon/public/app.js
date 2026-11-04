@@ -240,7 +240,7 @@ function buildGraph(selectedId) {
     const n = nodes[id];
     const hidden = n.children.filter((c) => !show.has(c)).length;
     elements.push({ data: { id, label: `${id}
-${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: `${id === selectedId ? "selected" : ""} ${n.state === "open" ? "draft" : ""}` });
+${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: `${id === selectedId ? "selected" : ""} ${n.state === "open" ? "draft" : ""} ${n.kind ? "done" : ""}` });
   }
   const edge = (s, t, kind) => elements.push({ data: { id: `${kind}:${s}>${t}`, source: s, target: t, kind, label: kind === "contains" ? "" : kind }, classes: kind });
   for (const id of show) {
@@ -259,6 +259,7 @@ ${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: `${id ==
       { selector: "node", style: { shape: "round-rectangle", width: 180, height: 56, label: "data(label)", "text-wrap": "wrap", "text-max-width": 164, "font-size": 11, "text-valign": "center", "text-halign": "center", "background-color": (e) => fill[e.data("state")] ?? "#eee", "border-color": (e) => line[e.data("state")] ?? "#999", "border-width": 1.5, color: "#1f2937" } },
       { selector: "node.selected", style: { "border-width": 4 } },
       { selector: "node.draft", style: { "border-style": "dashed" } },
+      { selector: "node.done", style: { "border-style": "double", "border-width": 3 } },
       { selector: "edge", style: { width: 1.5, "curve-style": "bezier", "line-color": dark ? "#6b7280" : "#9ca3af", "target-arrow-shape": "triangle", "target-arrow-color": dark ? "#6b7280" : "#9ca3af", "arrow-scale": 0.9, label: "data(label)", "font-size": 9, color: dark ? "#cbd5e1" : "#475569", "text-background-color": dark ? "#171b21" : "#ffffff", "text-background-opacity": 1, "text-background-padding": "2px" } },
       { selector: "edge.requires", style: { "line-style": "dashed", "line-color": "#2563eb", "target-arrow-color": "#2563eb" } },
       { selector: "edge.relates", style: { "line-style": "dotted", "target-arrow-shape": "none", "line-color": "#7c3aed" } },
@@ -946,7 +947,7 @@ function buildAdoptCanvas() {
   // A closed circle shows its number; a long number gets a smaller font, the circle never grows.
   const shortOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? "" : id.replace(/^(REQ|PRN)-/, ""));
   const fsOf = (short) => (short.length <= 3 ? 10 : short.length <= 5 ? 8 : short.length <= 7 ? 6.5 : 5.5);
-  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${node(id)?.state === "open" ? "draft" : ""} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
+  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${node(id)?.state === "open" ? "draft" : ""} ${node(id)?.kind ? "done" : ""} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
   const elementsFor = (show) => {
     const shown = new Set(show);
     const out = [];
@@ -970,6 +971,7 @@ function buildAdoptCanvas() {
       { selector: "node.yellow", style: { "background-color": "#4a3306", "border-color": "#f59e0b" } },
       { selector: "node.red", style: { "background-color": "#4c1414", "border-color": "#ef4444" } },
       { selector: "node.draft", style: { "border-style": "dashed" } },
+      { selector: "node.done", style: { "border-style": "double", "border-width": 3 } },
       { selector: "node.premise", style: { shape: "hexagon", width: 44, height: 40 } },
       { selector: "node.principles", style: { shape: "octagon", width: 40, height: 40 } },
       { selector: "node.prn", style: { shape: "diamond", width: 22, height: 22 } },
@@ -1392,7 +1394,17 @@ function buildAdoptCanvas() {
     laneLines();
     place();
   };
-  const levelName = (d) => (d === 0 ? "premise" : d === 1 ? "domains" : d === 2 ? "capabilities" : d === 3 ? "requirements" : "level " + d);
+  // Columns and lanes are named by the layer the boxes at that depth carry, never by the depth alone: nested
+  // requirements stay requirements, numbered, and a project without a domain layer starts with capabilities.
+  const PLURAL = { domain: "domains", capability: "capabilities", requirement: "requirements" };
+  const levelName = (d) => {
+    if (d === 0) return "premise";
+    const at = Object.values(snap.canon.nodes).filter((n) => n.depth === d - 1);
+    if (!at.length) return `level ${d}`;
+    const layer = Object.keys(PLURAL).map((l) => [l, at.filter((n) => n.layer === l).length]).sort((a, b) => b[1] - a[1])[0][0];
+    const first = Math.min(...Object.values(snap.canon.nodes).filter((n) => n.layer === layer).map((n) => n.depth)) + 1;
+    return d > first ? `${PLURAL[layer]} ${d - first + 1}` : PLURAL[layer];
+  };
   const laneLines = () => {
     for (const old of overlay.querySelectorAll(".lane")) old.remove();
     if (adoptState.mode === "dendro") {
@@ -1461,7 +1473,7 @@ function buildAdoptCanvas() {
       <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" data-views="lanes" title="Sort each lane to untangle the lines">Order</button>
       <button class="btn small" data-fit="1" data-views="lanes radial dendro" title="Bring everything into view">Fit</button>
       <button class="btn small" data-expand-all="1" data-views="lanes dendro" title="Open every box down to the leaves">Show all</button>
-      <p class="menu-hint">Double-click a box to open it. The handle beside it shows its children. Drag to pan, wheel to zoom.</p>
+      <p class="menu-hint">Double-click a box to open it. The handle beside it shows its children; a double border is a leaf with its check, which branches no further. Drag to pan, wheel to zoom.</p>
     </div>`;
   el.appendChild(menu);
   for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) menu.addEventListener(ev, (e) => e.stopPropagation());
