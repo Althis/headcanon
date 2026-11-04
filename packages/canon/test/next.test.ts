@@ -109,6 +109,19 @@ describe("refinement order [REQ-3.15]", () => {
     expect(describeNext(order, canon)).toContain("For the human: approve REQ-1 (releases 2 boxes, then 1 more can be cut); settle REQ-3 (open; 1 wait on it)");
   });
 
+  it("lifts the reach once the adoption is finished: nothing waits, the cutting runs to the leaves", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-finished-"));
+    dirs.push(dir);
+    writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"R\"\nstate: assumed\n---\n\n# R\n");
+    node(dir, "REQ-1", "");
+    expect(refinementOrder(loadCanon(dir)).waiting.map((w) => w.id)).toEqual(["REQ-1"]);
+    mkdirSync(join(dir, "decisions"), { recursive: true });
+    writeFileSync(join(dir, "decisions", "DEC-001-adoption-scope.md"), "---\nid: DEC-001\ntitle: \"Adoption scope\"\nstate: resolved\n---\n\n# Adoption scope\n");
+    const order = refinementOrder(loadCanon(dir));
+    expect(order.waiting).toEqual([]);
+    expect(order.ready.map((r) => r.id)).toEqual(["REQ-1"]);
+  });
+
   it("reports a cycle as an error and a deadlock as a warning", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-cycle-"));
     dirs.push(dir);

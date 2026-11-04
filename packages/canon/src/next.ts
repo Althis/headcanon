@@ -43,6 +43,11 @@ export interface Reach {
   reach: number;
 }
 
+/** The adoption is finished: its scope record exists. The human's window is over, and so is the reach rule (DEC-020). */
+export function adoptionFinished(canon: Canon): boolean {
+  return canon.decisions.some((d) => d.id === "DEC-001" || /adoption-scope/.test(d.file));
+}
+
 export function reachOf(canon: Canon, n: ReqNode): Reach {
   // a canon without a root README has nothing above the domains to approve
   let anchorLevel = !canon.root || approved(canon.root.state) ? 0 : -1;
@@ -50,7 +55,8 @@ export function reachOf(canon: Canon, n: ReqNode): Reach {
   for (let p: ReqNode | undefined = n; p; p = p.parent ? canon.nodes[p.parent] : undefined) {
     if (approved(p.state) && p.depth + 1 > anchorLevel) { anchorLevel = p.depth + 1; anchor = p.id; }
   }
-  return { level: n.depth + 1, anchor, reach: anchorLevel + LOOKAHEAD };
+  // after Finish the drafting runs to the leaves, every box assumed, and the human reviews on the fly (DEC-020)
+  return { level: n.depth + 1, anchor, reach: adoptionFinished(canon) ? Number.POSITIVE_INFINITY : anchorLevel + LOOKAHEAD };
 }
 
 /** The box may be cut now: its children would lie within reach. */
