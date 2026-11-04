@@ -199,9 +199,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       title: "Say something to the human in the page's chat",
       description:
         "Posts a line from you into the HeadCanon viewer's chat, where the human reads it beside the canvas. Use it to explain a passage they asked about, to summarize what you changed after their edit, to say what is still red and where to start, and to end a working spell: the page shows a working indicator from the human's last action until your next say or question. One or two sentences; the chat is not a report.",
-      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it."), to: z.enum(["human", "history"]).optional().describe("'human' when the line asks something of the human or needs their eyes now (a key point); it lands in their chat. Otherwise it is a report of what you did and goes to the page's history.") },
+      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it."), to: z.enum(["human", "history"]).optional().describe("'human' when the line asks something of the human or needs their eyes now (a key point); it lands in their chat. Otherwise it is a report of what you did and goes to the page's history."), doing: z.array(z.string()).optional().describe("What is running right now, one entry per box being cut or verified, e.g. 'cutting REQ-3.7 Combat', 'verifying REQ-8.5'; an empty list when nothing runs. The page shows it as your live status, so pass it on every say.") },
     },
-    async ({ text: line, nodeId, to }) => text(await api(base, "/api/say", { method: "POST", body: JSON.stringify({ text: line, nodeId, to }) })),
+    async ({ text: line, nodeId, to, doing }) => text(await api(base, "/api/say", { method: "POST", body: JSON.stringify({ text: line, nodeId, to, doing }) })),
   );
 
   server.registerTool(

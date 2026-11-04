@@ -108,7 +108,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const q = session.current();
     const rev = canonRev(canonDir);
     if (rev !== undefined) canonRevLast.set(canonDir, rev);
-    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queuedFull().map(presentQuestion), focus: session.focus(), cursor: session.changes().cursor, rev: canonRevLast.get(canonDir) ?? "", agentSeenAgo: agentSeenAt.has(canonDir) ? Math.round((Date.now() - agentSeenAt.get(canonDir)!) / 1000) : null });
+    return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queuedFull().map(presentQuestion), focus: session.focus(), cursor: session.changes().cursor, doing: session.doing, rev: canonRevLast.get(canonDir) ?? "", agentSeenAgo: agentSeenAt.has(canonDir) ? Math.round((Date.now() - agentSeenAt.get(canonDir)!) / 1000) : null });
   }
   if (p === "/api/ask" && method === "POST") {
     const body = (await readJson(req)) as AskRequest;
@@ -154,8 +154,9 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   }
   // The session speaks to the human: a line in the page's chat, optionally about a node.
   if (p === "/api/say" && method === "POST") {
-    const body = (await readJson(req)) as { text?: string; nodeId?: string; to?: string };
+    const body = (await readJson(req)) as { text?: string; nodeId?: string; to?: string; doing?: string[] };
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
+    if (Array.isArray(body.doing)) session.setDoing(body.doing);
     return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId, to: body.to === "human" ? "human" : undefined }));
   }
   if (p === "/api/withdraw" && method === "POST") {

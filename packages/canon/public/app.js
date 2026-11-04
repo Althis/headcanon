@@ -708,6 +708,7 @@ async function pollSession() {
     renderIssues(s);
     for (const q of s.queue ?? []) if (q.nodeId && pendingNodes.has(q.nodeId)) clearPending(q.nodeId);
     renderIssues(s); // every poll: what is pending, prepared or live changes with time; the key guard keeps the DOM still
+    renderLive(s);
     // A question that vanished under an open card: the session replaced it, withdrew it, or it was answered elsewhere.
     // The card shows the replacement on the same box, or says the question is gone; typed words are kept in sight.
     const shownKey = $question.dataset.issue;
@@ -739,7 +740,7 @@ async function pollSession() {
         const was = snap;
         if (await load().then(() => true).catch(() => false)) {
           const changes = canonDiff(was, snap).filter((e) => !named.has(e.id));
-          for (const e of changes) clearPending(e.id);
+          for (const e of changes) { clearPending(e.id); recentChanges.push({ id: e.id, at: Date.now() }); }
           if (changes.length) { appendChat(changes); chime(); }
           if (route().view === "adopt") { if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
           else if (route().view !== "tree" && route().view !== "node") render();
@@ -760,6 +761,28 @@ const paintPending = (id) => { const c = window.__cy; if (c) { const n = c.getEl
 const markPending = (id, why) => { if (id) { pendingNodes.set(id, { since: Date.now(), why }); paintPending(id); } };
 const clearPending = (id) => { if (id && pendingNodes.delete(id)) { paintPending(id); renderIssues(lastSession); } };
 const agentLive = (s) => typeof s?.agentSeenAgo === "number" && s.agentSeenAgo < 900;
+// Boxes the session wrote on disk in the last minutes, for the live status when it has not said what it is doing.
+let recentChanges = [];
+// The session's live status at the top of the panel: what it says it is running, else what the page sees appearing
+// on disk, else whether a session is attached at all.
+function renderLive(s) {
+  const el = document.getElementById("session-live");
+  if (!el) return;
+  const now = Date.now();
+  recentChanges = recentChanges.filter((c) => now - c.at < 3 * 60000);
+  const ago = (ms) => { const sec = Math.max(0, Math.round(ms / 1000)); return sec < 60 ? `${sec} s ago` : `${Math.round(sec / 60)} min ago`; };
+  const saidAt = s?.doing ? new Date(s.doing.at).getTime() : 0;
+  const doing = s?.doing && now - saidAt < 15 * 60000 ? s.doing.items : [];
+  let html;
+  if (!agentLive(s)) html = `<span class="muted">No session attached to this page.</span>`;
+  else if (doing.length) html = `<span class="spin"></span><span>${doing.map((d) => linkIds(d)).join(" <span class=\"muted\">·</span> ")} <span class="muted">· said ${ago(now - saidAt)}</span></span>`;
+  else if (recentChanges.length) { const under = [...new Set(recentChanges.map((c) => node(c.id)?.parent ?? c.id))].slice(0, 4); html = `<span class="spin"></span><span>Writing under ${under.map((u) => linkIds(u)).join(", ")} <span class="muted">· last change ${ago(now - recentChanges[recentChanges.length - 1].at)}</span></span>`; }
+  else if (working) html = `<span class="spin"></span><span>Working since your last action <span class="muted">· ${esc(elapsed())}</span></span>`;
+  else if (s?.pending) html = `<span>Waiting for you <span class="muted">· ${s.pending} question${s.pending === 1 ? "" : "s"} under Issues</span></span>`;
+  else html = `<span class="muted">Session attached, nothing running.</span>`;
+  if (el.innerHTML !== html) el.innerHTML = html;
+  el.hidden = false;
+}
 const elapsed = () => { const s = Math.floor((Date.now() - (working?.since ?? Date.now())) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
 function showWorking(what) {
   if (!working) working = { since: Date.now(), answer: "" };
@@ -1963,6 +1986,10 @@ function canonDiff(was, now) {
   const a = was.canon.nodes, b = now.canon.nodes;
   for (const id of Object.keys(b)) { if (!a[id]) line("node-created", id, `${id} appeared on disk · ${b[id].title}`); else if (was.html[id] !== now.html[id] || a[id].title !== b[id].title || a[id].state !== b[id].state) line("node-edited", id, `${id} changed on disk${a[id].state !== b[id].state ? `, now ${b[id].state}` : ""} · ${b[id].title}`); }
   for (const id of Object.keys(a)) if (!b[id]) line("node-deleted", id, `${id} gone from disk · ${a[id].title}`);
+  // a refiner's set appears as one line under its parent, not one per box
+  const byParent = new Map();
+  for (const e of out) if (e.kind === "node-created" && b[e.id]) { const p = b[e.id].parent ?? "ROOT"; (byParent.get(p) ?? byParent.set(p, []).get(p)).push(e); }
+  for (const [p, list] of byParent) if (list.length >= 3) { out.splice(out.indexOf(list[0]), 0, { kind: "node-created", id: p, text: `${list.length} boxes appeared under ${p}${b[p] ? ` · ${b[p].title}` : ""}: ${list.map((e) => e.id).join(", ")}`, at }); for (const e of list) out.splice(out.indexOf(e), 1); }
   const sets = [["principle", byId(was.canon.principles), byId(now.canon.principles), (p) => p.title, (p) => `${p.title}|${p.statement ?? p.text ?? ""}|${p.state}`], ["term", byId(was.canon.terms), byId(now.canon.terms), (t) => t.term, (t) => `${t.term}|${t.definition}|${t.state}`], ["decision", byId(was.canon.decisions), byId(now.canon.decisions), (d) => d.title, (d) => `${d.title}|${d.state ?? ""}`]];
   for (const [what, x, y, name, sig] of sets) {
     for (const id of Object.keys(y)) { if (!x[id]) line("node-created", id, `${what} ${id} added on disk · ${name(y[id])}`); else if (sig(x[id]) !== sig(y[id])) line("node-edited", id, `${what} ${id} changed on disk · ${name(y[id])}`); }

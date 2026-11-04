@@ -231,6 +231,12 @@ export class SessionState {
     this.focusSeq++;
   }
 
+  /** What the session says it is running right now; the page shows it as its live status. */
+  doing: { items: string[]; at: string } | undefined = undefined;
+  setDoing(items: string[]): void {
+    this.doing = { items: items.map(String).filter(Boolean).slice(0, 12), at: new Date().toISOString() };
+  }
+
   focus(): { id: string | undefined; seq: number; open: boolean } {
     return { id: this.focusId, seq: this.focusSeq, open: this.focusOpen };
   }

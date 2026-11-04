@@ -192,4 +192,10 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((x) => x.id === q)).toBe(false);
     expect((await send("/api/withdraw", {})).status).toBe(400);
   });
+  it("keeps what the session says it is doing, for the page's live status", async () => {
+    expect((await send("/api/say", { text: "Cutting two boxes.", doing: ["cutting REQ-1.1", "verifying REQ-2"] })).status).toBe(200);
+    const d = (await get("/api/session"))["doing"] as { items: string[]; at: string };
+    expect(d.items).toEqual(["cutting REQ-1.1", "verifying REQ-2"]);
+    expect(typeof d.at).toBe("string");
+  });
 });
