@@ -4,7 +4,7 @@ const UNCONFIRMED = new Set(["assumed", "open", "contested"]);
 
 const $main = document.getElementById("main");
 let snap = null;
-const ui = { collapsed: new Set(), filters: new Set(), flaggedOnly: false, query: "", levels: new Set(["error", "warn"]), graph: true };
+const ui = { collapsed: new Set(), filters: new Set(), flaggedOnly: false, query: "", levels: new Set(["error", "warn"]), graph: true, glossary: { q: "", sort: "term", dir: 1 } };
 try { ui.graph = localStorage.getItem("hc-tree-mode") !== "list"; } catch {}
 
 // ---------------------------------------------------------------- helpers
@@ -411,16 +411,29 @@ function decisions(focus) {
   return `<h1>Decisions</h1><p class="lede">Short-term implementation choices, each linked to the intent it serves. A decision with an origin is a caught divergence.</p>
     <table class="list"><thead><tr><th>ID</th><th>Decision</th><th>State</th><th>Origin</th><th>Serves</th><th>Date</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+// A term matches the search when the words typed appear in its term, id or definition.
+const termMatches = (t, q) => !q || `${t.term} ${t.id} ${t.definition}`.toLowerCase().includes(q.toLowerCase());
 function glossary() {
   const green = (t) => t.state === "stated" || t.state === "resolved";
+  const g = ui.glossary, rank = { open: 0, contested: 1, assumed: 2, stated: 3, resolved: 4 };
+  const keyOf = (t) => (g.sort === "state" ? rank[t.state] ?? 9 : g.sort === "id" ? t.id.toLowerCase() : t.term.toLowerCase());
+  const terms = [...snap.canon.terms].sort((a, b) => { const x = keyOf(a), y = keyOf(b); return (x < y ? -1 : x > y ? 1 : 0) * g.dir; });
+  const th = (key, label) => `<th><a href="#" data-gsort="${key}" title="Sort by ${label.toLowerCase()}">${label}${g.sort === key ? ` <span class="muted">${g.dir > 0 ? "▲" : "▼"}</span>` : ""}</a></th>`;
   return `<h1>Glossary</h1><p class="lede">What the human means when they say X. A term is the session's guess until you approve it, rewrite it in your words, or delete it.</p>
-    <table class="list glossary"><thead><tr><th>Term</th><th>ID</th><th>Definition</th><th></th></tr></thead><tbody>
-    ${snap.canon.terms.map((t) => `<tr data-term="${esc(t.id)}"><td><b>${esc(t.term)}</b><div>${badge(t.state)}</div></td><td class="id">${esc(t.id)}</td><td class="def">${esc(t.definition)}</td><td class="acts"><span class="row">${green(t) ? "" : `<button class="btn small primary" data-term-approve="${esc(t.id)}" title="Keep it as written; it becomes approved by you">Approve</button>`}<button class="btn small" data-term-edit="${esc(t.id)}" title="Say it in your own words">Rewrite</button><button class="btn small" data-term-delete="${esc(t.id)}">Delete</button></span></td></tr>`).join("")}
+    <p class="toolbar"><input id="g-q" type="search" placeholder="Search the terms…" value="${esc(g.q)}" /> <span class="muted" id="g-count"></span></p>
+    <table class="list glossary"><thead><tr>${th("term", "Term")}${th("id", "ID")}<th>Definition</th>${th("state", "State")}</tr></thead><tbody>
+    ${terms.map((t) => `<tr data-term="${esc(t.id)}" data-search="${esc(`${t.term} ${t.id} ${t.definition}`.toLowerCase())}" ${termMatches(t, g.q) ? "" : "hidden"}><td><b>${esc(t.term)}</b><div>${badge(t.state)}</div></td><td class="id">${esc(t.id)}</td><td class="def">${esc(t.definition)}</td><td class="acts"><span class="row">${green(t) ? "" : `<button class="btn small primary" data-term-approve="${esc(t.id)}" title="Keep it as written; it becomes approved by you">Approve</button>`}<button class="btn small" data-term-edit="${esc(t.id)}" title="Say it in your own words">Rewrite</button><button class="btn small" data-term-delete="${esc(t.id)}">Delete</button></span></td></tr>`).join("")}
     </tbody></table>`;
 }
 // The glossary's rows act like boxes: approve, rewrite in place, delete; each reaches the session as a change.
 function wireGlossary() {
   const after = async (what) => { await load(); render(); startWorking(what); };
+  // the search filters the rows in place, so typing never redraws the page; the sort redraws once
+  const q = $main.querySelector("#g-q"), count = $main.querySelector("#g-count");
+  const applySearch = () => { const needle = (q?.value ?? "").toLowerCase(); ui.glossary.q = q?.value ?? ""; let shown = 0; for (const tr of $main.querySelectorAll("tr[data-term]")) { const hit = !needle || tr.dataset.search.includes(needle); tr.hidden = !hit; if (hit) shown++; } if (count) count.textContent = needle ? `${shown} of ${snap.canon.terms.length}` : `${snap.canon.terms.length} terms`; };
+  q?.addEventListener("input", applySearch);
+  applySearch();
+  for (const a of $main.querySelectorAll("[data-gsort]")) a.addEventListener("click", (e) => { e.preventDefault(); const key = a.dataset.gsort; if (ui.glossary.sort === key) ui.glossary.dir = -ui.glossary.dir; else { ui.glossary.sort = key; ui.glossary.dir = 1; } render(); });
   for (const b of $main.querySelectorAll("[data-term-approve]")) b.addEventListener("click", async () => { const id = b.dataset.termApprove; try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); after(`you approved ${id}`); } catch (e) { showToast(e); } });
   for (const b of $main.querySelectorAll("[data-term-delete]")) b.addEventListener("click", async () => { const id = b.dataset.termDelete; if (!confirm(`Delete ${id}? The session re-reads the boxes that use the word.`)) return; try { await fetch(`/api/node/${encodeURIComponent(id)}`, { method: "DELETE" }); after(`you deleted ${id}`); } catch (e) { showToast(e); } });
   for (const b of $main.querySelectorAll("[data-term-edit]")) b.addEventListener("click", () => {
@@ -743,7 +756,7 @@ async function pollSession() {
           for (const e of changes) { clearPending(e.id); recentChanges.push({ id: e.id, at: Date.now() }); }
           if (changes.length) { appendChat(changes); chime(); }
           if (route().view === "adopt") { if ($popup.hidden) render(); else { const strip = $main.querySelector(".progress"); if (strip) strip.outerHTML = progressStrip(); } }
-          else if (route().view !== "tree" && route().view !== "node") render();
+          else if (route().view !== "tree" && route().view !== "node" && !$main.querySelector("#term-save, #edit-text") && document.activeElement?.id !== "g-q") render();
           checkConflict();
           renderIssues(s);
         }
