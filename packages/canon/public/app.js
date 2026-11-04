@@ -930,8 +930,7 @@ function colorOf(id) {
   const n = node(id);
   if (!n) return "yellow";
   if (n.state === "open" || n.state === "contested") return "red";
-  // a finding about the branch under a box (branch-unconfirmed) is the normal state of a draft and never paints the box itself
-  if (findingsFor(id).some((f) => f.level !== "info" && f.code !== "branch-unconfirmed")) return "red";
+  // red is an issue for the human, a draft or a contested box; a finding is the session's to fix and never paints a box
   return n.state === "stated" || n.state === "resolved" ? "green" : "yellow";
 }
 function ensureExpanded() {

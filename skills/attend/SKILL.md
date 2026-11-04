@@ -8,7 +8,7 @@ when_to_use: "The viewer is open and the human is working in it; adopt has draft
 
 `HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The page's tools: `headcanon_changes` with `waitSeconds` waits for the human's next action; `headcanon_say` speaks in the chat and ends the page's working indicator, so every action of yours ends with one; `headcanon_focus` highlights a box on the canvas, and nothing of yours opens a card, the human does; `headcanon_ask` asks when a choice needs options (adopt/reference.md section 6); `headcanon_withdraw` takes a question of yours back. The `refiner` agent (`headcanon:refiner`) cuts one node in draft in a context of its own; you never cut a node in this one. Entries follow the adopt skill's Entries and Guessing rules; what the human types in the page is stated.
 
-Colours on the canvas, where a box is a node as the canvas shows it: green is approved by the human, yellow is your guess, red needs them before adoption can finish: an `open` node, a `contested` node, or one with a finding. Red is yours to explain, never to clear by approving.
+Colours on the canvas, where a box is a node as the canvas shows it: green is approved by the human, yellow is your guess, red is an issue for them, a draft (`open`) or a `contested` box; a finding is yours to fix and never paints a box. Red is yours to explain, never to clear by approving.
 
 ## Knobs
 
