@@ -12,7 +12,7 @@ Colours on the canvas, where a box is a node as the canvas shows it: green is ap
 
 ## Knobs
 
-The human's window, about a quarter of an hour. Refiners at once, four. The reach, two levels below the deepest approved box, `HC next`'s rule. The wait for the human's next action, 600 seconds.
+The human's window, about a quarter of an hour. Refiners at once, four. The reach, four levels below the deepest approved box, `HC next`'s rule (DEC-023). The wait for the human's next action, 600 seconds.
 
 ## Rules
 

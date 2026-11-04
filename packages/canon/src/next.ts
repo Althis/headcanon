@@ -31,7 +31,7 @@ export interface Blocked {
  * children would lie within that reach: before the premise is approved only the domains are drafted, with it
  * the capabilities, and every approval below moves the frontier down under that box and nowhere else.
  */
-export const LOOKAHEAD = 2;
+export const LOOKAHEAD = 4;
 const approved = (state: State | undefined): boolean => state === "stated" || state === "resolved";
 
 export interface Reach {
