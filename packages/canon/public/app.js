@@ -757,17 +757,20 @@ function showWorking(what) {
 // One card for every issue: the node's title, the question, a short summary, the options to pick from with
 // "Write it yourself" as the last, and Answer at the bottom. `onAnswer` gets the picked options' indices, or the
 // typed text. `change` names the node the decision rewrites, with each option's resulting text.
-// The path above a box, premise first, so a card says where the box sits in the tree; each crumb focuses its box.
-function pathHtml(id) {
+// The path to a box as a card's head: the premise, each ancestor and the box itself, buttons with a slash between.
+// A click focuses the box on the canvas; a double click opens its node card beside the issue card.
+function crumbsHtml(id) {
   const crumbs = [];
-  for (let p = node(id)?.parent; p; p = node(p)?.parent) { const n = node(p); if (!n) break; crumbs.unshift({ id: p, title: n.title }); }
+  for (let p = id; p; p = node(p)?.parent) { const n = node(p); if (!n) break; crumbs.unshift({ id: p, title: n.title }); }
   if (snap.canon.root) crumbs.unshift({ id: "ROOT", title: snap.canon.root.title });
-  if (!crumbs.length) return "";
-  const cut = (t) => (t.length > 48 ? t.slice(0, 46).trimEnd() + "…" : t);
-  return `<p class="path">${crumbs.map((c) => `<a href="#" data-path="${esc(c.id)}" title="${esc(c.title)}"><span class="id">${esc(c.id === "ROOT" ? "premise" : c.id)}</span> ${esc(cut(c.title))}</a>`).join(`<span class="sep">›</span>`)}</p>`;
+  return `<span class="crumbs">${crumbs.map((c) => `<button class="btn small crumb" data-path="${esc(c.id)}" title="${esc(c.title)}">${esc(c.id === "ROOT" ? "premise" : c.id)}</button>`).join(`<span class="slash">/</span>`)}</span>`;
 }
-function wirePath(where) {
-  for (const a of where.querySelectorAll("a[data-path]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = a.dataset.path; if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); else location.hash = id === "ROOT" ? "#/" : `#/node/${id}`; });
+function wireCrumbs(where) {
+  for (const b of where.querySelectorAll("button[data-path]")) {
+    const id = b.dataset.path;
+    b.addEventListener("click", () => { if (document.body.classList.contains("adopt-mode")) focusOnCanvas(id, false, true); else location.hash = id === "ROOT" ? "#/" : `#/node/${id}`; });
+    b.addEventListener("dblclick", (e) => { e.preventDefault(); openPopup(id); });
+  }
 }
 function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options, multi, more, change, onAnswer }) {
   const type = multi ? "checkbox" : "radio";
@@ -777,8 +780,7 @@ function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options
   $question.dataset.nodeId = nodeId ?? "";
   $question.innerHTML = `
     ${more ?? ""}
-    <div class="q-head"><span class="badge kind">${esc(badge)}</span>${nodeId ? ` ${idLink(nodeId)}` : ""}${target ? ` <button class="btn small" id="iss-show" title="Select the node on the canvas and bring it into view">${draft ? "Focus the draft node" : "Focus the node"}</button> <button class="btn small" id="iss-card" title="Open the node">Open the node</button>` : ""}</div>
-    ${target && !target.startsWith("PRN-") ? pathHtml(target) : ""}
+    <div class="q-head">${target && !target.startsWith("PRN-") ? crumbsHtml(target) : nodeId ? idLink(nodeId) : ""} <span class="badge kind">${esc(badge)}</span>${target ? ` <button class="btn small" id="iss-card" title="Open the node card beside this one">Open the node</button>` : ""}</div>
     ${title ? `<h2 class="q-title">${esc(title)}</h2>` : ""}
     ${questionHtml ? `<p class="q-question"><strong>${questionHtml}</strong></p>` : ""}
     ${summaryHtml ? `<div class="q-body body">${summaryHtml}</div>` : ""}
@@ -787,15 +789,14 @@ function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options
     <div id="q-free" ${options.length ? "hidden" : ""}><textarea id="q-other" rows="3" placeholder="Your own words, or a correction."></textarea></div>
     ${change ? `<p class="q-change"><b>This changes ${esc(change.nodeId)} · ${esc(change.title)}.</b> It will read: <em id="q-change-text"></em></p>` : ""}
     <div class="row"><button class="btn primary" id="q-submit">Answer</button><span class="sub" id="q-hint"></span></div>`;
-  wirePath($question);
+  wireCrumbs($question);
   const free = $question.querySelector("#q-free"), writeBox = $question.querySelector('input[name=opt][value="write"]'), textarea = $question.querySelector("#q-other");
   const preview = () => { const el = $question.querySelector("#q-change-text"); if (!el || !change) return; const picked = $question.querySelector("input[name=opt]:checked"); el.textContent = writeBox.checked ? (textarea.value.trim() || "what you write above") : picked ? change.texts[Number(picked.value)] ?? "" : "…"; };
   const sync = () => { free.hidden = !writeBox.checked; if (writeBox.checked) textarea.focus(); preview(); };
   for (const i of $question.querySelectorAll("input[name=opt]")) i.addEventListener("change", sync);
   textarea.addEventListener("input", preview);
   if (!options.length) sync(); else preview();
-  $question.querySelector("#iss-show")?.addEventListener("click", () => { if (document.body.classList.contains("adopt-mode") && !target.startsWith("PRN-")) focusOnCanvas(target, false, true); });
-  $question.querySelector("#iss-card")?.addEventListener("click", () => { $issueCard.hidden = true; openPopup(target); });
+  $question.querySelector("#iss-card")?.addEventListener("click", () => openPopup(target));
   $question.querySelector("#q-submit").addEventListener("click", () => {
     const write = writeBox.checked, text = textarea.value.trim();
     const picked = write ? [] : [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => Number(i.value));
@@ -815,7 +816,7 @@ function renderQuestion(q, pending = 1) {
   const label = q.header && q.header !== q.nodeId ? q.header : "";
   // an option reads as ID, title, then description; the ID links to the node's page when the node exists
   const options = q.options.map((o) => { const m = /^((?:REQ|JRN|DEC|PRN|TERM)-\S+)\s+(.+)$/.exec(o.label); return { labelHtml: m ? `${idLink(m[1])} <b>${esc(m[2])}</b>` : `<b>${esc(o.label)}</b>`, descHtml: o.html ?? (o.description ? esc(o.description) : "") }; });
-  questionCard({ badge: label || "Question", nodeId: q.nodeId, title, questionHtml: "", summaryHtml: `${q.html}${q.why ? `<p class="sub">Why it matters: ${esc(q.why)}</p>` : ""}`, options, multi: q.multiSelect, more: `${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}${pending > 1 ? `<p class="sub">${pending - 1} more after this.</p>` : ""}`, onAnswer: ({ picked, text }) => submitAnswer(q, picked, text) });
+  questionCard({ badge: label || "Question", nodeId: q.nodeId, title, questionHtml: "", summaryHtml: `${q.html}${q.why ? `<p class="sub">Why it matters: ${esc(q.why)}</p>` : ""}`, options, multi: q.multiSelect, more: `${q.notice ? `<p class="notice"><b>Note from the session:</b> ${esc(q.notice)}</p>` : ""}`, onAnswer: ({ picked, text }) => submitAnswer(q, picked, text) });
   $question.dataset.label = label || q.nodeId || "Question";
   renderTermRows(q);
   for (const span of $question.querySelectorAll(".jargon")) {
@@ -1734,8 +1735,7 @@ function openPopup(id) {
   if (statements.length >= 2) mainHtml = stripHtmlSection(mainHtml, "Contested");
   if (deferredHtml) mainHtml = stripHtmlSection(mainHtml, "Deferred");
   $popup.innerHTML = `
-    <div class="popup-head"><span class="id">${esc(id)}</span> ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
-    ${isRoot || prn ? "" : pathHtml(id)}
+    <div class="popup-head">${isRoot || prn ? `<span class="id">${esc(id)}</span>` : crumbsHtml(id)} ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>
     ${state === "contested" ? (conflictSummary ? `<p class="conflict-summary">${conflictSummary}</p>` : `<p class="conflict-summary muted">No summary of the contradiction yet. <button class="btn small" id="pp-explain">Ask the session to explain</button></p>`) : ""}
     ${panes.length ? `<div class="pp-tabs"><button class="btn small on" data-pane="-1">Intent</button>${panes.map((p, i) => `<button class="btn small" data-pane="${i}">${esc(p.label)}</button>`).join("")}</div>` : ""}
@@ -1757,7 +1757,7 @@ function openPopup(id) {
   $popup.dataset.id = id;
   if (wasHidden) centerPopup();
   wirePopupMoves();
-  wirePath($popup);
+  wireCrumbs($popup);
   $popup.querySelector("#pp-close").addEventListener("click", () => { if (editingDraft() && !confirm("Discard your rewrite?")) return; closePopup(); });
   for (const b of $popup.querySelectorAll(".pp-tabs button")) b.addEventListener("click", () => { const k = b.dataset.pane; for (const o of $popup.querySelectorAll(".pp-tabs button")) o.classList.toggle("on", o === b); $popup.querySelector("#pp-body").hidden = k !== "-1"; for (const pane of $popup.querySelectorAll(".pp-pane")) pane.hidden = pane.dataset.pane !== k; });
   $popup.querySelector("#pp-explain")?.addEventListener("click", async () => { try { await post("/api/message", { text: `Explain the contradiction in ${id} in one or two sentences: what the two statements cannot both hold, and what choosing decides. Record it as the first paragraph under its Contested heading.`, nodeId: id }); startWorking(`you asked for an explanation of ${id}`); } catch (e) { showToast(e); } });
@@ -1875,6 +1875,12 @@ function centerPopup() {
   $popup.style.height = "";
   const h = Math.min($popup.offsetHeight, area.height - 40);
   $popup.style.height = `${h}px`;
+  if (!$issueCard.hidden) {
+    // one issue card and one node card stand together: the node card goes beside the issue card where there is room
+    const r = $issueCard.getBoundingClientRect(), right = window.innerWidth - r.right - 20, leftRoom = r.left - 20;
+    const side = right >= 320 ? "right" : leftRoom >= 320 ? "left" : null;
+    if (side) { const pw = Math.min(w, side === "right" ? right : leftRoom); $popup.style.width = `${pw}px`; $popup.style.left = `${side === "right" ? r.right + 12 : r.left - pw - 12}px`; $popup.style.top = `${r.top}px`; return; }
+  }
   $popup.style.left = `${Math.max(8, area.left + (area.width - w) / 2)}px`;
   $popup.style.top = `${Math.max(60, area.top + (area.height - h) / 2)}px`;
 }
