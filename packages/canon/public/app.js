@@ -979,6 +979,7 @@ function buildAdoptCanvas() {
       { selector: "node.premise.labelled, node.principles.labelled", style: { shape: "round-rectangle", width: 200, height: 60 } },
       { selector: "node.prn.labelled", style: { shape: "round-rectangle", width: 170, height: 48 } },
       { selector: "node.dendro", style: { shape: "round-rectangle", width: "data(dw)", height: 30, label: "", "border-width": 1, "background-opacity": 0.7 } },
+      { selector: "node.dendro.done", style: { "border-width": 3 } },
       { selector: "node.selected", style: { "border-width": 2.5 } },
       { selector: "node.dim", style: { opacity: 0.4 } },
       { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": "#6b7280", "target-arrow-shape": "triangle", "target-arrow-color": "#6b7280", "arrow-scale": 0.8, label: "data(label)", "font-size": 9, color: "#cbd5e1", "text-background-color": "#0f1216", "text-background-opacity": 1, "text-background-padding": "2px" } },
