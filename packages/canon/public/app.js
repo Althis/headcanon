@@ -667,7 +667,7 @@ function openIssue(issue) {
     else {
       // a draft node the session filed no question for: the human defines it in their words
       const id = issue.nodeId, n = node(id), intent = extractHtmlSection(snap.html[id] ?? "", "Intent").replace(/<h2>[^<]*<\/h2>/, "");
-      questionCard({ badge: "Draft", nodeId: id, title: n.title, questionHtml: "What is this, and what must hold for it?", summaryHtml: `<p class="sub">The session left this draft without a question. What it knows so far:</p>${intent}`, options: [], onAnswer: ({ text }) => settleNode(id, text) });
+      questionCard({ badge: "Draft", nodeId: id, title: n.title, questionHtml: "What is this, and what must hold for it?", summaryHtml: `<p class="sub">No question from the session for this draft yet; one usually follows within a minute of the draft, and this card is replaced by it. Define it in your words now, or wait. What it knows so far:</p>${intent}`, options: [], onAnswer: ({ text }) => settleNode(id, text) });
     }
     $question.dataset.issue = issue.key;
   }
