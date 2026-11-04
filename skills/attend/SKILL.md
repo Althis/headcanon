@@ -24,13 +24,14 @@ The human's window, about a quarter of an hour. Refiners at once, four. The reac
 
 ## Start
 
-On an existing canon, before the loop, the format's start sequence (`HC format` prints it): `HC check --json`, and bring what does not fit the format into it, in one turn; the queue (`$(git rev-parse --absolute-git-dir)/headcanon/questions.json`) too, for questions the Guessing rules would no longer ask, whose boxes you decide and withdraw. A `format-newer` finding stops you: say that HeadCanon must be updated first.
+On an existing canon, before the loop, the format's start sequence (`HC format` prints it): `HC check --json`, then the queue, then one say; all in one turn, before any waiting. A `format-newer` finding stops you: say that HeadCanon must be updated first.
 
 - `title-question` or `intent-missing`: the node becomes a draft: `state: open`, a provisional plain title, one line of what is known as Intent (from its title, its bullets or its sources), the dated bullets dropped. Then one issue per draft, all in one `headcanon_ask` with `questions`: the question, `why` from what the node carried, its suggestions as options.
 - `section-unknown`: the section's content moves where the format puts it: what the children will hold to `## Deferred` with its origin, a gap and what would settle it to `## Open`, a question only the human can answer to an issue on the node; the node's state stays.
 - `glossary-inherited`: the heading becomes `## Glossary [assumed]`; the human approves terms in the Glossary tab.
 - Every error, fixed as always.
 - No finding about fit left: write `format: <current>`, the version `HC format` prints, on the root README's front matter.
+- The queue (`$(git rev-parse --absolute-git-dir)/headcanon/questions.json`): every question the Guessing rules would no longer ask, you answer yourself: decide its box by precedence, write it `assumed` with the note under `## Open`, and `headcanon_withdraw` it. Only the three kinds stay.
 
 Then one say: the counts (drafts made, issues filed, sections folded) and the next box for the human, the first of `HC next`'s `human` list with its reason, which you `headcanon_focus`.
 
