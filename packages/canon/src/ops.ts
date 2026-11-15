@@ -36,6 +36,8 @@ export type Op =
   | { op: "term"; term: string; definition: string; why?: string }
   | { op: "reword"; id: string; from: string; to: string; why?: string }
   | { op: "delete"; id: string; subtree?: boolean; why?: string }
+  /** A guess the review could not get right becomes a draft: `state: open`, the diagnosis under Open; its question is filed apart. */
+  | { op: "draft"; id: string; why: string }
   /** Record only: a review verdict on a node, so retries are counted and the budget is enforced. */
   | { op: "review"; id: string; verdict: "pass" | "fail"; findings?: Array<{ check: string; text: string }>; why?: string };
 
@@ -368,6 +370,17 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
         const abs2 = resolve(canon.dir, d.file);
         plan.writes.set(abs2, setListField(readFileSync(abs2, "utf8"), "intents", d.intents.filter((x) => !gone.has(x))));
       }
+      return { plan, result: { id: op.id } };
+    }
+    case "draft": {
+      const err = must(op.id);
+      if (err) return { error: err };
+      const n = node(op.id)!;
+      if (approvedState(n)) return { error: `${op.id} is the human's; it is never made a draft, its problem is an issue` };
+      if (!op.why?.trim()) return { error: "a draft needs the diagnosis: why the guess could not be made right" };
+      let text = setField(current(n), "state", "open");
+      text = upsertSection(text, "Open", [...bulletsOf(n.body, "Open"), `${today()}: made a draft by review: ${op.why.trim()}`].map((b) => `- ${b}`).join("\n"));
+      write(n, text);
       return { plan, result: { id: op.id } };
     }
     case "review": {

@@ -19,5 +19,6 @@ export { RULES } from "./rules.js";
 export { buildSnapshot, type Snapshot } from "./snapshot.js";
 export { refinementOrder, requiresCycles, describeNext, describePath, pathToValidate, isRefined, isUnrefined, adoptionFinished, type RefinementOrder, type NextPick, type Blocked, type HumanPick, type ListGate } from "./next.js";
 export { applyOp, readOps, opStats, rewriteIds, setListField, gitDirOf, RETRY_BUDGET, type Op, type OpResult, type OpRecord, type OpStats } from "./ops.js";
+export { coherenceClusters, describeCoherence, type Cluster, type Coherence } from "./coherence.js";
 export { serveUi } from "./ui/server.js";
 export { FORMAT, FORMAT_VERSION, HISTORY, START_SEQUENCE, FIT_CODES, canonFormatVersion, changesSince, describeFormat, type TypeRule, type FormatChange } from "./format.js";

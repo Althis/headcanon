@@ -38,6 +38,7 @@ async function load() {
   snap = await res.json();
   // A viewer started before the link fields existed serves nodes without them; the page must still draw.
   for (const n of Object.values(snap.canon.nodes)) { n.requires ??= []; n.relates ??= []; n.conflicts ??= []; }
+  noteActivity(snap.activity);
   document.getElementById("canon-path").textContent = `${snap.canon.dir}${snap.git.branch ? `  ·  ${snap.git.branch}` : ""}`;
   document.getElementById("generated").textContent = `read ${new Date(snap.generatedAt).toLocaleTimeString()}`;
   const n = attentionItems().total;
@@ -240,7 +241,7 @@ function buildGraph(selectedId) {
     const n = nodes[id];
     const hidden = n.children.filter((c) => !show.has(c)).length;
     elements.push({ data: { id, label: `${id}
-${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: `${id === selectedId ? "selected" : ""} ${n.state === "open" ? "draft" : ""} ${n.kind ? "done" : ""}` });
+${n.title}${hidden ? ` (+${hidden})` : ""}`, state: n.state }, classes: `${id === selectedId ? "selected" : ""} ${n.state === "open" ? "draft" : ""} ${n.kind ? "done" : ""} ${pendingNodes.has(id) || isActive(id) ? "pending" : ""}` });
   }
   const edge = (s, t, kind) => elements.push({ data: { id: `${kind}:${s}>${t}`, source: s, target: t, kind, label: kind === "contains" ? "" : kind }, classes: kind });
   for (const id of show) {
@@ -642,14 +643,16 @@ function renderIssues(s) {
   const top = picks[0];
   const minutes = (p) => Math.floor((Date.now() - p.since) / 60000);
   const pendingKey = [...pendingNodes].map(([id, p]) => `${id}:${minutes(p)}`);
-  const key = JSON.stringify([closed && `${gate.cut}/${gate.total}`, picks.map((h) => `${h.id}:${h.score}`), pendingKey, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
+  const active = agentLive(s) ? activeIds() : []; // what the disk shows moving, shown only while a session is attached
+  const key = JSON.stringify([closed && `${gate.cut}/${gate.total}`, picks.map((h) => `${h.id}:${h.score}`), pendingKey, active, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
   const open = closed ? 0 : issues.filter((i) => !i.preparing).length;
   count.textContent = open; count.hidden = open === 0;
   if (closed) {
     body.innerHTML = `<p class="next-for-you"><span class="spin"></span> <span class="muted">Your list opens when ${esc(gate.what)} is cut: ${gate.cut} of ${gate.total}. Questions are being filed meanwhile; the canvas shows what lands.</span></p>` +
-      [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)}</span></p>`).join("");
+      [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)}</span></p>`).join("") +
+      (active.length ? `<p class="pending-line"><span class="spin"></span> <span class="muted">Being cut now:</span> ${active.map((id) => `<a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a>`).join(", ")}</p>` : "");
     for (const a of body.querySelectorAll("[data-next]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; if (id === "ROOT" || node(id)) focusOnCanvas(id, false, true); });
     return;
   }
@@ -659,6 +662,7 @@ function renderIssues(s) {
   body.innerHTML = (top ? `<p class="next-for-you"><span class="muted">Next for you:</span> ${pickLine(top)}</p>` : "") +
     (picks.length > 1 ? `<p class="for-you"><span class="muted">Then:</span> ${picks.slice(1).map(pickLine).join("<br>")}</p>` : "") +
     [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)} ${esc(ago(p))}</span></p>`).join("") +
+    (active.length ? `<p class="pending-line"><span class="spin"></span> <span class="muted">Being cut now:</span> ${active.map((id) => `<a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a>`).join(", ")}</p>` : "") +
     (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
     issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}${i.preparing ? " preparing" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${i.preparing ? "…" : ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.preparing ? ` <span class="muted">· being prepared</span>` : i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
   for (const b of body.querySelectorAll("[data-issue]")) b.addEventListener("click", () => openIssue(issues[Number(b.dataset.issue)]));
@@ -731,6 +735,7 @@ async function pollSession() {
       }
     }
     if (s.question && s.question.id !== shownQuestionId && !(shownIssue && !$issueCard.hidden)) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); $question.dataset.issue = s.question.id; shownIssue = null; chime(); }
+    ageActivity(); // a box that went quiet loses its paint here; no new snapshot comes for that
     renderIssues(s);
     for (const q of s.queue ?? []) if (q.nodeId && pendingNodes.has(q.nodeId)) clearPending(q.nodeId);
     renderIssues(s); // every poll: what is pending, prepared or live changes with time; the key guard keeps the DOM still
@@ -783,10 +788,27 @@ let working = null;
 // Boxes the session is working on after the human acted on them: answered, defined or rewritten. Cleared when the
 // session says something about the box, changes it on disk, or files a new question for it; dropped after a while.
 const pendingNodes = new Map();
-const paintPending = (id) => { const c = window.__cy; if (c) { const n = c.getElementById(id); if (n.length) n.toggleClass("pending", pendingNodes.has(id)); } };
+const paintPending = (id) => { const c = window.__cy; if (c) { const n = c.getElementById(id); if (n.length) n.toggleClass("pending", pendingNodes.has(id) || isActive(id)); } };
 const markPending = (id, why) => { if (id) { pendingNodes.set(id, { since: Date.now(), why }); paintPending(id); } };
 const clearPending = (id) => { if (id && pendingNodes.delete(id)) { paintPending(id); renderIssues(lastSession); } };
 const agentLive = (s) => typeof s?.agentSeenAgo === "number" && s.agentSeenAgo < 900;
+// Boxes being cut right now, as the disk shows it (DEC-024): the snapshot names each node file written in the last
+// two minutes with the seconds since. The page keeps the write time that implies and ages it by the same rule, because
+// a new snapshot comes only when a file changes, never when one goes quiet. Painted like a pending box but kept apart
+// from pendingNodes: those lines say what the human did; this says only that the file moves.
+const activeNodes = new Map();
+const ACTIVE_FOR = 120 * 1000;
+const isActive = (id) => activeNodes.has(id) && Date.now() - activeNodes.get(id) <= ACTIVE_FOR;
+const activeIds = () => [...activeNodes.keys()].filter(isActive);
+function noteActivity(activity) {
+  const was = [...activeNodes.keys()], now = Date.now();
+  activeNodes.clear();
+  for (const [id, sec] of Object.entries(activity ?? {})) activeNodes.set(id, now - sec * 1000);
+  for (const id of new Set([...was, ...activeNodes.keys()])) paintPending(id);
+}
+function ageActivity() {
+  for (const [id] of activeNodes) if (!isActive(id)) { activeNodes.delete(id); paintPending(id); }
+}
 // Boxes the session wrote on disk in the last minutes, for the live status when it has not said what it is doing.
 let recentChanges = [];
 // The session's live status at the top of the panel: what it says it is running, else what the page sees appearing
@@ -801,12 +823,14 @@ function renderLive(s) {
   const ago = (ms) => { const sec = Math.max(0, Math.round(ms / 1000)); return sec < 60 ? `${sec} s ago` : `${Math.round(sec / 60)} min ago`; };
   const saidAt = s?.doing ? new Date(s.doing.at).getTime() : 0;
   const doing = s?.doing && now - saidAt < 15 * 60000 ? s.doing.items : [];
+  const active = activeIds();
   let html;
   if (!agentLive(s)) html = `<span class="muted">No session attached to this page.</span>`;
-  else if (doing.length || recentChanges.length) {
+  else if (doing.length || active.length || recentChanges.length) {
     // a "Working" button with the spinner; a click opens the list of what runs
     let items, meta;
     if (doing.length) { items = doing.map((d) => linkIds(d)); meta = `said ${ago(now - saidAt)}`; }
+    else if (active.length) { items = active.map((id) => `${linkIds(id)} <span class="muted">· being cut</span>`); meta = "seen on disk; the session has not said what it runs"; }
     else {
       const byParent = new Map();
       for (const c of recentChanges) { const p = node(c.id)?.parent ?? c.id; byParent.set(p, Math.max(byParent.get(p) ?? 0, c.at)); }
@@ -1058,7 +1082,7 @@ function buildAdoptCanvas() {
   // A closed circle shows its number; a long number gets a smaller font, the circle never grows.
   const shortOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? "" : id.replace(/^(REQ|PRN)-/, ""));
   const fsOf = (short) => (short.length <= 3 ? 10 : short.length <= 5 ? 8 : short.length <= 7 ? 6.5 : 5.5);
-  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${node(id)?.state === "open" ? "draft" : ""} ${node(id)?.kind ? "done" : ""} ${pendingNodes.has(id) ? "pending" : ""} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
+  const classesOf = (id) => `${colorOf(id)} ${kindOf(id)} ${node(id)?.state === "open" ? "draft" : ""} ${node(id)?.kind ? "done" : ""} ${pendingNodes.has(id) || isActive(id) ? "pending" : ""} ${labelled(id) ? "labelled" : ""} ${adoptState.mode === "dendro" ? "dendro" : ""} ${id === adoptState.selected ? "selected" : ""}`;
   const elementsFor = (show) => {
     const shown = new Set(show);
     const out = [];

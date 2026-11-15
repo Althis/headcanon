@@ -38,9 +38,10 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
     optional: ["partition", "source"],
     states: ["stated", "resolved", "assumed", "open"],
     needsOneOf: ["Intent", "Purpose"],
-    sections: ["Stated", "Resolution", "Not this", "Principles", "Glossary"],
+    sections: ["Stated", "Resolution", "As built", "Not this", "Principles", "Glossary"],
     rules: [
       "`format` is the version of this format the canon was written under; an older one is brought up by the start sequence [format-version], a newer one needs a newer HeadCanon [format-newer].",
+      "`## As built` on the root is the session's survey of what the repository is today: its entry points, modules, surfaces, data and tests, one line each with its path, written from the code so that a project without documents still yields a premise, and rewritten whenever the code is re-read; the Intent says what the project is for, and the two are never one sentence.",
       "`partition` is the question the top-level nodes answer, written when the premise is cut.",
       "Approving the root clears the markers on its own sections and leaves the Glossary heading's marker alone: terms are approved one by one.",
     ],
@@ -54,7 +55,7 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
     needsOneOf: ["Intent", "Stated"],
     sections: ["Resolution", "Check", "As built", "Not this", "Contested", "Deferred", "Assumptions", "Open"],
     rules: [
-      "`## As built` is the session's record of what the code does today for the entry, one to three lines each ending in its `path:lines`, apart from the Intent, which says what must hold; it is rewritten whenever the code is re-read and never approved, so a guess read off the code and the project's want never share a sentence, and a divergence between the two is a contradiction issue, never a silent rewrite of either.",
+      "`## As built` is the session's record of what the code does today for the entry, one to three lines each ending in its `path:lines`, apart from the Intent, which says what must hold; it is rewritten whenever the code is re-read and never approved, so a guess read off the code and the project's want never share a sentence. Where the code does otherwise than the Intent says, the node is contested and the contradiction is an issue; where the code does not implement the Intent yet, As built says `not built` with what exists instead, and no question is asked; neither case rewrites the Intent silently.",
       "The title names a thing, never a question [title-question]; the ids are unique [duplicate-id], the parent exists [parent-missing], and the id's path matches its parent's [parent-mismatch].",
       "An Intent, or the human's Stated words, is never missing [intent-missing]; a draft (`state: open`) keeps one line of what is known, and its question is an issue, never a section.",
       "Only the sections named here [section-unknown]: `## Open` holds a dated note: a gap between the artifacts and the intent and what would settle it, or the choice a guess made and the alternatives it had; `## Deferred` what the node will hold once refined, one line each with its origin; `## Contested` a one-paragraph summary and one bullet per statement with its sources; `## Assumptions` what the session decided alone.",
@@ -137,7 +138,7 @@ export const HISTORY: FormatChange[] = [
     version: 3,
     date: "2026-11-15",
     changes: [
-      "`## As built` is a node section: what the code does today for the entry, with its `path:lines`, written by the session whenever it reads the code and never approved; the Intent says what must hold, so what the code does and what the project wants no longer share a sentence, and a divergence between them is a contradiction issue.",
+      "`## As built` is a section of every node and of the root: what the code does today for the entry, with its `path:lines`, written by the session whenever it reads the code and never approved; the Intent says what must hold, so what the code does and what the project wants no longer share a sentence. An Intent the code contradicts, where the code does otherwise, is a contradiction issue; an Intent the code does not implement yet is a line under As built saying so, never a question.",
       "Adoption drafts the canon to its leaves before the human is asked anything (DEC-024): the reach of DEC-018 and DEC-023 is gone, a red box alone holds its subtree back, and `headcanon next`'s `human` list ranks what the human can approve or settle by impact, the boxes an approval validates or a settled red box frees, the premise first; the list stands after adoption, and `headcanon next <ID>` names the path to validate before work under a box.",
     ],
     broughtUp: [

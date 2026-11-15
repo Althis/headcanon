@@ -15,7 +15,7 @@ function finding(level: Level, code: string, message: string, extra: Partial<Fin
 const KNOWN_SECTIONS = new Set([...FORMAT.node.needsOneOf, ...FORMAT.node.sections].map((x) => x.toLowerCase()));
 
 /** The text under one `## Heading`, up to the next heading; empty when the section is absent or blank. */
-function sectionText(body: string, heading: string): string {
+export function sectionText(body: string, heading: string): string {
   const lines = body.split(/\r?\n/);
   const start = lines.findIndex((l) => /^##\s+/.test(l) && l.replace(/^##\s+/, "").replace(/\s*\[[a-z]+\]\s*$/, "").trim().toLowerCase() === heading.toLowerCase());
   if (start < 0) return "";
@@ -174,7 +174,8 @@ export function checkCanon(canon: Canon): Finding[] {
   return out.sort((a, b) => order[a.level] - order[b.level] || (a.id ?? "").localeCompare(b.id ?? ""));
 }
 
-const STOP = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "are", "its", "not", "all", "any", "one", "each", "every", "has", "have", "can", "than", "then", "when", "what", "how", "under", "over"]);
+/** Words that name no subject of their own; left out when titles are compared. */
+export const STOP = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "are", "its", "not", "all", "any", "one", "each", "every", "has", "have", "can", "than", "then", "when", "what", "how", "under", "over"]);
 
 /** Jaccard overlap of the meaningful words of two titles, 0 to 1. */
 export function titleOverlap(a: string, b: string): number {

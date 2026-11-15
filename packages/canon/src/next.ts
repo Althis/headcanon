@@ -190,7 +190,20 @@ function usualBelow(canon: Canon): Map<number, number> {
   return new Map([...sums].map(([d, s]) => [d, Math.round(s.total / s.n)]));
 }
 
-export function refinementOrder(canon: Canon): RefinementOrder {
+/**
+ * The order, whole or scoped to one subtree (`under`): a branch agent asks only about the boxes it owns, so its
+ * ready and blocked lists, its deadlock and its human picks are those under its node; the gate stays the canon's.
+ */
+export function refinementOrder(canon: Canon, under?: string): RefinementOrder {
+  const whole = orderOf(canon);
+  if (!under || under === "ROOT") return whole;
+  const scope = new Set([under, ...descendants(canon, under)]);
+  const ready = whole.ready.filter((p) => scope.has(p.id));
+  const blocked = whole.blocked.filter((b) => scope.has(b.id));
+  return { ...whole, next: ready[0], ready, blocked, human: whole.human.filter((h) => scope.has(h.id)), deadlock: ready.length === 0 && blocked.length > 0 };
+}
+
+function orderOf(canon: Canon): RefinementOrder {
   const dependents = new Map<string, number>();
   for (const n of Object.values(canon.nodes)) for (const t of n.requires) dependents.set(t, (dependents.get(t) ?? 0) + 1);
   const parentState = (n: ReqNode): State | undefined => (n.parent ? canon.nodes[n.parent]?.state : canon.root ? canon.root.state : "stated");

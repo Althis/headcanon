@@ -152,6 +152,16 @@ describe("operations [DEC-024]", () => {
     expect(loadCanon(c.dir).nodes["REQ-1.1.1"]).toBeDefined();
   });
 
+  it("makes a guess a draft with its diagnosis, never the human's box", () => {
+    const c = fresh();
+    expect(applyOp(c.dir, { op: "draft", id: "REQ-1.1.2", why: "two readings of 'its transactions' survived two corrections" }, opts(c)).ok).toBe(true);
+    const n = loadCanon(c.dir).nodes["REQ-1.1.2"]!;
+    expect(n.state).toBe("open");
+    expect(readFileSync(join(c.dir, n.file), "utf8")).toMatch(/## Open\n\n- \d{4}-\d{2}-\d{2}: made a draft by review: two readings/);
+    writeFileSync(join(c.dir, "REQ-2-reporting.md"), readFileSync(join(c.dir, "REQ-2-reporting.md"), "utf8").replace("state: assumed", "state: stated"));
+    expect(applyOp(c.dir, { op: "draft", id: "REQ-2", why: "x" }, opts(c)).error).toContain("human's");
+  });
+
   it("counts review failures per node and per check, and says when the budget is spent", () => {
     const c = fresh();
     const fail = (check: string) => applyOp(c.dir, { op: "review", id: "REQ-1.1.1", verdict: "fail", findings: [{ check, text: "x" }] }, opts(c));

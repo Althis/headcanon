@@ -1,3 +1,5 @@
+import { statSync } from "node:fs";
+import { join } from "node:path";
 import { marked } from "marked";
 import { gitAttention, type GitAttention } from "./attention.js";
 import { branchHealth, checkCanon, countStates, type BranchHealth, type StateCounts } from "./check.js";
@@ -5,6 +7,9 @@ import { loadCanon } from "./load.js";
 import { isUnrefined, refinementOrder, type RefinementOrder } from "./next.js";
 import { renderTextTree } from "./tree.js";
 import type { Canon, Finding } from "./types.js";
+
+/** How long after its last write a node's file counts as being cut; the viewer ages its copy by the same rule. */
+const ACTIVE_SECONDS = 120;
 
 export interface Snapshot {
   generatedAt: string;
@@ -16,6 +21,10 @@ export interface Snapshot {
   git: GitAttention;
   /** The refinement order, with what the human can do ranked by what it releases. */
   next: RefinementOrder;
+  /** Boxes being cut right now (DEC-024): node id → seconds since its own file was written, for files written in
+   *  the last two minutes. Read from disk, not from what a session says: several agents write at once and none of
+   *  them reports every move. */
+  activity: Record<string, number>;
   stats: {
     nodes: number;
     counts: StateCounts;
@@ -51,6 +60,16 @@ export function buildSnapshot(canonDir: string): Snapshot {
   for (const j of canon.journeys) html[j.id] = render(j.body.replace(/```mermaid[\s\S]*?```/, ""));
   for (const d of canon.decisions) html[d.id] = render(d.body);
 
+  // The file's mtime is the one trace every writer leaves. One stat per node; a file gone between the read and the
+  // stat is simply not active.
+  const activity: Record<string, number> = {};
+  const now = Date.now();
+  for (const n of Object.values(canon.nodes)) {
+    const st = statSync(join(canon.dir, n.file), { throwIfNoEntry: false });
+    const age = st ? (now - st.mtimeMs) / 1000 : Infinity;
+    if (age <= ACTIVE_SECONDS) activity[n.id] = Math.max(0, Math.round(age));
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     canon,
@@ -59,6 +78,7 @@ export function buildSnapshot(canonDir: string): Snapshot {
     health,
     git,
     next: refinementOrder(canon),
+    activity,
     stats: {
       nodes: ids.length,
       counts,

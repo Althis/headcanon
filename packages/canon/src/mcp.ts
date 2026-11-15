@@ -103,8 +103,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     openBrowser(landing());
   };
 
+  // zero seconds files the question and returns at once: the drafting phase never waits on the human
   const waitFor = async (questionId: string, seconds: number) => {
-    const deadline = Date.now() + Math.min(Math.max(seconds, 1), WAIT_MAX) * 1000;
+    const deadline = Date.now() + Math.min(Math.max(seconds, 0), WAIT_MAX) * 1000;
     while (Date.now() < deadline) {
       const slice = Math.min(25, Math.ceil((deadline - Date.now()) / 1000));
       const r = await api<{ answer?: unknown; pending?: boolean; unknown?: boolean }>(base, `/api/wait?id=${encodeURIComponent(questionId)}&timeout=${slice}`);
@@ -145,7 +146,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
         terms: questionShape.terms,
         notice: questionShape.notice,
         questions: z.array(z.object(questionShape)).optional().describe("Several questions for one turn, shown one after another; use this instead of `question`."),
-        waitSeconds: z.number().optional().describe(`How long to wait for the answers before returning pending (default ${WAIT_DEFAULT}, max ${WAIT_MAX}).`),
+        waitSeconds: z.number().optional().describe(`How long to wait for the answers before returning pending (default ${WAIT_DEFAULT}, max ${WAIT_MAX}); 0 files the issue and returns at once, which is how the drafting phase asks.`),
       },
     },
     async (args) => {
@@ -157,7 +158,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       for (const req of list) ids.push((await api<{ questionId: string }>(base, "/api/ask", { method: "POST", body: JSON.stringify(req) })).questionId);
       if (ids.length === 1) return text({ questionId: ids[0], url: landing(), base: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
       // Several: the human answers them in order, so wait for each in turn within one deadline.
-      const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? WAIT_DEFAULT, 1), WAIT_MAX) * 1000;
+      const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? WAIT_DEFAULT, 0), WAIT_MAX) * 1000;
       const answers: unknown[] = [];
       const pending: string[] = [];
       for (const id of ids) {

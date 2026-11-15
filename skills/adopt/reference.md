@@ -65,6 +65,9 @@ Source: conversation, <date>
 ## Resolution
 <option chosen and date, when approved as written>
 
+## As built
+- <what the repository is today: entry points, modules, surfaces, data, tests; one line each with its path; the session's, rewritten when the code is re-read, never approved>
+
 ## Not this
 - <non-goal> (source)
 

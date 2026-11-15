@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,6 +90,24 @@ describe("a project before init [REQ-11.6]", () => {
     const snap = buildSnapshot(missing);
     expect(snap.stats.nodes).toBe(0);
     expect(snap.textTree).toBe("(no requirements yet)");
+    expect(snap.activity).toEqual({});
+  });
+});
+
+describe("what is being cut, from the disk [DEC-024]", () => {
+  it("names a node whose file was just written, with the seconds since, and not one written long ago", () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "headcanon-activity-")), "canon");
+    mkdirSync(dir, { recursive: true });
+    const box = (id: string) => `---\nid: ${id}\ntitle: "${id}"\nstate: assumed\n---\n\n# ${id}\n\n## Intent\n\nA box.\n`;
+    writeFileSync(join(dir, "README.md"), '---\nid: ROOT\ntitle: "Activity canon"\nstate: assumed\n---\n\n# Activity canon\n');
+    writeFileSync(join(dir, "REQ-1-fresh.md"), box("REQ-1"));
+    writeFileSync(join(dir, "REQ-2-old.md"), box("REQ-2"));
+    const tenMinutesAgo = Date.now() / 1000 - 600;
+    utimesSync(join(dir, "REQ-2-old.md"), tenMinutesAgo, tenMinutesAgo);
+    const snap = buildSnapshot(dir);
+    expect(snap.activity["REQ-1"]).toBeGreaterThanOrEqual(0);
+    expect(snap.activity["REQ-1"]).toBeLessThanOrEqual(5);
+    expect(snap.activity).not.toHaveProperty("REQ-2");
   });
 });
 

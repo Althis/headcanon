@@ -7,8 +7,9 @@ import { relative } from "node:path";
 import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
 import { runMcp } from "./mcp.js";
 import { detectTerms, nameWords } from "./terms.js";
-import { describeNext, describePath, pathToValidate, refinementOrder } from "./next.js";
+import { adoptionFinished, describeNext, describePath, pathToValidate, refinementOrder } from "./next.js";
 import { applyOp, gitDirOf, opStats, readOps, type Op } from "./ops.js";
+import { coherenceClusters, describeCoherence } from "./coherence.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { describeFormat } from "./format.js";
@@ -26,7 +27,9 @@ Commands
   render         Write the Mermaid index (canon/INDEX.md by default).
   attention      What is waiting on the human: approvals, unmerged changes, open and contested items.
   next [ID]      Which node to refine next and what the human should approve or settle, by impact; with an ID, the path to validate above it.
-  op <JSON|@F>   Apply one operation to the canon (link, unlink, move-edge, create, move, merge, contest, term, reword, delete, review); checked, logged, rolled back on error.
+  op <JSON|@F>   Apply one operation to the canon (link, unlink, move-edge, create, move, merge, contest, term, reword, delete, draft, review); checked, logged, rolled back on error.
+  ask <JSON|@F>  File an issue in the running viewer's queue (--port) and return at once; {questions: [...]} files several.
+  coherence      Candidates for the cross-branch coherence pass: clusters of boxes in different branches that share a term, a file, a required box or a title word.
   op --log [ID]  Print the operations log, or the entries naming ID.  op --stats  Failures per operation, retries per check and per node.
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
   review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
@@ -44,6 +47,7 @@ Options
   --no-open       For mcp: do not open the browser on the first question
   --text <draft>  For terms: the draft to scan
   --by <who>      For op: who asks, written to the log
+  --under <ID>    For next: only the boxes under ID, what a branch agent owns
   --log, --stats  For op: read the log instead of applying
   --out <file>    Output file for render
   --json          Machine-readable output for check and attention
@@ -68,10 +72,11 @@ interface Args {
   by: string | undefined;
   log: boolean;
   stats: boolean;
+  under: string | undefined;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined, open: true, text: undefined, by: undefined, log: false, stats: false };
+  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined, open: true, text: undefined, by: undefined, log: false, stats: false, under: undefined };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]!;
     const next = () => argv[++i];
@@ -92,6 +97,8 @@ function parseArgs(argv: string[]): Args {
     else if (x.startsWith("--by=")) a.by = x.slice(5);
     else if (x === "--log") a.log = true;
     else if (x === "--stats") a.stats = true;
+    else if (x === "--under") a.under = next();
+    else if (x.startsWith("--under=")) a.under = x.slice(8);
     else if (x.startsWith("-")) process.stderr.write(`ignoring unknown option ${x}\n`);
     else if (!a.command) a.command = x;
     else a.positional.push(x);
@@ -150,9 +157,11 @@ export async function main(argv: string[]): Promise<number> {
   // session-start must never break a session: it answers even without a canon, and never throws.
   if (args.command === "session-start") {
     let cwd = process.cwd();
+    let source = "";
     try {
-      const input = JSON.parse((await readStdin()) || "{}") as { cwd?: string };
+      const input = JSON.parse((await readStdin()) || "{}") as { cwd?: string; source?: string };
       if (input.cwd) cwd = input.cwd;
+      if (input.source) source = input.source;
     } catch {
       /* no hook input */
     }
@@ -161,6 +170,10 @@ export async function main(argv: string[]): Promise<number> {
     let context: string;
     try {
       context = existsSync(canonDir) ? sessionContext(buildSnapshot(canonDir), canonDir) : sessionContext(undefined, canonDir);
+      // after a compaction or a resume mid-adoption the loop's procedure is gone from the context; the canon on disk
+      // is the state, so the session is told where to pick it up instead of ending its turn
+      if ((source === "compact" || source === "resume") && existsSync(canonDir) && loadCanon(canonDir).root && !adoptionFinished(loadCanon(canonDir)))
+        context += `\n\n## An adoption is unfinished\n\nThe canon exists and DEC-001 does not: the attend loop was running before this ${source}. Re-read the attend skill (skills/attend/SKILL.md under the plugin root) and continue from \`headcanon next --json\`: the canon on disk and the operations log are the whole state; nothing in memory is needed.`;
     } catch (e) {
       context = `# HeadCanon\n\nThe canon at ${canonDir} could not be read: ${e instanceof Error ? e.message : String(e)}\nRun \`headcanon check\` and fix the file it names before relying on the canon.`;
     }
@@ -294,6 +307,33 @@ export async function main(argv: string[]): Promise<number> {
       out(`wrote ${target}\n`);
       return 0;
     }
+    case "coherence": {
+      // Candidates for the cross-branch coherence pass (DEC-024): clusters of boxes in different branches that share a
+      // glossary term, a cited file, a required box or a rare title word; a reader agent judges them from their full text.
+      const c = coherenceClusters(loadCanon(canonDir));
+      out(args.json ? JSON.stringify(c, null, 2) + "\n" : describeCoherence(c) + "\n");
+      return 0;
+    }
+    case "ask": {
+      // `ask <json | @file>`: file an issue in the viewer's queue over HTTP and return at once; a branch agent's
+      // way to ask without waiting on anyone. The JSON is an ask request, or {questions: [...]} for several.
+      const raw = args.positional[0];
+      if (!raw) { err("ask needs the request as JSON, or @<file> holding it\n"); return 2; }
+      let body: { questions?: unknown[] } & Record<string, unknown>;
+      try { body = JSON.parse(raw.startsWith("@") ? readFileSync(resolve(raw.slice(1)), "utf8") : raw) as typeof body; }
+      catch (e) { err(`ask: the request is not valid JSON: ${(e as Error).message}\n`); return 2; }
+      const items = Array.isArray(body.questions) ? body.questions : [body];
+      const ids: string[] = [];
+      for (const q of items) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${args.port}/api/ask`, { method: "POST", headers: { "content-type": "application/json", "x-headcanon-agent": "cli" }, body: JSON.stringify(q) });
+          if (!r.ok) { err(`ask: the viewer on port ${args.port} refused the question: ${await r.text()}\n`); return 1; }
+          ids.push(((await r.json()) as { questionId: string }).questionId);
+        } catch (e) { err(`ask: no viewer answers on port ${args.port}: ${(e as Error).message}\n`); return 1; }
+      }
+      out(JSON.stringify({ questionIds: ids }) + "\n");
+      return 0;
+    }
     case "op": {
       // `op <json | @file>` applies one operation; `op --log [ID]` prints the log; `op --stats` reads it
       const git = gitDirOf(canonDir);
@@ -317,7 +357,8 @@ export async function main(argv: string[]): Promise<number> {
         out(args.json ? JSON.stringify({ id: args.positional[0], path: path ?? null }, null, 2) + "\n" : describePath(args.positional[0], path) + "\n");
         return path ? 0 : 1;
       }
-      const order = refinementOrder(canon);
+      // `--under <ID>` scopes the lists to one subtree, what a branch agent owns
+      const order = refinementOrder(canon, args.under);
       out(args.json ? JSON.stringify(order, null, 2) + "\n" : describeNext(order, canon) + "\n");
       return order.cycles.length ? 1 : 0;
     }

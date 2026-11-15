@@ -126,6 +126,31 @@ describe("refinement order [REQ-3.15]", () => {
     expect(describePath("REQ-1.1.1", pathToValidate(loadCanon(dir), "REQ-1.1.1"))).toContain("is approved");
   });
 
+  it("scopes the order to one subtree for a branch agent, and reports the list gate [DEC-024]", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-under-"));
+    dirs.push(dir);
+    readme(dir, "resolved");
+    file(dir, "REQ-1-a/README.md", "REQ-1", "assumed", undefined, "layer: domain\n");
+    file(dir, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "assumed", "REQ-1", "layer: capability\n");
+    file(dir, "REQ-1-a/REQ-1.2-c.md", "REQ-1.2", "assumed", "REQ-1", "layer: capability\nrequires: [REQ-1.1]\n");
+    file(dir, "REQ-2-d/README.md", "REQ-2", "assumed", undefined, "layer: domain\n");
+    file(dir, "REQ-2-d/REQ-2.1-e.md", "REQ-2.1", "assumed", "REQ-2", "layer: capability\nkind: binary\n");
+    const canon = loadCanon(dir);
+    const whole = refinementOrder(canon);
+    expect(whole.ready.map((p) => p.id)).toEqual(["REQ-1.1"]);
+    expect(whole.gate).toEqual({ open: false, cut: 3, total: 5, what: "every domain and capability" });
+    expect(describeNext(whole, canon)).toContain("The human's list opens when every domain and capability is cut: 3 of 5.");
+    const under = refinementOrder(canon, "REQ-2");
+    expect(under.ready).toEqual([]);
+    expect(under.blocked).toEqual([]);
+    expect(under.deadlock).toBe(false);
+    expect(under.human.map((h) => h.id)).toEqual(["REQ-2"]);
+    expect(under.gate).toEqual(whole.gate);
+    const one = refinementOrder(canon, "REQ-1");
+    expect(one.ready.map((p) => p.id)).toEqual(["REQ-1.1"]);
+    expect(one.blocked.map((b) => b.id)).toEqual(["REQ-1.2"]);
+  });
+
   it("a box that waits on an unrefined prerequisite is blocked, not a deadlock, while anything is ready", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-blocked-"));
     dirs.push(dir);
