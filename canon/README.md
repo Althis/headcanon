@@ -3,7 +3,7 @@ id: ROOT
 title: "HeadCanon canon"
 state: stated
 source: "docs/design-brief-v0.md:7"
-format: 2
+format: 3
 ---
 
 # HeadCanon canon

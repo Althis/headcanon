@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildSnapshot, checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
+import { FORMAT_VERSION, buildSnapshot, checkCanon, loadCanon, parseFrontMatter, parseSections, parseStepTable, renderTextTree } from "../src/index.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 
@@ -159,7 +159,7 @@ describe("open boxes", () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: resolved\n---\n\n# T canon\n\n## Intent\n\nA thing.\n\n## Glossary\n\n**widget** (`TERM-widget`): a small part.\n**gadget** (`TERM-gadget`) [assumed]: a larger part.\n");
     writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Empty\"\nstate: assumed\n---\n\n# Empty\n\n## Intent\n\n## Options\n\n- one\n");
-    writeFileSync(join(dir, "REQ-2-y.md"), "---\nid: REQ-2\ntitle: \"Full\"\nstate: assumed\n---\n\n# Full\n\n## Intent\n\nIt holds.\n\n## Deferred\n\n- later (REQ-2)\n");
+    writeFileSync(join(dir, "REQ-2-y.md"), "---\nid: REQ-2\ntitle: \"Full\"\nstate: assumed\n---\n\n# Full\n\n## Intent\n\nIt holds.\n\n## As built\n\n- The parser keeps the entries read so far (src/parse.ts:88-102)\n\n## Deferred\n\n- later (REQ-2)\n");
     const codes = checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`);
     expect(codes).toContain("warn:intent-missing:REQ-1");
     expect(codes).toContain("warn:section-unknown:REQ-1");
@@ -173,8 +173,8 @@ describe("open boxes", () => {
     const root = (fm: string) => "---\nid: ROOT\ntitle: \"T canon\"\nstate: assumed\n" + fm + "---\n\n# T canon\n\n## Intent\n\nA thing.\n";
     writeFileSync(join(dir, "README.md"), root(""));
     expect(checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`)).toContain("warn:format-version:ROOT");
-    writeFileSync(join(dir, "README.md"), root("format: 2\n"));
-    expect(loadCanon(dir).root?.format).toBe(2);
+    writeFileSync(join(dir, "README.md"), root(`format: ${FORMAT_VERSION}\n`));
+    expect(loadCanon(dir).root?.format).toBe(FORMAT_VERSION);
     expect(checkCanon(loadCanon(dir)).some((f) => f.code.startsWith("format-"))).toBe(false);
     writeFileSync(join(dir, "README.md"), root("format: 99\n"));
     expect(checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`)).toContain("warn:format-newer:ROOT");

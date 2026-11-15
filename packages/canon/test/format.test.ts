@@ -15,7 +15,7 @@ describe("the canon format [REQ-6]", () => {
   it("the history's head is the current version, newest first, and a node's needed sections are not listed twice", () => {
     expect(HISTORY[0]?.version).toBe(FORMAT_VERSION);
     expect(HISTORY.map((h) => h.version)).toEqual([...HISTORY.map((h) => h.version)].sort((a, b) => b - a));
-    expect(changesSince(1).map((c) => c.version)).toEqual([2]);
+    expect(changesSince(1).map((c) => c.version)).toEqual([2, 3]);
     expect(changesSince(FORMAT_VERSION)).toEqual([]);
     for (const t of Object.values(FORMAT)) for (const s of t.needsOneOf) expect(t.sections).not.toContain(s);
     expect(FORMAT.root.required).toContain("format");

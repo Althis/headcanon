@@ -1,6 +1,6 @@
 ---
 id: ROOT
-format: 2
+format: 3
 title: "Mini canon"
 state: stated
 ---

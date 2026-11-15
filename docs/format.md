@@ -1,4 +1,4 @@
-# The canon format, version 2
+# The canon format, version 3
 
 What every entry of a canon carries, the sequence a session runs on an existing canon, and what each version of the format changed. The check enforces the rules named with a code in brackets; the root README records the version a canon was written under; a canon written under an older version is brought up by the start sequence, never broken. This file is printed by `headcanon format` from `packages/canon/src/format.ts`; a test keeps the two the same.
 
@@ -32,10 +32,11 @@ Fields: required `id`, `title`, `state`; optional `parent`, `layer`, `source`, `
 
 States: stated, resolved, assumed, open, contested.
 
-Sections: one of `Intent`, `Stated`; may carry `Resolution`, `Check`, `Not this`, `Contested`, `Deferred`, `Assumptions`, `Open`.
+Sections: one of `Intent`, `Stated`; may carry `Resolution`, `Check`, `As built`, `Not this`, `Contested`, `Deferred`, `Assumptions`, `Open`.
 
 Rules:
 
+- `## As built` is the session's record of what the code does today for the entry, one to three lines each ending in its `path:lines`, apart from the Intent, which says what must hold; it is rewritten whenever the code is re-read and never approved, so a guess read off the code and the project's want never share a sentence, and a divergence between the two is a contradiction issue, never a silent rewrite of either.
 - The title names a thing, never a question [title-question]; the ids are unique [duplicate-id], the parent exists [parent-missing], and the id's path matches its parent's [parent-mismatch].
 - An Intent, or the human's Stated words, is never missing [intent-missing]; a draft (`state: open`) keeps one line of what is known, and its question is an issue, never a section.
 - Only the sections named here [section-unknown]: `## Open` holds a dated note: a gap between the artifacts and the intent and what would settle it, or the choice a guess made and the alternatives it had; `## Deferred` what the node will hold once refined, one line each with its origin; `## Contested` a one-paragraph summary and one bullet per statement with its sources; `## Assumptions` what the session decided alone.
@@ -104,11 +105,21 @@ On an existing canon, before any other work:
 2. Bring every entry the check says does not fit the format into it, as the current version's notes say: a node titled as a question or without an Intent becomes a draft with its question filed as an issue; a section the format does not define is folded into the one that holds its content, or an issue; a glossary heading whose terms inherited the root's approval is marked `[assumed]` again. Every issue goes through `headcanon_ask`, all in one call.
 3. Fix every error the check reports.
 4. When no finding about fit remains, write `format: <current version>` on the root README.
-5. Say the counts in one line, drafts made, issues filed, sections folded, and the next box for the human: the first entry of `headcanon next`'s `human` list, ranked by what approving or settling it releases.
+5. Say the counts in one line, drafts made, issues filed, sections folded, and the next box for the human: the first entry of `headcanon next`'s `human` list, ranked by impact, the boxes an approval validates or a settled red box frees.
 
 ## Versions
 
-### 2 (2026-10-30), current
+### 3 (2026-11-15), current
+
+- `## As built` is a node section: what the code does today for the entry, with its `path:lines`, written by the session whenever it reads the code and never approved; the Intent says what must hold, so what the code does and what the project wants no longer share a sentence, and a divergence between them is a contradiction issue.
+- Adoption drafts the canon to its leaves before the human is asked anything (DEC-024): the reach of DEC-018 and DEC-023 is gone, a red box alone holds its subtree back, and `headcanon next`'s `human` list ranks what the human can approve or settle by impact, the boxes an approval validates or a settled red box frees, the premise first; the list stands after adoption, and `headcanon next <ID>` names the path to validate before work under a box.
+
+Brought up from 2 by the start sequence:
+
+- Nothing to fold: a canon without `## As built` fits, and the sections fill as the session re-reads the code.
+- Then `format: 3` is written on the root [format-version].
+
+### 2 (2026-10-30)
 
 - A thing the session cannot define is a draft node: `state: open`, a provisional plain title, one line of what is known as Intent, drawn dashed on the canvas; its question is an issue the human answers in the Issues panel. Before, the question was the node's title and the node had no Intent.
 - The `## Options` section is gone; suggestions travel with the issue.
