@@ -82,7 +82,7 @@ One question per set, in the shape of reference.md section 2: the body holds the
 
 ### 9 Report
 
-`HC check`; fix every error; then read the set once as its reviewer will, against the format's rules for a node (`HC format`), and fix what you find. Return to the caller: the IDs created, the partition, every change outside your own children as an operation `HC op` takes (a `link`, a `merge`, a `create` under the node a ladder reached, a `move-edge` for an edge that now belongs to a child), the words the glossary lacks with the definition and the sentence you used each in, the leftover threads, the questions, and what `HC next` names to refine next. The caller applies the operations; you write nothing outside your children and never commit.
+`HC check`; fix every error and every warning on your files; then read the set once as its reviewer will, against the format's Quality section (`HC format`), and fix what you find. Return to the caller: the IDs created, the partition, every change outside your own children as an operation `HC op` takes (a `link`, a `merge`, a `create` under the node a ladder reached, a `move-edge` for an edge that now belongs to a child), the words the glossary lacks with the definition and the sentence you used each in, the leftover threads, the questions, and what `HC next` names to refine next. The caller applies the operations; you write nothing outside your children and never commit.
 
 ## Examples
 

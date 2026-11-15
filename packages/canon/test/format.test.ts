@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { FORMAT, FORMAT_VERSION, HISTORY, changesSince, describeFormat } from "../src/index.js";
+import { FORMAT, FORMAT_VERSION, HISTORY, QUALITY, changesSince, describeFormat } from "../src/index.js";
 
 const DOC = fileURLToPath(new URL("../../../docs/format.md", import.meta.url));
 
@@ -19,5 +19,18 @@ describe("the canon format [REQ-6]", () => {
     expect(changesSince(FORMAT_VERSION)).toEqual([]);
     for (const t of Object.values(FORMAT)) for (const s of t.needsOneOf) expect(t.sections).not.toContain(s);
     expect(FORMAT.root.required).toContain("format");
+  });
+
+  it("the quality list names a decider for every test, a code for every deterministic one, and no name twice in a scope", () => {
+    expect(QUALITY.length).toBeGreaterThan(40);
+    for (const q of QUALITY) {
+      expect(["check", "reviewer", "human"]).toContain(q.how);
+      if (q.how === "check") expect(q.code, q.name).toMatch(/^[a-z-]+$/);
+      expect(q.test.endsWith("?") || q.test.includes("?")).toBe(true);
+    }
+    const keys = QUALITY.map((q) => `${q.scope}:${q.name}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(describeFormat()).toContain("## Quality");
+    expect(describeFormat()).toContain("| one-reading |");
   });
 });

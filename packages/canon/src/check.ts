@@ -4,6 +4,7 @@ import { branchOf, descendants } from "./load.js";
 import { isUnrefined, refinementOrder } from "./next.js";
 import { FORMAT, FORMAT_VERSION, canonFormatVersion, changesSince } from "./format.js";
 import { detectTerms, nameWords } from "./terms.js";
+import { bareNumber, pronounStart, scanText, sentenceCount } from "./lexicon.js";
 import { STATES, type Canon, type Finding, type Level, type State } from "./types.js";
 
 function finding(level: Level, code: string, message: string, extra: Partial<Finding> = {}): Finding {
@@ -102,6 +103,21 @@ export function checkCanon(canon: Canon): Finding[] {
     const candidates = detectTerms(`${sectionText(n.body, "Intent")} ${sectionText(n.body, "Check")} ${sectionText(n.body, "Stated")}`, canon.terms, { ignore: canon.root ? nameWords(canon.root.title) : [] });
     if (candidates.length)
       out.push(finding("info", "term-candidate", `${n.id} uses ${candidates.length} word(s) the glossary does not define: ${candidates.slice(0, 5).join(", ")}${candidates.length > 5 ? ", …" : ""}`, at));
+    // The language checks of the quality list (docs/research/2026-11-15-requirement-quality.md, section 8): the
+    // session's own words, Intent and Check, at the family's level; the human's Stated words as notes only, since
+    // they are theirs to change and a hit there is an issue for them, never an edit.
+    const intent = sectionText(n.body, "Intent"), check = sectionText(n.body, "Check"), stated = sectionText(n.body, "Stated");
+    for (const h of scanText(`${intent}\n${check}`, canon.terms, n.layer))
+      out.push(finding(h.level, h.code, `${n.id}: ${h.why}: "${h.words.join('", "')}"`, at));
+    for (const h of scanText(stated, canon.terms, n.layer))
+      out.push(finding("info", h.code, `${n.id}: ${h.why}: "${h.words.join('", "')}", in the human's Stated words; an issue for them, never an edit`, at));
+    const pronoun = pronounStart(`${intent}\n${check}`);
+    if (pronoun) out.push(finding("info", "pronoun-start", `${n.id}: a sentence starts with "${pronoun}", naming nothing; name the thing`, at));
+    if (sentenceCount(intent) > 2) out.push(finding("info", "intent-long", `${n.id}: the Intent runs to ${sentenceCount(intent)} sentences; an entry is one or two`, at));
+    if (sentenceCount(check) > 1) out.push(finding("info", "check-long", `${n.id}: the Check runs to ${sentenceCount(check)} sentences; one says what is observed and what counts as yes`, at));
+    const number = bareNumber(check);
+    if (number) out.push(finding("info", "number-unit", `${n.id}: the Check's "${number}" ends a clause with no unit and no thing counted`, at));
+    if (n.state === "assumed" && !n.source) out.push(finding("info", "source-missing", `${n.id} is a guess with no source; a guess carries the chain and the thread it rests on`, at));
     // A leaf's contract (REQ-3.3): `kind` says how it is measured and `## Check` what is observed.
     const hasCheck = n.sections.some((s) => /^Check$/i.test(s.heading));
     if (n.kind && !hasCheck)
@@ -121,6 +137,10 @@ export function checkCanon(canon: Canon): Finding[] {
   }
   // Terms are approved one by one in the Glossary tab; after the root's approval a heading without a marker would
   // hand every unmarked term the human's own state.
+  // A definition says what a term is, never what must be done; an obligation in the glossary belongs in a node.
+  for (const t of canon.terms)
+    if (/(?<![A-Za-z])(?:shall|must|should)(?![A-Za-z])/i.test(t.definition))
+      out.push(finding("info", "glossary-prescriptive", `${t.id}: the definition of "${t.term}" carries an obligation; a definition is declarative, the obligation is a node`, { id: t.id, file: canon.root?.file }));
   if (canon.root && (canon.root.state === "stated" || canon.root.state === "resolved") && /^##[ \t]+Glossary[ \t]*$/m.test(canon.root.body)) {
     const unmarked = canon.root.body.split(/\r?\n/).filter((l) => /^\*\*[^*]+\*\*\s*\(`TERM-/.test(l) && !/\[(stated|assumed|open|contested|resolved)\]/.test(l));
     if (unmarked.length) out.push(finding("warn", "glossary-inherited", `${unmarked.length} glossary term(s) carry no marker under an unmarked heading, so they read as the human's own; mark the heading [assumed], or each term`, { id: "ROOT", file: canon.root.file }));
