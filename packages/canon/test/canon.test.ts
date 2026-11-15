@@ -152,6 +152,18 @@ describe("check [REQ-2.6]", () => {
   });
 });
 
+describe("term candidates [REQ-12.1.6]", () => {
+  it("scans the human's Stated words as well as Intent and Check", () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "headcanon-stated-")), "canon");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: resolved\n---\n\n# T canon\n");
+    writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Imports land\"\nstate: stated\n---\n\n# Imports land\n\n## Stated\n\n> Every import lands in the Ledger before anything reads it.\n");
+    const found = checkCanon(loadCanon(dir)).filter((f) => f.code === "term-candidate" && f.id === "REQ-1");
+    expect(found).toHaveLength(1);
+    expect(found[0]?.message).toContain("Ledger");
+  });
+});
+
 describe("summary [REQ-6.2]", () => {
   it("renders the text tree with ids, states and finding counts", () => {
     const canon = loadCanon(MINI);

@@ -97,9 +97,9 @@ export function checkCanon(canon: Canon): Finding[] {
     for (const x of n.sections)
       if (!KNOWN_SECTIONS.has(x.heading.trim().toLowerCase()))
         out.push(finding("warn", "section-unknown", `${n.id} has a section the format does not define, "${x.heading}"; its content belongs under Intent, Deferred, Check, Contested, Assumptions or Open, or in an issue`, at));
-    // Words the glossary does not define, in the entry's own text: candidates for a term, for the reviewer and the
-    // orchestrator's vocabulary pass; a heuristic, so a note, never a block.
-    const candidates = detectTerms(`${sectionText(n.body, "Intent")} ${sectionText(n.body, "Check")}`, canon.terms, { ignore: canon.root ? nameWords(canon.root.title) : [] });
+    // Words the glossary does not define, in the entry's own text, Intent, Check and the human's Stated words alike:
+    // candidates for a term, for the reviewer and the orchestrator's vocabulary pass; a heuristic, so a note, never a block.
+    const candidates = detectTerms(`${sectionText(n.body, "Intent")} ${sectionText(n.body, "Check")} ${sectionText(n.body, "Stated")}`, canon.terms, { ignore: canon.root ? nameWords(canon.root.title) : [] });
     if (candidates.length)
       out.push(finding("info", "term-candidate", `${n.id} uses ${candidates.length} word(s) the glossary does not define: ${candidates.slice(0, 5).join(", ")}${candidates.length > 5 ? ", …" : ""}`, at));
     // A leaf's contract (REQ-3.3): `kind` says how it is measured and `## Check` what is observed.

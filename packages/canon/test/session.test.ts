@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -47,6 +47,34 @@ describe("session state [REQ-12.1.7]", () => {
     expect(b.current()?.id).toBe(q.id);
     b.answer({ questionId: q.id, selected: ["yes"], other: "", terms: [] });
     expect(new SessionState(store).queued().map((x) => x.header)).toEqual(["Also"]);
+  });
+  it("reads the file back before it writes, so a queue an operation rewrote is never overwritten by a stale one", () => {
+    /** Another process rewrote the store: the question on `from` now names `to`, as a move or a merge does. */
+    const rewrite = (store: string, from: string, to: string) => {
+      const saved = JSON.parse(readFileSync(store, "utf8")) as { queue: Array<{ nodeId?: string }> };
+      for (const q of saved.queue) if (q.nodeId === from) q.nodeId = to;
+      writeFileSync(store, JSON.stringify(saved, null, 2));
+      // the other process wrote later than this one; the clock is moved rather than waited for
+      const later = Date.now() / 1000 + 2;
+      utimesSync(store, later, later);
+    };
+    const nodeIds = (store: string) => (JSON.parse(readFileSync(store, "utf8")) as { queue: Array<{ nodeId?: string }> }).queue.map((q) => q.nodeId);
+    const store = join(mkdtempSync(join(tmpdir(), "headcanon-q-")), "questions.json");
+    const s = new SessionState(store);
+    s.ask({ question: "Where?", header: "Draft", nodeId: "REQ-1.1" });
+    rewrite(store, "REQ-1.1", "REQ-2.1");
+    s.ask({ question: "And this?", header: "Other", nodeId: "REQ-3" });
+    expect(s.queued().map((q) => q.nodeId)).toEqual(["REQ-2.1", "REQ-3"]);
+    expect(nodeIds(store)).toEqual(["REQ-2.1", "REQ-3"]);
+    // a withdrawal and an answer read the file first too
+    rewrite(store, "REQ-3", "REQ-9");
+    expect(s.supersede("REQ-9", "the human rewrote the box")).toBe(1);
+    expect(nodeIds(store)).toEqual(["REQ-2.1"]);
+    const [left] = s.queued();
+    rewrite(store, "REQ-2.1", "REQ-2.2");
+    expect(s.answer({ questionId: left!.id, selected: ["Drop"], other: "", terms: [] })).toBe(true);
+    expect(s.changes().entries.find((e) => e.kind === "answer")?.id).toBe("REQ-2.2");
+    expect(nodeIds(store)).toEqual([]);
   });
   it("an issue has a kind and a why; a contradiction carries no default options", () => {
     const s = new SessionState();

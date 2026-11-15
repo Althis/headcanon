@@ -6,7 +6,7 @@ import { setField, upsertSection } from "./edits.js";
 import { termId } from "./glossary.js";
 import { descendants, loadCanon } from "./load.js";
 import { requiresCycles } from "./next.js";
-import { parseFrontMatter, parseGlossary } from "./parse.js";
+import { parseFrontMatter, parseGlossary, strList } from "./parse.js";
 import { isLayer, type Canon, type Layer, type ReqNode } from "./types.js";
 
 /**
@@ -15,6 +15,11 @@ import { isLayer, type Canon, type Layer, type ReqNode } from "./types.js";
  * the tree is an operation, passed up to the agent that owns the wider scope and applied here, deterministically,
  * checked, and logged. Every attempt is appended to the log with its outcome, so a retried correction, a refused
  * write and a review verdict all leave the same trace, and `headcanon op --stats` reads the retries per check.
+ *
+ * The operations: `link`, `unlink` and `move-edge` on the typed edges; `create`, `move`, `merge` and `delete` on the
+ * shape of the tree; `contest`, `reword`, `draft` and `note` on one box's text and state; `term` on the glossary; and
+ * three that write nothing and only leave their trace: `review`, the verdict counted against the retry budget, and
+ * `dispatch` and `returned`, which boxes a running agent holds, so a session that compacts reads them back.
  *
  * An operation is applied as a plan of file writes and removals; the canon is reloaded and checked afterwards,
  * and a plan that introduces a structural error is rolled back and refused with the errors as its reason.
@@ -38,8 +43,13 @@ export type Op =
   | { op: "delete"; id: string; subtree?: boolean; why?: string }
   /** A guess the review could not get right becomes a draft: `state: open`, the diagnosis under Open; its question is filed apart. */
   | { op: "draft"; id: string; why: string }
+  /** A dated observation under Open on a guess, its state unchanged; an approved box's drift is an issue, never a note. */
+  | { op: "note"; id: string; text: string; why?: string }
   /** Record only: a review verdict on a node, so retries are counted and the budget is enforced. */
-  | { op: "review"; id: string; verdict: "pass" | "fail"; findings?: Array<{ check: string; text: string }>; why?: string };
+  | { op: "review"; id: string; verdict: "pass" | "fail"; findings?: Array<{ check: string; text: string }>; why?: string }
+  /** Record only: a box handed to a running agent, and its return, so a session that compacts reads back what is held. */
+  | { op: "dispatch"; id: string; agent?: string; why?: string }
+  | { op: "returned"; id: string; why?: string };
 
 export interface OpResult {
   ok: boolean;
@@ -83,7 +93,8 @@ function walkMd(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) walkMd(p, out);
-    else if (e.isFile() && p.endsWith(".md")) out.push(p);
+    // as the loader walks: a `.MD` file is a node, so it must move and go with the rest
+    else if (e.isFile() && e.name.toLowerCase().endsWith(".md")) out.push(p);
   }
   return out;
 }
@@ -121,11 +132,22 @@ export function rewriteIds(text: string, map: Map<string, string>): string {
   return out;
 }
 
+/** The text under one `## Heading`, up to the next; empty when the section is absent. */
+function sectionOf(body: string, heading: string): string {
+  const re = new RegExp(`^##[ \\t]+${escapeRe(heading)}\\b[^\\n]*\\n([\\s\\S]*?)(?=^##[ \\t]|(?![\\s\\S]))`, "m");
+  return re.exec(body)?.[1] ?? "";
+}
+
+const isBullet = (l: string) => /^\s*-\s+/.test(l);
+
 /** Bullets under one `## Heading`. */
 function bulletsOf(body: string, heading: string): string[] {
-  const re = new RegExp(`^##[ \\t]+${escapeRe(heading)}\\b[^\\n]*\\n([\\s\\S]*?)(?=^##[ \\t]|(?![\\s\\S]))`, "m");
-  const sec = re.exec(body)?.[1] ?? "";
-  return sec.split(/\r?\n/).filter((l) => /^\s*-\s+/.test(l)).map((l) => l.replace(/^\s*-\s+/, "").trim());
+  return sectionOf(body, heading).split(/\r?\n/).filter(isBullet).map((l) => l.replace(/^\s*-\s+/, "").trim());
+}
+
+/** The prose under one `## Heading`, its bullets left out, as one paragraph. */
+function proseOf(body: string, heading: string): string {
+  return sectionOf(body, heading).split(/\r?\n/).filter((l) => !isBullet(l)).join(" ").replace(/\s+/g, " ").trim();
 }
 
 /** The front matter and body of a node file, with the body's leading newline trimmed. */
@@ -140,7 +162,7 @@ function childDirFor(canon: Canon, plan: Plan, parent: ReqNode | undefined): str
   if (!parent) return canon.dir;
   const abs = resolve(canon.dir, parent.file);
   if (basename(abs) === "README.md") return dirname(abs);
-  const folder = abs.replace(/\.md$/, "");
+  const folder = abs.replace(/\.md$/i, "");
   plan.writes.set(join(folder, "README.md"), plan.writes.get(abs) ?? readFileSync(abs, "utf8"));
   plan.removes.add(abs);
   return folder;
@@ -157,6 +179,14 @@ function nodeTemplate(o: Extract<Op, { op: "create" }>, id: string, parentId: st
 }
 
 const approvedState = (n: ReqNode | undefined) => n?.state === "stated" || n?.state === "resolved";
+
+/** The requires cycle that `id` holding `requires` would close, probed on a copy before anything is written. */
+function cycleWith(canon: Canon, id: string, requires: string[]): string[] | undefined {
+  const n = canon.nodes[id];
+  if (!n) return undefined;
+  const cycles = requiresCycles({ ...canon, nodes: { ...canon.nodes, [id]: { ...n, requires } } });
+  return cycles.find((c) => c.includes(id)) ?? cycles[0];
+}
 
 /** Build the plan for one operation, or return the reason it cannot be built. */
 function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Plan; result: Partial<OpResult> } | { error: string } {
@@ -178,9 +208,8 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const next = op.op === "link" ? uniq([...have, op.to]) : have.filter((x) => x !== op.to);
       if (next.length === have.length && op.op === "link" && have.includes(op.to)) return { plan, result: { id: op.from } };
       if (op.op === "link" && op.kind === "requires") {
-        const probe: Canon = { ...canon, nodes: { ...canon.nodes, [op.from]: { ...n, requires: next } } };
-        const cycles = requiresCycles(probe);
-        if (cycles.length) return { error: `${op.from} requires ${op.to} would close a cycle: ${cycles[0]!.join(" > ")}; lift the shared concept to their common ancestor instead` };
+        const cycle = cycleWith(canon, op.from, next);
+        if (cycle) return { error: `${op.from} requires ${op.to} would close a cycle: ${cycle.join(" > ")}; lift the shared concept to their common ancestor instead` };
       }
       write(n, setListField(current(n), op.kind, next));
       return { plan, result: { id: op.from } };
@@ -191,7 +220,11 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const n = node(op.on)!;
       if (!n.requires.includes(op.from)) return { error: `${op.on} does not require ${op.from}` };
       if (!descendants(canon, op.from).includes(op.to)) return { error: `${op.to} is not under ${op.from}: an edge descends to the child that holds the concept, never elsewhere` };
-      write(n, setListField(current(n), "requires", uniq(n.requires.map((x) => (x === op.from ? op.to : x)))));
+      const next = uniq(n.requires.map((x) => (x === op.from ? op.to : x)));
+      // the child may require `on` back where its parent did not: the descent would close a cycle the check refuses after the write
+      const cycle = cycleWith(canon, op.on, next);
+      if (cycle) return { error: `${op.on} requires ${op.to} would close a cycle: ${cycle.join(" > ")}; lift the shared concept to their common ancestor instead` };
+      write(n, setListField(current(n), "requires", next));
       return { plan, result: { id: op.on } };
     }
     case "create": {
@@ -213,6 +246,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       if (err) return { error: err };
       const parentId = op.under === "ROOT" ? undefined : op.under;
       if (parentId && !node(parentId)) return { error: `${op.under} is not in the canon` };
+      if (op.layer && !isLayer(op.layer)) return { error: `unknown layer ${String(op.layer)}` };
       const n = node(op.id)!;
       if (parentId === op.id || (parentId && descendants(canon, op.id).includes(parentId))) return { error: `${op.under} is under ${op.id}; a box cannot move into itself` };
       if ((n.parent ?? undefined) === parentId) return { plan, result: { id: op.id } };
@@ -229,7 +263,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const base = folder ? dirname(folder) : dirname(rootAbs);
       const newDir = childDirFor(canon, plan, parent);
       for (const f of files) {
-        const segs = relative(base, f).split(sep).map((seg) => seg.replace(/^(REQ-[\d.]+)(?=-|\.md$|$)/, (m) => idMap.get(m) ?? m));
+        const segs = relative(base, f).split(sep).map((seg) => seg.replace(/^(REQ-[\d.]+)(?=-|\.md$|$)/i, (m) => idMap.get(m) ?? m));
         let text = rewriteIds(readFileSync(f, "utf8"), idMap);
         if (f === rootAbs) {
           text = parentId ? setField(text, "parent", parentId) : text.replace(/^parent:.*\r?\n/m, "");
@@ -257,6 +291,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const from = node(op.from)!, to = node(op.to)!;
       if (from.children.length) return { error: `${op.from} has children; move or merge them first` };
       if (approvedState(from)) return { error: `${op.from} is the human's; a merge of an approved box is asked, never applied` };
+      const idMap = new Map([[op.from, op.to]]);
       let text = current(to);
       for (const kind of ["relates", "requires", "conflicts"] as const) {
         const union = uniq([...to[kind], ...from[kind]]).filter((x) => x !== op.to && x !== op.from);
@@ -267,8 +302,8 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const deferred = bulletsOf(from.body, "Deferred"), toDeferred = bulletsOf(to.body, "Deferred");
       if (deferred.some((b) => !toDeferred.includes(b))) text = upsertSection(text, "Deferred", uniq([...toDeferred, ...deferred]).map((b) => `- ${b}`).join("\n"));
       if (from.source && from.source !== to.source) text = setField(text, "source", `"${[to.source, from.source].filter(Boolean).join("; ").replace(/"/g, "'")}"`);
-      write(to, text);
-      const idMap = new Map([[op.from, op.to]]);
+      // the absorbing box's own prose, and the bullets it just took, name the gone id too
+      write(to, rewriteIds(text, idMap));
       const fromAbs = resolve(canon.dir, from.file);
       for (const f of walkMd(canon.dir)) {
         if (f === fromAbs || f === resolve(canon.dir, to.file)) continue;
@@ -276,16 +311,18 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
         const nx = rewriteIds(t, idMap);
         if (nx !== t) plan.writes.set(f, nx);
       }
-      // a node that both related to and now requires itself through the merge is cleaned above; others may now list `to` twice
+      // a node that both related to and now requires itself through the merge is cleaned above; others may now name `to`
+      // twice: an edge list, a decision's intents, a journey step's requirement cell
       for (const [abs, t] of plan.writes) {
         if (abs === resolve(canon.dir, to.file) || abs.endsWith(".json")) continue;
         const { data } = parseFrontMatter(t);
         let out = t;
-        for (const kind of ["relates", "requires", "conflicts"] as const) {
-          const list = Array.isArray(data[kind]) ? (data[kind] as unknown[]).map(String) : typeof data[kind] === "string" ? String(data[kind]).split(",").map((s) => s.trim()).filter(Boolean) : [];
+        for (const kind of ["relates", "requires", "conflicts", "intents"] as const) {
+          const list = strList(data[kind]);
           const clean = uniq(list).filter((x) => x !== String(data["id"]));
           if (clean.length !== list.length) out = setListField(out, kind, clean);
         }
+        if (String(data["id"]).startsWith("JRN-")) out = dedupeStepRows(out);
         if (out !== t) plan.writes.set(abs, out);
       }
       plan.removes.add(fromAbs);
@@ -295,10 +332,16 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
     case "contest": {
       const err = must(op.id) ?? (op.other ? must(op.other) : undefined);
       if (err) return { error: err };
+      if (op.other === op.id) return { error: `${op.id} cannot be contested against itself; name the other box, or leave other out when both readings are its own` };
       if (!op.summary?.trim() || !Array.isArray(op.statements) || op.statements.length < 2) return { error: "a contest needs a summary and at least two statements with their sources" };
-      const body = `${op.summary.trim()}\n\n${op.statements.map((s) => `- ${s.text.trim()} (${s.source.trim()})`).join("\n")}`;
-      for (const id of uniq([op.id, ...(op.other ? [op.other] : [])])) {
+      const summary = op.summary.trim().replace(/\s+/g, " ");
+      const statements = op.statements.map((s) => `${s.text.trim()} (${s.source.trim()})`);
+      for (const id of [op.id, ...(op.other ? [op.other] : [])]) {
         const n = node(id)!;
+        // a second contest adds to the first: one paragraph of both summaries, the union of the statements
+        const prior = proseOf(n.body, "Contested");
+        const paragraph = prior && !prior.includes(summary) ? `${prior} ${summary}` : prior || summary;
+        const body = `${paragraph}\n\n${uniq([...bulletsOf(n.body, "Contested"), ...statements]).map((b) => `- ${b}`).join("\n")}`;
         let text = setField(current(n), "state", "contested");
         text = upsertSection(text, "Contested", body);
         if (op.other) text = setListField(text, "conflicts", uniq([...n.conflicts, id === op.id ? op.other : op.id]));
@@ -342,7 +385,11 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const re = new RegExp(`(?<![A-Za-z0-9])${escapeRe(op.from.trim())}(?![A-Za-z0-9])`, "g");
       const text = current(n);
       let count = 0;
-      const out = text.replace(re, () => { count++; return op.to; });
+      const swap = (s: string) => s.replace(re, () => { count++; return op.to; });
+      // the front matter is metadata, not prose: `kind: binary` and the `state` key must survive a rewording of those
+      // words; the title is the writer's, with the body and its H1
+      const head = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text)?.[0] ?? "";
+      const out = head.replace(/^(title:[ \t]*)(.*)$/m, (_m, key: string, value: string) => key + swap(value)) + swap(text.slice(head.length));
       if (!count) return { error: `"${op.from}" does not occur in ${op.id}` };
       write(n, out);
       return { plan, result: { id: op.id } };
@@ -383,15 +430,48 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       write(n, text);
       return { plan, result: { id: op.id } };
     }
+    case "note": {
+      const err = must(op.id);
+      if (err) return { error: err };
+      const n = node(op.id)!;
+      if (approvedState(n)) return { error: `${op.id} is the human's; its drift is an issue, never a note` };
+      if (!op.text?.trim()) return { error: "a note needs its text: what was seen, in a line" };
+      write(n, upsertSection(current(n), "Open", [...bulletsOf(n.body, "Open"), `${today()}: ${op.text.trim()}`].map((b) => `- ${b}`).join("\n")));
+      return { plan, result: { id: op.id } };
+    }
     case "review": {
       const err = must(op.id);
       if (err) return { error: err };
       if (op.verdict !== "pass" && op.verdict !== "fail") return { error: "a review's verdict is pass or fail" };
       return { plan, result: { id: op.id } };
     }
+    case "dispatch":
+    case "returned": {
+      const err = must(op.id);
+      if (err) return { error: err };
+      return { plan, result: { id: op.id } };
+    }
     default:
       return { error: `unknown operation ${String((op as { op?: unknown }).op)}` };
   }
+}
+
+/** A journey's step rows with each requirement cell's repeats dropped: a merge can leave `REQ-1, REQ-1`. */
+function dedupeStepRows(text: string): string {
+  let changed = false;
+  const lines = text.split(/\r?\n/).map((line) => {
+    if (!/^\|\s*S\d+\b/.test(line)) return line;
+    // the requirement cell is the last one, after the step and an optional state column, as parseStepTable reads it
+    const cells = line.split("|");
+    const i = cells.length >= 5 ? 3 : 2;
+    if (i >= cells.length - 1) return line;
+    const reqs = (cells[i] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    const clean = uniq(reqs);
+    if (clean.length === reqs.length) return line;
+    changed = true;
+    return [...cells.slice(0, i), ` ${clean.join(", ")} `, ...cells.slice(i + 1)].join("|");
+  });
+  return changed ? lines.join("\n") : text;
 }
 
 /** The queue file with its node ids mapped. */
@@ -405,12 +485,15 @@ function rewriteQueue(text: string, map: Map<string, string>): string {
   }
 }
 
-/** Apply a plan, keeping what it overwrote so it can be undone. */
+/** Apply a plan, keeping what it overwrote and which folders it made, so it can be undone whole. */
 function commit(plan: Plan): () => void {
   const originals = new Map<string, string | null>();
   const remember = (p: string) => { if (!originals.has(p)) originals.set(p, existsSync(p) ? readFileSync(p, "utf8") : null); };
   for (const p of plan.removes) remember(p);
   for (const p of plan.writes.keys()) remember(p);
+  // the folders the writes will make, so a rolled-back plan leaves none behind
+  const made: string[] = [];
+  for (const p of plan.writes.keys()) for (let d = dirname(p); !existsSync(d) && !made.includes(d); d = dirname(d)) made.push(d);
   for (const p of plan.removes) if (!plan.writes.has(p)) rmSync(p, { force: true });
   for (const [p, text] of plan.writes) { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); }
   return () => {
@@ -418,6 +501,7 @@ function commit(plan: Plan): () => void {
       if (text === null) rmSync(p, { force: true });
       else { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); }
     }
+    for (const d of made.sort((a, b) => b.length - a.length)) if (existsSync(d) && readdirSync(d).length === 0) rmdirSync(d);
   };
 }
 
@@ -478,7 +562,11 @@ export function applyOp(canonDir: string, op: Op, opts: ApplyOptions = {}): OpRe
   const { plan, result } = planned;
   const touched = uniq([...plan.writes.keys(), ...plan.removes]).filter((p) => p.startsWith(dir)).map((p) => rel(dir, p)).sort();
   if (!touched.length && !plan.writes.size) return record({ ok: true, changes: [], ...result });
-  const before = errorKeys(canon);
+  // an error that was there before follows a renamed id (a dangling edge on a moved leaf, or one `to` takes over from
+  // `from`), so the keys the plan started from are read under their new names
+  const renamed: Record<string, string> = op.op === "merge" ? { [op.from]: op.to } : result.renamed ?? {};
+  const follow = (k: string) => { const i = k.indexOf(":") + 1; const id = k.slice(i); return k.slice(0, i) + (renamed[id] ?? id); };
+  const before = new Set([...errorKeys(canon)].map(follow));
   const undo = commit(plan);
   const after = errorKeys(loadCanon(dir));
   const newErrors = [...after].filter((k) => !before.has(k));

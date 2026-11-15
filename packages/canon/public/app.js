@@ -642,27 +642,28 @@ function renderIssues(s) {
   const picks = closed ? [] : (snap.next?.human ?? []).filter((h) => !notReady.has(h.id)).slice(0, 5);
   const top = picks[0];
   const minutes = (p) => Math.floor((Date.now() - p.since) / 60000);
+  const ago = (p) => { const m = minutes(p); return m < 1 ? "just now" : m === 1 ? "a minute ago" : `${m} minutes ago`; };
   const pendingKey = [...pendingNodes].map(([id, p]) => `${id}:${minutes(p)}`);
   const active = agentLive(s) ? activeIds() : []; // what the disk shows moving, shown only while a session is attached
-  const key = JSON.stringify([closed && `${gate.cut}/${gate.total}`, picks.map((h) => `${h.id}:${h.score}`), pendingKey, active, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
+  const key = JSON.stringify([closed && `${gate.cut}/${gate.total}`, picks.map((h) => `${h.id}:${h.action}:${h.why}`), pendingKey, active, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
   const open = closed ? 0 : issues.filter((i) => !i.preparing).length;
   count.textContent = open; count.hidden = open === 0;
+  // the lines both branches share: each box the human acted on (with how long ago, when asked), then what the disk shows moving
+  const pendingLines = (withAgo) => [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)}${withAgo ? ` ${esc(ago(p))}` : ""}</span></p>`).join("");
+  const activeLine = active.length ? `<p class="pending-line"><span class="spin"></span> <span class="muted">Being cut now:</span> ${active.map((id) => `<a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a>`).join(", ")}</p>` : "";
   if (closed) {
     body.innerHTML = `<p class="next-for-you"><span class="spin"></span> <span class="muted">Your list opens when ${esc(gate.what)} is cut: ${gate.cut} of ${gate.total}. Questions are being filed meanwhile; the canvas shows what lands.</span></p>` +
-      [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)}</span></p>`).join("") +
-      (active.length ? `<p class="pending-line"><span class="spin"></span> <span class="muted">Being cut now:</span> ${active.map((id) => `<a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a>`).join(", ")}</p>` : "");
+      pendingLines(false) + activeLine;
     for (const a of body.querySelectorAll("[data-next]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; if (id === "ROOT" || node(id)) focusOnCanvas(id, false, true); });
     return;
   }
   const hint = (i) => i.preparing ? "The session is still writing its question for this draft" : i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
   const pickLine = (h) => `<a href="#" data-next="${esc(h.id)}" title="Select it on the canvas">${esc(h.action)} ${esc(h.id)}</a> <span class="muted">· ${esc(h.why)}</span>`;
-  const ago = (p) => { const m = minutes(p); return m < 1 ? "just now" : m === 1 ? "a minute ago" : `${m} minutes ago`; };
   body.innerHTML = (top ? `<p class="next-for-you"><span class="muted">Next for you:</span> ${pickLine(top)}</p>` : "") +
     (picks.length > 1 ? `<p class="for-you"><span class="muted">Then:</span> ${picks.slice(1).map(pickLine).join("<br>")}</p>` : "") +
-    [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)} ${esc(ago(p))}</span></p>`).join("") +
-    (active.length ? `<p class="pending-line"><span class="spin"></span> <span class="muted">Being cut now:</span> ${active.map((id) => `<a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a>`).join(", ")}</p>` : "") +
+    pendingLines(true) + activeLine +
     (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
     issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}${i.preparing ? " preparing" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${i.preparing ? "…" : ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.preparing ? ` <span class="muted">· being prepared</span>` : i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
   for (const b of body.querySelectorAll("[data-issue]")) b.addEventListener("click", () => openIssue(issues[Number(b.dataset.issue)]));
@@ -736,7 +737,6 @@ async function pollSession() {
     }
     if (s.question && s.question.id !== shownQuestionId && !(shownIssue && !$issueCard.hidden)) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); $question.dataset.issue = s.question.id; shownIssue = null; chime(); }
     ageActivity(); // a box that went quiet loses its paint here; no new snapshot comes for that
-    renderIssues(s);
     for (const q of s.queue ?? []) if (q.nodeId && pendingNodes.has(q.nodeId)) clearPending(q.nodeId);
     renderIssues(s); // every poll: what is pending, prepared or live changes with time; the key guard keeps the DOM still
     renderLive(s);
@@ -791,7 +791,9 @@ const pendingNodes = new Map();
 const paintPending = (id) => { const c = window.__cy; if (c) { const n = c.getElementById(id); if (n.length) n.toggleClass("pending", pendingNodes.has(id) || isActive(id)); } };
 const markPending = (id, why) => { if (id) { pendingNodes.set(id, { since: Date.now(), why }); paintPending(id); } };
 const clearPending = (id) => { if (id && pendingNodes.delete(id)) { paintPending(id); renderIssues(lastSession); } };
-const agentLive = (s) => typeof s?.agentSeenAgo === "number" && s.agentSeenAgo < 900;
+// A session is live when it asked something in the last fifteen minutes, or when the disk shows a box moving that no
+// edit from this page explains: while drafting, agents write for long stretches without asking anything.
+const agentLive = (s) => (typeof s?.agentSeenAgo === "number" && s.agentSeenAgo < 900) || activeIds().some((id) => !pendingNodes.has(id));
 // Boxes being cut right now, as the disk shows it (DEC-024): the snapshot names each node file written in the last
 // two minutes with the seconds since. The page keeps the write time that implies and ages it by the same rule, because
 // a new snapshot comes only when a file changes, never when one goes quiet. Painted like a pending box but kept apart
@@ -830,7 +832,7 @@ function renderLive(s) {
     // a "Working" button with the spinner; a click opens the list of what runs
     let items, meta;
     if (doing.length) { items = doing.map((d) => linkIds(d)); meta = `said ${ago(now - saidAt)}`; }
-    else if (active.length) { items = active.map((id) => `${linkIds(id)} <span class="muted">· being cut</span>`); meta = "seen on disk; the session has not said what it runs"; }
+    else if (active.length) { items = active.map((id) => `${id === "ROOT" ? "Premise" : linkIds(id)} <span class="muted">· being cut</span>`); meta = "seen on disk; the session has not said what it runs"; }
     else {
       const byParent = new Map();
       for (const c of recentChanges) { const p = node(c.id)?.parent ?? c.id; byParent.set(p, Math.max(byParent.get(p) ?? 0, c.at)); }

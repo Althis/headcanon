@@ -7,13 +7,13 @@ import { relative } from "node:path";
 import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
 import { runMcp } from "./mcp.js";
 import { detectTerms, nameWords } from "./terms.js";
-import { adoptionFinished, describeNext, describePath, pathToValidate, refinementOrder } from "./next.js";
+import { adoptionFinished, describeNext, describePath, listGate, pathToValidate, refinementOrder } from "./next.js";
 import { applyOp, gitDirOf, opStats, readOps, type Op } from "./ops.js";
 import { coherenceClusters, describeCoherence } from "./coherence.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { describeFormat } from "./format.js";
-import { loadCanon } from "./load.js";
+import { compareIds, loadCanon } from "./load.js";
 import { renderMermaidIndex } from "./render.js";
 import { buildSnapshot } from "./snapshot.js";
 import { serveUi } from "./ui/server.js";
@@ -118,6 +118,82 @@ async function readStdin(): Promise<string> {
   });
 }
 
+/** The Stop hook's input as Claude Code sends it; every field may be absent. */
+interface StopHookInput {
+  cwd?: string;
+  transcript_path?: string;
+  last_assistant_message?: string;
+  stop_hook_active?: boolean;
+  background_tasks?: Array<{ type?: string; status?: string }>;
+}
+
+/** What the stop hook's rule weighs; gathered by the command, judged by `stopDecision`. */
+export interface StopFacts {
+  /** The adoption is finished: DEC-001 exists, or there is no canon to attend. */
+  finished: boolean;
+  /** A viewer answers on the port. */
+  viewerAnswers: boolean;
+  /** The human's list is open (the gate): they may be working it, so the session keeps attending. */
+  gateOpen: boolean;
+  /** The session's last words, when the hook input carries them. */
+  lastAssistantMessage?: string | undefined;
+  /** The last assistant text in the transcript, read only when the hook input carries no message. */
+  transcriptTail?: string | undefined;
+  /** Claude Code's background tasks, when the hook input carries them; absent means nothing in flight. */
+  backgroundTasks?: Array<{ type?: string; status?: string }> | undefined;
+}
+
+export const STOP_BLOCK_REASON = "The adoption is unfinished and the viewer is up, so the attend loop does not end its turn: call headcanon_changes again with waitSeconds 600 and keep attending. Say the words 'stopping attend' only when the human asked you to stop.";
+
+/**
+ * Whether the session may end its turn (REQ-11.1): yes once the adoption is finished, when no viewer is up, when its
+ * last words say "stopping attend", or when a subagent runs while the human's list is closed, since its report wakes
+ * the session; otherwise the attend loop goes on. Pure, so the rule is tested apart from stdin and the viewer.
+ */
+export function stopDecision(f: StopFacts): { decision: "allow" | "block"; reason: string } {
+  if (f.finished) return { decision: "allow", reason: "the adoption is finished" };
+  if (!f.viewerAnswers) return { decision: "allow", reason: "no viewer answers" };
+  // the hook's own field is the session's last message; the transcript is the fallback when the field is absent
+  if (/stopping attend/i.test(f.lastAssistantMessage ?? f.transcriptTail ?? "")) return { decision: "allow", reason: "the session said it is stopping attend" };
+  // a running branch or refiner wakes the session with its report; while the list is open the human may be working it
+  if (!f.gateOpen && (f.backgroundTasks ?? []).some((t) => t.type === "subagent")) return { decision: "allow", reason: "a subagent is running and the human's list is closed: its report wakes the session" };
+  return { decision: "block", reason: STOP_BLOCK_REASON };
+}
+
+/** The text of the last assistant message in a Claude Code transcript; undefined when there is none to read. */
+export function lastAssistantText(transcriptPath: string | undefined): string | undefined {
+  if (!transcriptPath || !existsSync(transcriptPath)) return undefined;
+  const lines = readFileSync(transcriptPath, "utf8").split(/\r?\n/).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0 && i > lines.length - 60; i--) {
+    try {
+      const j = JSON.parse(lines[i]!) as { type?: string; message?: { content?: Array<{ type: string; text?: string }> } };
+      if (j.type !== "assistant") continue;
+      return (j.message?.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join(" ");
+    } catch { /* not a message line */ }
+  }
+  return undefined;
+}
+
+/** Whether a viewer answers on the port. */
+async function viewerUp(port: number): Promise<boolean> {
+  try { return (await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; }
+}
+
+/**
+ * The boxes whose agents were dispatched and have not reported: a `dispatch` record in the operations log with no
+ * later `returned` record for the same id. The records are read as `{ op, id }`, whatever kinds the log's types name;
+ * a refused attempt (`ok: false`, an id outside the canon) handed nothing to anyone and is passed over.
+ */
+export function heldBoxes(records: ReadonlyArray<{ ok?: boolean; request: { op: string; id?: string } }>): string[] {
+  const held = new Set<string>();
+  for (const { ok, request } of records) {
+    if (ok === false || !request.id) continue;
+    if (request.op === "dispatch") held.add(request.id);
+    else if (request.op === "returned") held.delete(request.id);
+  }
+  return [...held].sort(compareIds);
+}
+
 export async function main(argv: string[]): Promise<number> {
   const args = parseArgs(argv);
   const out = (s: string) => process.stdout.write(s);
@@ -128,29 +204,29 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   // stop-hook: a session that attends an unfinished adoption never ends its turn by accident. It may stop when the
-  // adoption is finished (DEC-001 exists), when no viewer answers, or when its last words say "stopping attend".
+  // adoption is finished (DEC-001 exists), when no viewer answers, when its last words say "stopping attend", or when
+  // a subagent runs while the human's list is closed; the rule is `stopDecision`, this gathers what it weighs.
   if (args.command === "stop-hook") {
-    let input: { cwd?: string; transcript_path?: string } = {};
-    try { input = JSON.parse((await readStdin()) || "{}") as typeof input; } catch { /* no hook input */ }
+    let input: StopHookInput = {};
+    try { input = JSON.parse((await readStdin()) || "{}") as StopHookInput; } catch { /* no hook input */ }
     const cwd = process.env["CLAUDE_PROJECT_DIR"] ?? input.cwd ?? process.cwd();
     const canonDir = resolve(cwd, args.canon ?? "canon");
     const decisions = join(canonDir, "decisions");
-    const unfinished = existsSync(join(canonDir, "README.md")) && !(existsSync(decisions) && readdirSync(decisions).some((x) => x.startsWith("DEC-001")));
-    if (!unfinished) return 0;
-    try { const r = await fetch(`http://127.0.0.1:${args.port}/api/health`, { signal: AbortSignal.timeout(1500) }); if (!r.ok) return 0; } catch { return 0; }
-    if (input.transcript_path && existsSync(input.transcript_path)) {
-      const lines = readFileSync(input.transcript_path, "utf8").split(/\r?\n/).filter(Boolean);
-      for (let i = lines.length - 1; i >= 0 && i > lines.length - 60; i--) {
-        try {
-          const j = JSON.parse(lines[i]!) as { type?: string; message?: { content?: Array<{ type: string; text?: string }> } };
-          if (j.type !== "assistant") continue;
-          const said = (j.message?.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join(" ");
-          if (/stopping attend/i.test(said)) return 0;
-          break;
-        } catch { /* not a message line */ }
-      }
-    }
-    out(JSON.stringify({ decision: "block", reason: "The adoption is unfinished and the viewer is up, so the attend loop does not end its turn: call headcanon_changes again with waitSeconds 600 and keep attending. Say the words 'stopping attend' only when the human asked you to stop." }) + "\n");
+    const finished = !existsSync(join(canonDir, "README.md")) || (existsSync(decisions) && readdirSync(decisions).some((x) => x.startsWith("DEC-001")));
+    // the viewer, the gate and the transcript are read only while they can still change the outcome
+    const live = !finished && (await viewerUp(args.port));
+    let gateOpen = false;
+    if (live) try { gateOpen = listGate(loadCanon(canonDir)).open; } catch { gateOpen = true; /* an unreadable canon keeps today's behaviour */ }
+    const said = typeof input.last_assistant_message === "string" ? input.last_assistant_message : undefined;
+    const d = stopDecision({
+      finished,
+      viewerAnswers: live,
+      gateOpen,
+      lastAssistantMessage: said,
+      transcriptTail: live && said === undefined ? lastAssistantText(input.transcript_path) : undefined,
+      backgroundTasks: Array.isArray(input.background_tasks) ? input.background_tasks : undefined,
+    });
+    if (d.decision === "block") out(JSON.stringify({ decision: "block", reason: d.reason }) + "\n");
     return 0;
   }
 
@@ -173,7 +249,7 @@ export async function main(argv: string[]): Promise<number> {
       // after a compaction or a resume mid-adoption the loop's procedure is gone from the context; the canon on disk
       // is the state, so the session is told where to pick it up instead of ending its turn
       if ((source === "compact" || source === "resume") && existsSync(canonDir) && loadCanon(canonDir).root && !adoptionFinished(loadCanon(canonDir)))
-        context += `\n\n## An adoption is unfinished\n\nThe canon exists and DEC-001 does not: the attend loop was running before this ${source}. Re-read the attend skill (skills/attend/SKILL.md under the plugin root) and continue from \`headcanon next --json\`: the canon on disk and the operations log are the whole state; nothing in memory is needed.`;
+        context += `\n\n## An adoption is unfinished\n\nThe canon exists and DEC-001 does not: the attend loop was running before this ${source}. Re-read the attend skill (skills/attend/SKILL.md under the plugin root) and continue from \`headcanon next --json\`: the canon on disk and the operations log are the whole state; nothing in memory is needed. \`headcanon next --json\` lists under \`held\` the boxes whose agents were dispatched and have not reported; do not dispatch those again, their reports arrive as notifications.`;
     } catch (e) {
       context = `# HeadCanon\n\nThe canon at ${canonDir} could not be read: ${e instanceof Error ? e.message : String(e)}\nRun \`headcanon check\` and fix the file it names before relying on the canon.`;
     }
@@ -357,9 +433,15 @@ export async function main(argv: string[]): Promise<number> {
         out(args.json ? JSON.stringify({ id: args.positional[0], path: path ?? null }, null, 2) + "\n" : describePath(args.positional[0], path) + "\n");
         return path ? 0 : 1;
       }
-      // `--under <ID>` scopes the lists to one subtree, what a branch agent owns
+      // `--under <ID>` scopes the lists to one subtree, what a branch agent owns; an id outside the canon is an error,
+      // never an empty order that reads as nothing left
+      if (args.under && args.under !== "ROOT" && !canon.nodes[args.under]) { err(`${args.under} is not in the canon\n`); return 1; }
       const order = refinementOrder(canon, args.under);
-      out(args.json ? JSON.stringify(order, null, 2) + "\n" : describeNext(order, canon) + "\n");
+      // the boxes whose agents were dispatched and have not reported, from the operations log: not to be dispatched again
+      const git = gitDirOf(canonDir);
+      const held = heldBoxes(git ? readOps(join(git, "headcanon", "ops.jsonl")) : []);
+      if (args.json) out(JSON.stringify({ ...order, held }, null, 2) + "\n");
+      else out(describeNext(order, canon) + (held.length ? `\nHeld by running agents: ${held.join(", ")}.` : "") + "\n");
       return order.cycles.length ? 1 : 0;
     }
     case "attention": {

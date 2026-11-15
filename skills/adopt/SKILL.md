@@ -12,7 +12,7 @@ Two phases, machine then human (DEC-024). First the canon is drafted from the re
 
 ## Checklist
 
-- 0 Where things stand: no `canon/` is a fresh start, go to 1; a canon without `canon/decisions/DEC-001-adoption-scope.md` is an unfinished adoption, go to 4; both present, point to `/headcanon:review` and stop.
+- 0 Where things stand: no `canon/` is a fresh start, go to 1; a canon without `canon/decisions/DEC-001-adoption-scope.md` is an unfinished adoption, do the open and the say of 3, then 4; both present, point to `/headcanon:review` and stop.
 - 1 Read the repository silently, documents and code; write the thread list.
 - 2 `HC init`; draft the root README.
 - 3 Cut the premise into its top level; open the canvas; the briefing as a say.
@@ -21,9 +21,9 @@ Two phases, machine then human (DEC-024). First the canon is drafted from the re
 
 ## Sources
 
-Threads (one thing an artifact says, with its `path:lines` and the date of the commit that wrote it) are the direction of every draft and the evidence every draft is checked against. A document's line and the code's own facts are threads alike: an entry point, a module, a route, a command, a schema, a constant, a default, an error path, a state, a test name. Precedence: what the human approved or typed in the page, the newest artifact, older artifacts. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 5.
+Threads (one thing an artifact says, with its `path:lines` and the date of the commit that wrote it) are the direction of every draft and the evidence every draft is checked against. A document's line and the code's own facts are threads alike: an entry point, a module, a route, a command, a schema, a constant, a default, an error path, a state, a test name. Precedence (DEC-022): what the human approved or typed in the page, the newest document, older documents, what the code does today, the archetype; a code thread's date orders it among code threads and dates its As built line. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 5.
 
-Two threads that disagree on an entry: draft from the newer and make the node `contested`, with, under `## Contested`, one or two sentences on what the two cannot both hold and what choosing decides, then both statements with their sources, so it comes up red. A thread that disagrees with something the human approved on the canvas is never settled by you: say it in the chat and ask "The document says A. You approved B. Which stands?" with **Keep what I approved** and **The document is right**; list an overruled document in DEC-001 as superseded on that point.
+Two documents that disagree on an entry: draft from the newer and make the node `contested`, with, under `## Contested`, one or two sentences on what the two cannot both hold and what choosing decides, then both statements with their sources, so it comes up red; a document against the code is the As built case under Guessing, never drafted from the code. A thread that disagrees with something the human approved on the canvas is never settled by you: say it in the chat and ask "The document says A. You approved B. Which stands?" with **Keep what I approved** and **The document is right**; list an overruled document in DEC-001 as superseded on that point.
 
 Read only this repository, reference.md and what the human does in the page. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent.
 
@@ -56,14 +56,14 @@ Read only this repository, reference.md and what the human does in the page. The
 - The verifier agent (`headcanon:verifier`) reads a branch when nothing in it is left to cut (run by its branch agent on the folder), every cluster of the coherence pass at the hand-off, and the staged change at Finish: `git add canon`, the verifier, its findings applied, `git reset -q canon`. Nothing is judged from a summary; the verifier reads the full text of its scope.
 - A contradiction between two threads makes both nodes `contested`, with a one-paragraph summary and the two statements with their sources under `## Contested` and a `conflicts` link (`HC op contest`), and files a contradiction issue (`kind: contradiction`, the node and `why`), which the page settles into the node from the human's choice; one the draft itself introduced, where the threads agree, is fixed in the draft from them.
 - A reiteration merges the newer node into the older when they say one thing, PRN-1 (`HC op merge`), and otherwise files an issue on the newer node asking whether they are one.
-- Drift goes under the node's `## Open`. Uptake rewrites the parent's line as `assumed`.
+- Drift goes under the node's `## Open` as a dated line (`HC op note`). Uptake rewrites the parent's line as `assumed`.
 - Nodes are files edited in place; nothing regenerates `canon/`, which would erase what the human has approved.
 
 ## Steps
 
 ### 0 Where you are
 
-`canon/README.md` exists and `canon/decisions/DEC-001-adoption-scope.md` does not: the adoption is unfinished. Go to 4 with what is on disk, where the attend skill's Start step brings what does not fit the format into it and the drafting goes on from what is unrefined; never `HC init`, never redraft the root or the domains. Otherwise start at 1.
+`canon/README.md` exists and `canon/decisions/DEC-001-adoption-scope.md` does not: the adoption is unfinished. Do the `headcanon_open` and the say of step 3 with what is on disk, counting what is approved, guessed and red, then go to 4, where the attend skill's Start step brings what does not fit the format into it and the drafting goes on from what is unrefined; never `HC init`, never redraft the root or the domains. Otherwise start at 1.
 
 ### 1 Read
 
@@ -83,7 +83,7 @@ Documents: `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CH
 
 ### 5 Finish
 
-Finish is the end of the human's session, whatever is red: red boxes and unanswered questions stay as issues, and the ranked list stands for their next visit (DEC-020, DEC-024). Unused threads, grouped by the box they would go under, one multi-select per group with per-thread options **add under <ID>**, **merge into <ID>**, **drop**: adds become assumed nodes with their source, merges update the named node citing the source, drops go to `canon/decisions/DEC-001-adoption-scope.md` one line each with source and reason; an artifact the human calls obsolete gets one line. Write DEC-001 (reference.md section 3). `HC check` at 0 errors; `HC render`; `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `update ROOT`, `Decision: DEC-001`, and `Approved-By` the human's git `user.name`, because every green box carries their approval. Report in the chat: domains with their capabilities; counts of approved, guessed and open; what they rewrote or deleted; how many leaves carry a check and how many are still to cut; the retries `HC op --stats` counted; and that `/headcanon:review` walks what stayed assumed. Then `/headcanon:attend` again for what the answers re-opened and what the red boxes hide, until nothing is left to cut: it calls the human only at key points, and each branch that reaches its leaves is committed with `/headcanon:commit` and `Approved-By: pending (assumed; /headcanon:review walks them)`.
+Finish is the end of the human's session, whatever is red: red boxes and unanswered questions stay as issues, and the ranked list stands for their next visit (DEC-020, DEC-024). Unused threads, grouped by the box they would go under, are one multi-select per group with per-thread options **add under <ID>**, **merge into <ID>**, **drop**, filed with `waitSeconds` 0 so they stand on the list without holding Finish: a group the human has answered is applied (adds become assumed nodes with their source, merges update the named node citing the source, drops go to `canon/decisions/DEC-001-adoption-scope.md` one line each with source and reason; an artifact the human calls obsolete gets one line); a group still unanswered stays as an issue, and attend applies it when the answer arrives. Write DEC-001 (reference.md section 3). `HC check` at 0 errors; `HC render`; `git add canon`, the verifier on the staged change, its findings applied, `git reset -q canon`; then `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `update ROOT`, `Decision: DEC-001`, and `Approved-By` the human's git `user.name`, because every green box carries their approval. Report in the chat: domains with their capabilities; counts of approved, guessed and open; what they rewrote or deleted; how many leaves carry a check and how many are still to cut; the retries `HC op --stats` counted; and that `/headcanon:review` walks what stayed assumed. Then `/headcanon:attend` again for what the answers re-opened and what the red boxes hide, until nothing is left to cut: it calls the human only at key points, and when it returns, `/headcanon:commit` once with `Approved-By: pending (assumed; /headcanon:review walks them)`.
 
 ## Examples
 

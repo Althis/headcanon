@@ -21,6 +21,16 @@ function file(dir: string, rel: string, id: string, state: string, parent?: stri
 }
 const readme = (dir: string, state: string) => writeFileSync(join(dir, "README.md"), `---\nid: ROOT\ntitle: "Rank canon"\nstate: ${state}\n---\n\n# Rank canon\n`);
 
+/** The gate fixture: two domains and three capabilities, one cut (REQ-2.1), one waiting on REQ-1.1. */
+function gateCanon(dir: string) {
+  readme(dir, "resolved");
+  file(dir, "REQ-1-a/README.md", "REQ-1", "assumed", undefined, "layer: domain\n");
+  file(dir, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "assumed", "REQ-1", "layer: capability\n");
+  file(dir, "REQ-1-a/REQ-1.2-c.md", "REQ-1.2", "assumed", "REQ-1", "layer: capability\nrequires: [REQ-1.1]\n");
+  file(dir, "REQ-2-d/README.md", "REQ-2", "assumed", undefined, "layer: domain\n");
+  file(dir, "REQ-2-d/REQ-2.1-e.md", "REQ-2.1", "assumed", "REQ-2", "layer: capability\nkind: binary\n");
+}
+
 describe("refinement order [REQ-3.15]", () => {
   const dirs: string[] = [];
   afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -129,12 +139,7 @@ describe("refinement order [REQ-3.15]", () => {
   it("scopes the order to one subtree for a branch agent, and reports the list gate [DEC-024]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-under-"));
     dirs.push(dir);
-    readme(dir, "resolved");
-    file(dir, "REQ-1-a/README.md", "REQ-1", "assumed", undefined, "layer: domain\n");
-    file(dir, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "assumed", "REQ-1", "layer: capability\n");
-    file(dir, "REQ-1-a/REQ-1.2-c.md", "REQ-1.2", "assumed", "REQ-1", "layer: capability\nrequires: [REQ-1.1]\n");
-    file(dir, "REQ-2-d/README.md", "REQ-2", "assumed", undefined, "layer: domain\n");
-    file(dir, "REQ-2-d/REQ-2.1-e.md", "REQ-2.1", "assumed", "REQ-2", "layer: capability\nkind: binary\n");
+    gateCanon(dir);
     const canon = loadCanon(dir);
     const whole = refinementOrder(canon);
     expect(whole.ready.map((p) => p.id)).toEqual(["REQ-1.1"]);
@@ -149,6 +154,79 @@ describe("refinement order [REQ-3.15]", () => {
     const one = refinementOrder(canon, "REQ-1");
     expect(one.ready.map((p) => p.id)).toEqual(["REQ-1.1"]);
     expect(one.blocked.map((b) => b.id)).toEqual(["REQ-1.2"]);
+  });
+
+  it("opens the list for good once adoption is finished, counts an approved box as cut, and has no gate without domains or capabilities [DEC-024]", () => {
+    // the adoption's end opens the list whatever is still uncut: the human validates the canon by it when they return
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-gate-"));
+    dirs.push(dir);
+    gateCanon(dir);
+    mkdirSync(join(dir, "decisions"));
+    writeFileSync(join(dir, "decisions", "DEC-001-adoption-scope.md"), '---\nid: DEC-001\ntitle: "Adoption scope"\nstate: resolved\nintents: [REQ-1]\n---\n\n# Adoption scope\n');
+    expect(refinementOrder(loadCanon(dir)).gate).toEqual({ open: true, cut: 3, total: 5, what: "every domain and capability" });
+    // a stated capability is the human's: cut whether or not anything hangs under it; REQ-1.1 still holds the gate
+    const two = mkdtempSync(join(tmpdir(), "headcanon-gate-"));
+    dirs.push(two);
+    gateCanon(two);
+    file(two, "REQ-1-a/REQ-1.2-c.md", "REQ-1.2", "stated", "REQ-1", "layer: capability\nrequires: [REQ-1.1]\n");
+    expect(refinementOrder(loadCanon(two)).gate).toEqual({ open: false, cut: 4, total: 5, what: "every domain and capability" });
+    file(two, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "stated", "REQ-1", "layer: capability\n");
+    expect(refinementOrder(loadCanon(two)).gate).toMatchObject({ open: true, cut: 5 });
+    // a canon whose top level is explicit requirements has nothing to wait for; an empty one has nothing to show
+    const flat = mkdtempSync(join(tmpdir(), "headcanon-flat-"));
+    dirs.push(flat);
+    readme(flat, "assumed");
+    file(flat, "REQ-1-a.md", "REQ-1", "assumed", undefined, "layer: requirement\n");
+    expect(refinementOrder(loadCanon(flat)).gate).toEqual({ open: true, cut: 0, total: 0, what: "every capability" });
+    const empty = mkdtempSync(join(tmpdir(), "headcanon-empty-"));
+    dirs.push(empty);
+    expect(refinementOrder(loadCanon(empty)).gate.open).toBe(false);
+  });
+
+  it("freezes what hangs under a red box: nothing there is ready or blocked until the human settles it [DEC-024]", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-frozen-"));
+    dirs.push(dir);
+    readme(dir, "resolved");
+    file(dir, "REQ-1-a/README.md", "REQ-1", "contested");
+    file(dir, "REQ-1-a/REQ-1.1-b/README.md", "REQ-1.1", "assumed", "REQ-1");
+    file(dir, "REQ-1-a/REQ-1.1-b/REQ-1.1.1-c.md", "REQ-1.1.1", "assumed", "REQ-1.1");
+    file(dir, "REQ-2-d.md", "REQ-2", "assumed");
+    const canon = loadCanon(dir);
+    const order = refinementOrder(canon);
+    // REQ-1.1 is refined, so only its unrefined child is frozen; the box beside the red branch is cut as usual
+    expect(order.ready.map((p) => p.id)).toEqual(["REQ-2"]);
+    expect(order.blocked).toEqual([]);
+    expect(order.frozen).toBe(1);
+    expect(order.deadlock).toBe(false);
+    expect(describeNext(order, canon)).toContain("1 box(es) are frozen under red boxes.");
+    expect(checkCanon(canon).some((f) => f.code === "refine-deadlock")).toBe(false);
+    // the red branch's own order: nothing to cut, nothing waiting, no deadlock
+    const under = refinementOrder(canon, "REQ-1");
+    expect([under.ready, under.blocked, under.frozen, under.deadlock]).toEqual([[], [], 1, false]);
+    expect(describeNext(under, canon)).toContain("Nothing left to refine");
+    expect(refinementOrder(canon, "REQ-2").frozen).toBe(0);
+  });
+
+  it("a branch whose blocked boxes wait on another branch is waiting, not deadlocked [DEC-024]", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-wait-"));
+    dirs.push(dir);
+    readme(dir, "resolved");
+    file(dir, "REQ-1-a/README.md", "REQ-1", "assumed");
+    file(dir, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "assumed", "REQ-1");
+    file(dir, "REQ-2-c/README.md", "REQ-2", "assumed");
+    file(dir, "REQ-2-c/REQ-2.1-d.md", "REQ-2.1", "assumed", "REQ-2", "requires: [REQ-1.1]\n");
+    const canon = loadCanon(dir);
+    const under = refinementOrder(canon, "REQ-2");
+    expect(under.next).toBeUndefined();
+    expect(under.blocked.map((b) => `${b.id}<${b.waitingOn.join("+")}`)).toEqual(["REQ-2.1<REQ-1.1"]);
+    expect(under.deadlock).toBe(false);
+    expect(describeNext(under, canon)).toContain("Nothing ready here: 1 box(es) wait on boxes outside this scope.");
+    expect(refinementOrder(canon).deadlock).toBe(false);
+    // when the whole canon is deadlocked, so is every branch, wherever its boxes wait
+    file(dir, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "assumed", "REQ-1", "requires: [REQ-2.1]\n");
+    const stuck = loadCanon(dir);
+    expect(refinementOrder(stuck).deadlock).toBe(true);
+    expect(refinementOrder(stuck, "REQ-2").deadlock).toBe(true);
   });
 
   it("a box that waits on an unrefined prerequisite is blocked, not a deadlock, while anything is ready", () => {

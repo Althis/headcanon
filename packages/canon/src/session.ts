@@ -132,7 +132,8 @@ export class SessionState {
 
   /**
    * Another process may rewrite the store: an operation that moves or merges boxes renames the node ids of their
-   * questions (`headcanon op`). The queue follows the file when it changed since this process last wrote it.
+   * questions (`headcanon op`). The queue follows the file when it changed since this process last wrote it; every
+   * method that reads or writes the queue refreshes first, so a stale queue never overwrites what an operation wrote.
    */
   refresh(): void {
     if (!this.store || !existsSync(this.store)) return;
@@ -152,6 +153,8 @@ export class SessionState {
 
   /** Queue a question. The head of the queue is what the page shows. */
   ask(req: AskRequest): PendingQuestion {
+    // the file first: an operation may have renamed the node ids of the questions queued here
+    this.refresh();
     const q: PendingQuestion = {
       id: randomUUID().slice(0, 8),
       askedAt: new Date().toISOString(),
@@ -175,6 +178,7 @@ export class SessionState {
 
   /** Withdraw every pending question on a box: the human rewrote or deleted it, or a newer question replaced it. */
   supersede(nodeId: string, reason: string): number {
+    this.refresh();
     const stale = this.queue.filter((q) => q.nodeId === nodeId);
     for (const q of stale) {
       this.queue.splice(this.queue.indexOf(q), 1);
@@ -212,6 +216,7 @@ export class SessionState {
 
   /** Record the human's answer; resolves every waiter on that question. */
   answer(partial: Omit<AskAnswer, "answeredAt">): boolean {
+    this.refresh();
     const i = this.queue.findIndex((q) => q.id === partial.questionId);
     if (i < 0) return false;
     const [q] = this.queue.splice(i, 1);

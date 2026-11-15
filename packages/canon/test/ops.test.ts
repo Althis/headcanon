@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { applyOp, checkCanon, loadCanon, opStats, readOps, rewriteIds, setListField } from "../src/index.js";
+import { applyOp, checkCanon, loadCanon, opStats, readOps, rewriteIds, setListField, type Op } from "../src/index.js";
 
 /** A small canon: a premise, two domains, one with a capability holding two leaves, a decision and a journey naming them. */
 function canon(): { dir: string; log: string; queue: string } {
@@ -174,6 +174,147 @@ describe("operations [DEC-024]", () => {
     expect(stats.byCheck).toEqual({ singular: 3, "vague-term": 1 });
     expect(stats.retries).toEqual([{ id: "REQ-1.1.1", fails: 1, exhausted: false }]);
     expect(stats.byOp["review"]).toEqual({ ok: 5, failed: 0 });
+  });
+
+  it("notes a guess under Open, keeping earlier notes and the state; the human's box takes an issue instead", () => {
+    const c = fresh();
+    expect(applyOp(c.dir, { op: "note", id: "REQ-1.1.2", text: "the OFX sample carries no dates" }, opts(c))).toMatchObject({ ok: true, id: "REQ-1.1.2", changes: ["REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.md"] });
+    expect(applyOp(c.dir, { op: "note", id: "REQ-1.1.2", text: "amounts come in cents" }, opts(c)).ok).toBe(true);
+    const n = loadCanon(c.dir).nodes["REQ-1.1.2"]!;
+    expect(n).toMatchObject({ state: "assumed", requires: ["REQ-1.1.1"], kind: "binary" });
+    const text = readFileSync(join(c.dir, n.file), "utf8");
+    expect(text).toMatch(/## Open\n\n- \d{4}-\d{2}-\d{2}: the OFX sample carries no dates\n- \d{4}-\d{2}-\d{2}: amounts come in cents\n/);
+    expect(text).toContain("## As built\n\n- OFX amounts are read in cents (src/ofx.ts:8)");
+    expect(applyOp(c.dir, { op: "note", id: "REQ-1.1.2", text: "  " }, opts(c)).error).toContain("needs its text");
+    writeFileSync(join(c.dir, "REQ-2-reporting.md"), readFileSync(join(c.dir, "REQ-2-reporting.md"), "utf8").replace("state: assumed", "state: stated"));
+    expect(applyOp(c.dir, { op: "note", id: "REQ-2", text: "x" }, opts(c)).error).toBe("REQ-2 is the human's; its drift is an issue, never a note");
+  });
+
+  it("records a dispatch and a return without writing, so a compacted session reads back what is held", () => {
+    const c = fresh();
+    const file = join(c.dir, "REQ-1-import/REQ-1.1-parsing/README.md");
+    const before = readFileSync(file, "utf8");
+    expect(applyOp(c.dir, { op: "dispatch", id: "REQ-1.1", agent: "refiner-2" }, opts(c))).toMatchObject({ ok: true, id: "REQ-1.1", changes: [] });
+    expect(applyOp(c.dir, { op: "returned", id: "REQ-1.1", why: "three leaves written" }, opts(c))).toMatchObject({ ok: true, id: "REQ-1.1", changes: [] });
+    expect(applyOp(c.dir, { op: "dispatch", id: "REQ-9" }, opts(c)).error).toContain("not in the canon");
+    expect(readFileSync(file, "utf8")).toBe(before);
+    const log = readOps(c.log);
+    expect(log.map((e) => `${e.request.op}:${e.ok}`)).toEqual(["dispatch:true", "returned:true", "dispatch:false"]);
+    expect(log[0]?.request).toMatchObject({ op: "dispatch", id: "REQ-1.1", agent: "refiner-2" });
+    expect(readOps(c.log, "REQ-1.1").map((e) => e.request.op)).toEqual(["dispatch", "returned"]);
+    const stats = opStats(log);
+    expect(stats.byOp["dispatch"]).toEqual({ ok: 1, failed: 1 });
+    expect(stats.byOp["returned"]).toEqual({ ok: 1, failed: 0 });
+  });
+
+  it("an error that was there before follows a move or a merge: a dangling edge on the moved leaf is not counted as new", () => {
+    const c = fresh();
+    const ofx = join(c.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.md");
+    writeFileSync(ofx, readFileSync(ofx, "utf8").replace("requires: [REQ-1.1.1]", "requires: [REQ-1.1.1, REQ-9]"));
+    expect(checkCanon(loadCanon(c.dir)).filter((f) => f.level === "error").map((f) => `${f.code}:${f.id}`)).toEqual(["link-unknown:REQ-1.1.2"]);
+    expect(applyOp(c.dir, { op: "move", id: "REQ-1.1", under: "REQ-2" }, opts(c))).toMatchObject({ ok: true, id: "REQ-2.1" });
+    expect(loadCanon(c.dir).nodes["REQ-2.1.2"]?.requires).toEqual(["REQ-2.1.1", "REQ-9"]);
+    // the same edge, carried onto the absorbing box by a merge
+    const d = fresh();
+    const ofx2 = join(d.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.md");
+    writeFileSync(ofx2, readFileSync(ofx2, "utf8").replace("requires: [REQ-1.1.1]", "requires: [REQ-1.1.1, REQ-9]"));
+    expect(applyOp(d.dir, { op: "merge", from: "REQ-1.1.2", to: "REQ-1.1.1" }, opts(d)).ok).toBe(true);
+    expect(loadCanon(d.dir).nodes["REQ-1.1.1"]?.requires).toEqual(["REQ-9"]);
+  });
+
+  it("a merge rewrites the absorbing box's own text: its prose and the bullets it took no longer name the gone id", () => {
+    const c = fresh();
+    const csv = join(c.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.1-csv.md");
+    writeFileSync(csv, readFileSync(csv, "utf8").replace("one transaction per line.", "one transaction per line, as REQ-1.1.2 does for OFX."));
+    const ofx = join(c.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.md");
+    writeFileSync(ofx, readFileSync(ofx, "utf8").replace("(src/ofx.ts:8)", "(src/ofx.ts:8, the reader REQ-1.1.2 shares)"));
+    expect(applyOp(c.dir, { op: "merge", from: "REQ-1.1.2", to: "REQ-1.1.1" }, opts(c)).ok).toBe(true);
+    const text = readFileSync(csv, "utf8");
+    expect(text).not.toContain("REQ-1.1.2");
+    expect(text).toContain("one transaction per line, as REQ-1.1.1 does for OFX.");
+    expect(text).toContain("- OFX amounts are read in cents (src/ofx.ts:8, the reader REQ-1.1.1 shares)");
+  });
+
+  it("rewords the body and the title only: a word that is also a front-matter key or value stays metadata", () => {
+    const c = fresh();
+    expect(applyOp(c.dir, { op: "reword", id: "REQ-1.1.1", from: "binary", to: "yes-or-no" }, opts(c)).error).toContain("does not occur");
+    expect(readFileSync(join(c.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.1-csv.md"), "utf8")).toContain("kind: binary");
+    const rep = join(c.dir, "REQ-2-reporting.md");
+    writeFileSync(rep, readFileSync(rep, "utf8").replace("Reporting reads what REQ-1.1 produced.", "Reporting reads the state REQ-1.1 produced."));
+    expect(applyOp(c.dir, { op: "reword", id: "REQ-2", from: "state", to: "status" }, opts(c)).ok).toBe(true);
+    const text = readFileSync(rep, "utf8");
+    expect(text).toContain("\nstate: assumed\n");
+    expect(text).not.toContain("status:");
+    expect(text).toContain("Reporting reads the status REQ-1.1 produced.");
+    expect(loadCanon(c.dir).nodes["REQ-2"]?.state).toBe("assumed");
+  });
+
+  it("a second contest on a box adds to the first: one paragraph, the union of the statements, both conflicts; never against itself", () => {
+    const c = fresh();
+    const st = (a: string, b: string) => [{ text: a, source: "docs/a.md:3" }, { text: b, source: "src/parse.ts:12" }];
+    expect(applyOp(c.dir, { op: "contest", id: "REQ-1.1.1", other: "REQ-2", summary: "They cannot both hold.", statements: st("one transaction per line", "one per block") }, opts(c)).ok).toBe(true);
+    const second: Op = { op: "contest", id: "REQ-1.1.1", other: "REQ-1.1.2", summary: "Nor can these.", statements: st("a header line is skipped", "every line counts") };
+    expect(applyOp(c.dir, second, opts(c)).ok).toBe(true);
+    const canon2 = loadCanon(c.dir);
+    expect(canon2.nodes["REQ-1.1.1"]).toMatchObject({ state: "contested", conflicts: ["REQ-2", "REQ-1.1.2"] });
+    expect(canon2.nodes["REQ-1.1.2"]).toMatchObject({ state: "contested", conflicts: ["REQ-1.1.1"] });
+    const file = join(c.dir, canon2.nodes["REQ-1.1.1"]!.file);
+    const text = readFileSync(file, "utf8");
+    expect(text).toContain("## Contested\n\nThey cannot both hold. Nor can these.\n\n- one transaction per line (docs/a.md:3)\n- one per block (src/parse.ts:12)\n- a header line is skipped (docs/a.md:3)\n- every line counts (src/parse.ts:12)\n");
+    // the same contest again changes nothing
+    expect(applyOp(c.dir, second, opts(c)).ok).toBe(true);
+    expect(readFileSync(file, "utf8")).toBe(text);
+    expect(applyOp(c.dir, { op: "contest", id: "REQ-1.1.1", other: "REQ-1.1.1", summary: "x", statements: st("a", "b") }, opts(c)).error).toContain("itself");
+  });
+
+  it("after a merge a decision's intents and a journey step name the surviving id once", () => {
+    const c = fresh();
+    const dec = join(c.dir, "decisions/DEC-001-scope.md");
+    writeFileSync(dec, readFileSync(dec, "utf8").replace("intents: [REQ-1.1.2, REQ-2]", "intents: [REQ-1.1.2, REQ-1.1.1]"));
+    const jrn = join(c.dir, "journeys/JRN-1-first.md");
+    writeFileSync(jrn, readFileSync(jrn, "utf8").replace("| S1 Import a file | REQ-1.1.1 |", "| S1 Import a file | REQ-1.1.2, REQ-1.1.1 |"));
+    expect(applyOp(c.dir, { op: "merge", from: "REQ-1.1.2", to: "REQ-1.1.1" }, opts(c)).ok).toBe(true);
+    const canon2 = loadCanon(c.dir);
+    expect(canon2.decisions[0]?.intents).toEqual(["REQ-1.1.1"]);
+    expect(canon2.journeys[0]?.steps[0]?.requirements).toEqual(["REQ-1.1.1"]);
+    expect(readFileSync(dec, "utf8")).toContain("intents: [REQ-1.1.1]");
+    expect(readFileSync(jrn, "utf8")).toContain("| S1 Import a file | REQ-1.1.1 |\n| S2 Read the report | REQ-2 |");
+  });
+
+  it("a refused plan leaves no folder behind: a create the check refuses after the write is rolled back whole", () => {
+    const c = fresh();
+    // the create itself knows only the layer names; a domain under a requirement is a layer-order error, found after the write
+    const r = applyOp(c.dir, { op: "create", under: "REQ-1.1.1", title: "Misplaced", intent: "A domain under a leaf.", layer: "domain" }, opts(c));
+    expect(r.ok).toBe(false);
+    expect(r.newErrors?.some((e) => e.startsWith("layer-order"))).toBe(true);
+    expect(existsSync(join(c.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.1-csv"))).toBe(false);
+    expect(loadCanon(c.dir).nodes["REQ-1.1.1"]?.file).toBe("REQ-1-import/REQ-1.1-parsing/REQ-1.1.1-csv.md");
+    expect(checkCanon(loadCanon(c.dir)).some((f) => f.level === "error")).toBe(false);
+  });
+
+  it("a descent that would close a requires cycle is refused before anything is written, naming the cycle", () => {
+    const c = fresh();
+    expect(applyOp(c.dir, { op: "link", from: "REQ-1.1.1", to: "REQ-2", kind: "requires" }, opts(c)).ok).toBe(true);
+    // REQ-2 requires REQ-1.1; descending to REQ-1.1.1, which now requires REQ-2, closes the loop
+    const r = applyOp(c.dir, { op: "move-edge", on: "REQ-2", from: "REQ-1.1", to: "REQ-1.1.1" }, opts(c));
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("REQ-2 requires REQ-1.1.1 would close a cycle: REQ-1.1.1 > REQ-2 > REQ-1.1.1");
+    expect(r.newErrors).toBeUndefined();
+    expect(loadCanon(c.dir).nodes["REQ-2"]?.requires).toEqual(["REQ-1.1"]);
+  });
+
+  it("a node written as .MD moves with its subtree, as the loader reads it; an unknown layer is refused", () => {
+    const c = fresh();
+    const dir = join(c.dir, "REQ-1-import/REQ-1.1-parsing");
+    renameSync(join(dir, "REQ-1.1.2-ofx.md"), join(dir, "REQ-1.1.2-ofx.MD"));
+    expect(loadCanon(c.dir).nodes["REQ-1.1.2"]?.file).toBe("REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.MD");
+    // an op arrives as JSON from an agent: a layer the type does not admit is refused by name
+    expect(applyOp(c.dir, { op: "move", id: "REQ-1.1", under: "REQ-2", layer: "feature" } as unknown as Op, opts(c)).error).toBe("unknown layer feature");
+    expect(applyOp(c.dir, { op: "move", id: "REQ-1.1", under: "REQ-2" }, opts(c)).ok).toBe(true);
+    const canon2 = loadCanon(c.dir);
+    expect(canon2.nodes["REQ-2.1.2"]).toMatchObject({ parent: "REQ-2.1", file: "REQ-2-reporting/REQ-2.1-parsing/REQ-2.1.2-ofx.MD", requires: ["REQ-2.1.1"] });
+    expect(existsSync(join(c.dir, "REQ-1-import/REQ-1.1-parsing"))).toBe(false);
+    expect(checkCanon(canon2).some((f) => f.level === "error")).toBe(false);
   });
 
   it("rewrites ids without touching longer ids, and sets list fields in either form", () => {

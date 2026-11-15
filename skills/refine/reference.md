@@ -97,4 +97,4 @@ Node REQ-1 Statement import, approved: "Bank statements in any common format bec
 
 **7 Ask.** The question in section 2. Approved as ticked; REQ-1.3 left unticked comes back as "Does Statement import need duplicate detection?" with Yes, add it and No.
 
-**8 Report.** Created REQ-1.1 to REQ-1.4; partition "stage of an import"; no set-asides; no leftover threads; no open nodes.
+**8 Report.** Created REQ-1.1 to REQ-1.4; partition "stage of an import"; no operations; no leftover threads; no open nodes.
