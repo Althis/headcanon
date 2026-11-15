@@ -8,6 +8,7 @@ import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRe
 import { runMcp } from "./mcp.js";
 import { detectTerms, nameWords } from "./terms.js";
 import { describeNext, describePath, pathToValidate, refinementOrder } from "./next.js";
+import { applyOp, gitDirOf, opStats, readOps, type Op } from "./ops.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { describeFormat } from "./format.js";
@@ -25,6 +26,8 @@ Commands
   render         Write the Mermaid index (canon/INDEX.md by default).
   attention      What is waiting on the human: approvals, unmerged changes, open and contested items.
   next [ID]      Which node to refine next and what the human should approve or settle, by impact; with an ID, the path to validate above it.
+  op <JSON|@F>   Apply one operation to the canon (link, unlink, move-edge, create, move, merge, contest, term, reword, delete, review); checked, logged, rolled back on error.
+  op --log [ID]  Print the operations log, or the entries naming ID.  op --stats  Failures per operation, retries per check and per node.
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
   review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
   review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
@@ -40,6 +43,8 @@ Options
   --port <n>      Port for ui and mcp (default: 4317)
   --no-open       For mcp: do not open the browser on the first question
   --text <draft>  For terms: the draft to scan
+  --by <who>      For op: who asks, written to the log
+  --log, --stats  For op: read the log instead of applying
   --out <file>    Output file for render
   --json          Machine-readable output for check and attention
   --force         For init: replace a commit-msg hook HeadCanon did not install
@@ -60,10 +65,13 @@ interface Args {
   depth: number | undefined;
   open: boolean;
   text: string | undefined;
+  by: string | undefined;
+  log: boolean;
+  stats: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined, open: true, text: undefined };
+  const a: Args = { command: undefined, positional: [], canon: undefined, port: 4317, out: undefined, json: false, force: false, depth: undefined, open: true, text: undefined, by: undefined, log: false, stats: false };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]!;
     const next = () => argv[++i];
@@ -80,6 +88,10 @@ function parseArgs(argv: string[]): Args {
     else if (x === "--no-open") a.open = false;
     else if (x === "--text") a.text = next();
     else if (x.startsWith("--text=")) a.text = x.slice(7);
+    else if (x === "--by") a.by = next();
+    else if (x.startsWith("--by=")) a.by = x.slice(5);
+    else if (x === "--log") a.log = true;
+    else if (x === "--stats") a.stats = true;
     else if (x.startsWith("-")) process.stderr.write(`ignoring unknown option ${x}\n`);
     else if (!a.command) a.command = x;
     else a.positional.push(x);
@@ -281,6 +293,21 @@ export async function main(argv: string[]): Promise<number> {
       writeFileSync(target, renderMermaidIndex(snap.canon, snap.findings));
       out(`wrote ${target}\n`);
       return 0;
+    }
+    case "op": {
+      // `op <json | @file>` applies one operation; `op --log [ID]` prints the log; `op --stats` reads it
+      const git = gitDirOf(canonDir);
+      const logPath = git ? join(git, "headcanon", "ops.jsonl") : undefined;
+      if (args.stats) { out(JSON.stringify(opStats(logPath ? readOps(logPath) : []), null, 2) + "\n"); return 0; }
+      if (args.log) { out(JSON.stringify(logPath ? readOps(logPath, args.positional[0]) : [], null, 2) + "\n"); return 0; }
+      const raw = args.positional[0];
+      if (!raw) { err("op needs the operation as JSON, or @<file> holding it; see headcanon --help\n"); return 2; }
+      let op: Op;
+      try { op = JSON.parse(raw.startsWith("@") ? readFileSync(resolve(raw.slice(1)), "utf8") : raw) as Op; }
+      catch (e) { err(`op: the operation is not valid JSON: ${(e as Error).message}\n`); return 2; }
+      const r = applyOp(canonDir, op, args.by ? { by: args.by } : {});
+      out(JSON.stringify(r, null, 2) + "\n");
+      return r.ok ? 0 : 1;
     }
     case "next": {
       const canon = loadCanon(canonDir);

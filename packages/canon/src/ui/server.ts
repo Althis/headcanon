@@ -105,9 +105,16 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
 
   // ---- session: what the page polls ----
   if (p === "/api/session" && method === "GET") {
-    const q = session.current();
+    // the queue file may have been rewritten by an operation (ids moved); the canon may have lost a box whose
+    // question is still queued: both are read from disk here, where the page asks
+    session.refresh();
     const rev = canonRev(canonDir);
-    if (rev !== undefined) canonRevLast.set(canonDir, rev);
+    if (rev !== undefined && rev !== canonRevLast.get(canonDir)) {
+      canonRevLast.set(canonDir, rev);
+      const nodes = loadCanon(canonDir).nodes;
+      for (const id of new Set(session.queued().map((x) => x.nodeId).filter((x): x is string => Boolean(x) && x !== "ROOT" && !nodes[x!]))) session.supersede(id, "the box is gone");
+    }
+    const q = session.current();
     return json(200, { question: q ? presentQuestion(q) : null, pending: session.pendingCount(), queue: session.queuedFull().map(presentQuestion), focus: session.focus(), cursor: session.changes().cursor, doing: session.doing, rev: canonRevLast.get(canonDir) ?? "", agentSeenAgo: agentSeenAt.has(canonDir) ? Math.round((Date.now() - agentSeenAt.get(canonDir)!) / 1000) : null });
   }
   if (p === "/api/ask" && method === "POST") {

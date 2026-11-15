@@ -63,15 +63,37 @@ export interface HumanPick {
   why: string;
 }
 
+/**
+ * When the human's list opens (DEC-024): the ranking rests on what hangs below each box, so it is shown once
+ * every domain and capability is cut or red; until then the page shows this gate as progress and withholds the
+ * list, while every question is still filed to disk the moment it arises.
+ */
+export interface ListGate {
+  open: boolean;
+  /** Domains and capabilities that are refined or red. */
+  cut: number;
+  /** Domains and capabilities in the canon. */
+  total: number;
+  what: string;
+}
+
 export interface RefinementOrder {
   next: NextPick | undefined;
   ready: NextPick[];
   blocked: Blocked[];
   /** What the human can do, ranked by impact; the first is the next box for them. */
   human: HumanPick[];
+  gate: ListGate;
   /** True when unrefined nodes remain and none is ready. */
   deadlock: boolean;
   cycles: string[][];
+}
+
+export function listGate(canon: Canon): ListGate {
+  const upper = Object.values(canon.nodes).filter((n) => n.layer === "domain" || n.layer === "capability");
+  const cut = upper.filter((n) => isRefined(n) || red(n.state)).length;
+  const hasDomains = upper.some((n) => n.layer === "domain");
+  return { open: upper.length > 0 && cut === upper.length, cut, total: upper.length, what: hasDomains ? "every domain and capability" : "every capability" };
 }
 
 /** A node is refined when it has children or is a measurable leaf (`kind` set). */
@@ -195,7 +217,7 @@ export function refinementOrder(canon: Canon): RefinementOrder {
   human.sort(byImpact);
   ready.sort((a, b) => Number(b.parentApproved) - Number(a.parentApproved) || a.depth - b.depth || b.dependents - a.dependents || compareIds(a.id, b.id));
   blocked.sort((a, b) => compareIds(a.id, b.id));
-  return { next: ready[0], ready, blocked, human, deadlock: ready.length === 0 && blocked.length > 0, cycles: requiresCycles(canon) };
+  return { next: ready[0], ready, blocked, human, gate: listGate(canon), deadlock: ready.length === 0 && blocked.length > 0, cycles: requiresCycles(canon) };
 }
 
 /**
@@ -226,6 +248,7 @@ export function describeNext(order: RefinementOrder, canon: Canon): string {
   } else if (order.deadlock) {
     lines.push("Deadlock: every unrefined node waits on an unrefined prerequisite. Ask the human which prerequisite to refine first, or which edge to drop.");
   } else lines.push("Nothing left to refine: every node has children or a kind, or waits on a human.");
+  if (!order.gate.open && order.gate.total) lines.push(`The human's list opens when ${order.gate.what} is cut: ${order.gate.cut} of ${order.gate.total}.`);
   if (order.human.length) lines.push(`For the human: ${order.human.slice(0, 3).map((h) => `${h.action} ${h.id} (${h.why})`).join("; ")}${order.human.length > 3 ? `; … ${order.human.length - 3} more` : ""}.`);
   for (const b of order.blocked.slice(0, 5)) lines.push(`Blocked: ${b.id} waits on ${b.waitingOn.map((w) => `${w}${canon.nodes[w]?.state === "open" ? " (open)" : ""}`).join(", ")}.`);
   if (order.blocked.length > 5) lines.push(`… ${order.blocked.length - 5} more blocked.`);

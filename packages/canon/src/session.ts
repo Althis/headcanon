@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 /**
@@ -125,7 +125,29 @@ export class SessionState {
 
   private save(): void {
     if (!this.store) return;
-    try { mkdirSync(dirname(this.store), { recursive: true }); writeFileSync(this.store, JSON.stringify({ queue: this.queue }, null, 2)); } catch { /* the page works without the file */ }
+    try { mkdirSync(dirname(this.store), { recursive: true }); writeFileSync(this.store, JSON.stringify({ queue: this.queue }, null, 2)); this.storeSeen = statSync(this.store).mtimeMs; } catch { /* the page works without the file */ }
+  }
+
+  private storeSeen = 0;
+
+  /**
+   * Another process may rewrite the store: an operation that moves or merges boxes renames the node ids of their
+   * questions (`headcanon op`). The queue follows the file when it changed since this process last wrote it.
+   */
+  refresh(): void {
+    if (!this.store || !existsSync(this.store)) return;
+    try {
+      const mtime = statSync(this.store).mtimeMs;
+      if (mtime === this.storeSeen) return;
+      const saved = JSON.parse(readFileSync(this.store, "utf8")) as { queue?: PendingQuestion[] };
+      if (Array.isArray(saved.queue)) {
+        const byId = new Map(saved.queue.map((q) => [q.id, q]));
+        // only ids and node ids come from the file; a question this process answered meanwhile stays answered
+        this.queue = this.queue.filter((q) => byId.has(q.id)).map((q) => ({ ...q, nodeId: byId.get(q.id)!.nodeId }));
+        for (const q of saved.queue) if (!this.queue.some((x) => x.id === q.id) && !this.answers.has(q.id)) this.queue.push(q);
+      }
+      this.storeSeen = mtime;
+    } catch { /* a torn file is read next time */ }
   }
 
   /** Queue a question. The head of the queue is what the page shows. */

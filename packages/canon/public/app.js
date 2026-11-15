@@ -634,15 +634,25 @@ function renderIssues(s) {
   const notReady = new Set([...issues.filter((i) => i.preparing).map((i) => i.nodeId), ...pendingNodes.keys()]);
   // what the human can do, ranked by impact (the next command's human list, with its reason): the first is next for
   // them, a few more follow, so they always see where their time goes furthest, during adoption and after it
-  const picks = (snap.next?.human ?? []).filter((h) => !notReady.has(h.id)).slice(0, 5);
+  // the list opens once every domain and capability is cut (the next command's gate): before that the ranking
+  // would rest on branches still being drafted, so the panel shows the gate as progress and withholds the rows
+  const gate = snap.next?.gate;
+  const closed = Boolean(gate && gate.total && !gate.open && agentLive(s));
+  const picks = closed ? [] : (snap.next?.human ?? []).filter((h) => !notReady.has(h.id)).slice(0, 5);
   const top = picks[0];
   const minutes = (p) => Math.floor((Date.now() - p.since) / 60000);
   const pendingKey = [...pendingNodes].map(([id, p]) => `${id}:${minutes(p)}`);
-  const key = JSON.stringify([picks.map((h) => `${h.id}:${h.score}`), pendingKey, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
+  const key = JSON.stringify([closed && `${gate.cut}/${gate.total}`, picks.map((h) => `${h.id}:${h.score}`), pendingKey, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
-  const open = issues.filter((i) => !i.preparing).length;
+  const open = closed ? 0 : issues.filter((i) => !i.preparing).length;
   count.textContent = open; count.hidden = open === 0;
+  if (closed) {
+    body.innerHTML = `<p class="next-for-you"><span class="spin"></span> <span class="muted">Your list opens when ${esc(gate.what)} is cut: ${gate.cut} of ${gate.total}. Questions are being filed meanwhile; the canvas shows what lands.</span></p>` +
+      [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)}</span></p>`).join("");
+    for (const a of body.querySelectorAll("[data-next]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; if (id === "ROOT" || node(id)) focusOnCanvas(id, false, true); });
+    return;
+  }
   const hint = (i) => i.preparing ? "The session is still writing its question for this draft" : i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
   const pickLine = (h) => `<a href="#" data-next="${esc(h.id)}" title="Select it on the canvas">${esc(h.action)} ${esc(h.id)}</a> <span class="muted">· ${esc(h.why)}</span>`;
   const ago = (p) => { const m = minutes(p); return m < 1 ? "just now" : m === 1 ? "a minute ago" : `${m} minutes ago`; };
