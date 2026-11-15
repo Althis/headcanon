@@ -1,0 +1,46 @@
+# The landscape on 2026-11-15: who else keeps coding agents true to intent
+
+A reading of the field after the Valley runs of October and early November 2026, for the question HeadCanon answers: how a project's intent is recorded so that agents and humans work from the same record, and how divergence is caught. Secondary sources are mostly vendor and SEO blogs; the arXiv papers and the primary pages were read. Figures and version numbers are as the sources give them.
+
+## 1. Spec-driven development is the default workflow now
+
+- GitHub **Spec Kit** reached 1.0 in August 2026 and sits at 1.2 or 1.3 by October–November; it layers `spec.md`, `plan.md` and `tasks.md` onto a dozen or more agents, MIT-licensed. Drift between spec and code is handled by hand. ([comparison](https://www.testmuai.com/blog/spec-driven-development-tools/), [roundup](https://ssojet.com/blog/best-spec-driven-development-tools))
+- **OpenSpec** is at 1.16 (October 2026), MIT, with a default schema producing proposal, specifications, design and tasks per change. ([OpenSpec](https://ai.miraheze.org/wiki/OpenSpec))
+- AWS **Kiro** is the commercial IDE of the approach, replacing Amazon Q Developer in May 2026, with paid tiers. ([MarkTechPost](https://www.marktechpost.com/2026/05/08/9-best-ai-tools-for-spec-driven-development-in-2026-kiro-bmad-gsd-and-more-compare/))
+- **Tessl**'s spec-as-source framework never reached general availability; the company pivoted to agent skills in January 2026 ("skills are the new code"). Spec-as-source, where code is regenerated from the spec, is described across sources as unproven. ([landscape](https://specdriven.com/landscape/), [Tessl registry](https://tessl.io/registry/spec-driven-devlopment/spec-as-source/2.2.0/quality/openspec-propose))
+- The taxonomy that has settled: spec-first (write it, then code), spec-anchored (the spec is the authority and tests fail when code diverges), spec-as-source. HeadCanon is spec-anchored with a human gate. ([Piskala, arXiv 2602.00180](https://arxiv.org/html/2602.00180v1))
+
+## 2. Living specs and drift detection
+
+- Augment's **Intent** (public beta, macOS, paid) auto-writes the spec back when agents complete work, and a Verifier agent checks results against the spec's success criteria before a PR. The vendor's own caveat: if an agent implements something incorrectly, the spec auto-updates to reflect what was built. That is the failure mode HeadCanon's human gate exists to prevent. ([Augment, vendor material](https://www.augmentcode.com/tools/intent-vs-github))
+- **Living Specs for SpecKit** (Pérez, October 2026): one living spec per capability, adoption drafts from the code with `[NEEDS CLARIFICATION]` markers the human resolves one by one, drift measured per capability as files changed since the spec was last committed, labelled tracked or unspeced; drift is information, not a gate; sync edits text and leaves it uncommitted for review. The nearest cousin of our adopt flow outside HeadCanon. ([post](https://www.alfredo-perez.dev/blog/2026-10-15-living-specs))
+- A Claude Code **living-spec skill** with a `/spec drift` command compares spec timestamps against code changes. ([Augment tools page](https://www.augmentcode.com/tools/best-spec-driven-development-tools))
+- SmartBear's Swagger update targets API drift created by AI coding tools, with contract testing against OpenAPI. ([The New Stack](https://thenewstack.io/smartbear-swagger-ai-api-management/))
+
+## 3. Research, 2026
+
+- **A Deterministic Control Plane for LLM Coding Agents** (Madatha, June 2026): requirements content-hashed at approval; a trace mapping each acceptance criterion to files, tests and status; three drifts (prompt drift by token similarity against a reviewed baseline, spec/code drift as files outside any criterion's scope, security drift); four human pauses; deterministic gates and no LLM judge. Evidence is conformance tests only, and the trace is an honour system that depends on the agent. Overlaps: hash at approval, criterion-level traceability, commit-level trailers. ([arXiv 2606.26924](https://arxiv.org/abs/2606.26924))
+- **VERISPECGEN** (April 2026): intent-aligned formal specification synthesis where every test links to the requirement it validates, so a failing check points at one clause. ([arXiv 2604.10392](https://arxiv.org/pdf/2604.10392))
+- **AgentLTL** (July 2026): agent traces checked against a temporal-logic specification, deterministic, offline and online. ([arXiv 2607.02599](https://arxiv.org/pdf/2607.02599))
+- **ContextCov** (March 2026): executable constraints derived from agent instruction files and enforced. ([arXiv 2603.00822](https://arxiv.org/pdf/2603.00822))
+- **SkillSpec** (September 2026): specification reasoning for agent skill correctness. ([arXiv 2609.06052](https://arxiv.org/pdf/2609.06052))
+- The 2026 papers agree that governance under any LLM check should be deterministic: hashes, allowlists, phase guards, tests; the model's judgment advisory. ([Madatha](https://arxiv.org/html/2606.26924), [Piskala](https://arxiv.org/pdf/2602.00180))
+
+## 4. Verification gates for agent-written code
+
+- **Proof-carrying patch**: every change comes with a report of what passed, failed and is unverified; the agent's confidence is never the acceptance criterion. ([DEV](https://dev.to/akshatraj00/the-proof-carrying-patch-building-a-verification-gate-for-ai-generated-code-2agm))
+- **Swarm Orchestrator**: agents as untrusted subprocesses on isolated branches, acceptance criteria injected before generation, eight deterministic gates (regex, AST, diff, thresholds). ([DEV](https://dev.to/moonrunnerkc/independent-convergence-on-specification-first-ai-code-verification-efj))
+- A separate verification agent reading acceptance criteria against the diff caught intent mismatches no test flagged (Aviator, reported second-hand). ([testmu](https://www.testmuai.com/blog/continuous-verification-ai-code/))
+- The shared warning: a check derived from the diff, or from the model that wrote the code, inherits the code's mistakes; criteria must come from the spec. This is Writ's brief, still unbuilt here.
+
+## 5. Agent instruction files
+
+- **AGENTS.md** is the de facto cross-vendor convention (tens of thousands of repositories by the blogs' count; 466 of 10,000 active repositories in an academic sample). Several sources say Claude Code reads it when no CLAUDE.md exists (reported for v2.1.277, September 2026; not verified against Anthropic's docs). Guidance converges on short files, shared context in AGENTS.md, tool-specific files importing it, and three layers: instruction file, skills, MCP. One study found LLM-generated context files reduced task success while raising cost. ([466 files study](https://usewire.io/blog/agents-md-466-projects-context-engineering/), [guide](https://blog.buildbetter.ai/agents-md-complete-guide-for-engineering-teams-in-2026/), [Claude Code and AGENTS.md](https://www.eesel.ai/blog/claude-code-agents-md))
+- Claude Code itself gained agent memory (a `memory` frontmatter field with user, project or local scope), a Plan subagent and `/plan`, hooks in agent frontmatter (PreToolUse, PostToolUse, Stop), `onFailure: block` for hooks, and an agents view. ([changelog](https://code.claude.com/docs/en/changelog), [claudelog](https://claudelog.com/claude-code-changelog/))
+
+## What this means for HeadCanon
+
+- **Our distinct ground holds:** certainty states on every entry (stated, assumed, open, contested, resolved), a tree cut to leaves with a check each, a human gate on the record, a verifier that reviews changes to the record rather than the code, and commit trailers tying every change to intent. Nothing read does all of that; the vendors moving to auto-updated specs name the failure mode we gate against.
+- **Borrow:** a content hash per approved entry (we hash the staged diff for review; the paper hashes each approved requirement, which would let the page show "changed since you approved it"); criterion-to-test traceability as Writ's design (VERISPECGEN's test↔requirement map); drift reported per capability as information in the loop after Finish (Pérez), which is the integration mode discussed on 2026-11-04; deterministic gates under the verifier, which the hook already is.
+- **Hold:** spec-as-source (regenerating code from the canon), which the market itself judged unproven; auto write-back of the canon from what was built.
+- **Watch:** AGENTS.md as the shared file, since our rules are injected by hook and never written to disk; whether Claude Code's agent memory and plan files change how a canon should be surfaced to a session.
