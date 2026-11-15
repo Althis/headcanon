@@ -2,11 +2,12 @@ import { compareIds, descendants } from "./load.js";
 import type { Canon, ReqNode, State } from "./types.js";
 
 /**
- * Which node to refine next (REQ-3.15). A node requires the nodes whose concepts its definition
- * uses; refinement follows that order. Among the nodes whose prerequisites are all refined, the
- * shallowest comes first, so no branch is drilled while a sibling above it waits, then the one
- * most other nodes require, then the lowest id. Nothing refinable while unrefined nodes remain
- * is a deadlock, which a human breaks.
+ * Which node to refine next (REQ-3.15), and what the human should look at (DEC-024). A node requires the nodes
+ * whose concepts its definition uses; refinement follows that order. Among the nodes whose prerequisites are all
+ * refined, one under an approved parent comes first, then the shallowest, so no branch is drilled while a sibling
+ * above it waits, then the one most other nodes require, then the lowest id. Nothing refinable while unrefined
+ * nodes remain is a deadlock, which a human breaks. The drafting never waits for an approval: it runs to the
+ * leaves, and a red box, a draft or a contested one, is the only thing that holds its subtree back.
  */
 
 export interface NextPick {
@@ -15,6 +16,8 @@ export interface NextPick {
   depth: number;
   /** Nodes that require this one, directly. */
   dependents: number;
+  /** Its parent is approved, the premise for a top-level node: the human validated the path down to it. */
+  parentApproved: boolean;
 }
 
 export interface Blocked {
@@ -24,84 +27,47 @@ export interface Blocked {
   waitingOn: string[];
 }
 
-/**
- * How far a draft runs ahead of the human (REQ-3.4, DEC-018). A box's level counts the premise as 0. The
- * anchor is the deepest approved box on the path from the premise to the box, the premise itself when it is
- * approved and none before. A draft may reach LOOKAHEAD levels below the anchor, so a box is cut only when its
- * children would lie within that reach: before the premise is approved only the domains are drafted, with it
- * the capabilities, and every approval below moves the frontier down under that box and nowhere else.
- */
-export const LOOKAHEAD = 4;
 const approved = (state: State | undefined): boolean => state === "stated" || state === "resolved";
+const red = (state: State | undefined): boolean => state === "open" || state === "contested";
 
-export interface Reach {
-  /** The box's level; the premise is 0, a domain 1. */
-  level: number;
-  /** The deepest approved box on the path, ROOT for the premise; none when nothing above is approved. */
-  anchor: string | undefined;
-  /** The deepest level a draft may reach on this path. */
-  reach: number;
-}
-
-/** The adoption is finished: its scope record exists. The human's window is over, and so is the reach rule (DEC-020). */
+/** The adoption is finished: its scope record exists. The human's session is over; the ranked list stands (DEC-024). */
 export function adoptionFinished(canon: Canon): boolean {
   return canon.decisions.some((d) => d.id === "DEC-001" || /adoption-scope/.test(d.file));
 }
 
-export function reachOf(canon: Canon, n: ReqNode): Reach {
-  // a canon without a root README has nothing above the domains to approve
-  let anchorLevel = !canon.root || approved(canon.root.state) ? 0 : -1;
-  let anchor: string | undefined = canon.root && approved(canon.root.state) ? "ROOT" : undefined;
-  for (let p: ReqNode | undefined = n; p; p = p.parent ? canon.nodes[p.parent] : undefined) {
-    if (approved(p.state) && p.depth + 1 > anchorLevel) { anchorLevel = p.depth + 1; anchor = p.id; }
-  }
-  // after Finish the drafting runs to the leaves, every box assumed, and the human reviews on the fly (DEC-020)
-  return { level: n.depth + 1, anchor, reach: adoptionFinished(canon) ? Number.POSITIVE_INFINITY : anchorLevel + LOOKAHEAD };
-}
-
-/** The box may be cut now: its children would lie within reach. */
-export function withinReach(canon: Canon, n: ReqNode): boolean {
-  const r = reachOf(canon, n);
-  return r.level + 1 <= r.reach;
-}
-
-export interface Waiting {
-  id: string;
-  title: string;
-  level: number;
-  anchor: string | undefined;
-  reach: number;
-  /** Boxes whose approval would let it be cut: its parent, or itself. */
-  approveOneOf: string[];
-}
-
 /**
- * Something the human can do that releases work: approve a box that brings waiting boxes within reach, or settle
- * a red box that others wait on. Ranked by what it releases; the first is the next box for the human wherever a
- * skill or the page names one, so no reader keeps a ranking of its own.
+ * Something the human can do, ranked by impact: what their answer validates or frees (DEC-024). An approval is
+ * offered at the frontier only, a guessed box whose parent is approved, the premise before anything, since an
+ * approval under a guess validates nothing; its impact is the boxes below it, whose path it validates and which a
+ * rewrite would invalidate. A red box, a draft or a contested one, is the session's explicit ask wherever it
+ * stands: its impact is what waits on it and what it hides, counted as what a refined box at its depth usually
+ * holds. The first entry is the next box for the human wherever a skill or the page names one, so no reader keeps
+ * a ranking of its own; the list stands after adoption, so the human validates the canon by it whenever they return.
  */
 export interface HumanPick {
   id: string;
   title: string;
   state: State;
   action: "approve" | "settle";
-  /** Waiting boxes this brings within reach. */
-  releases: string[];
-  /** Blocked boxes that can then be cut. */
+  /** Boxes below it: their path is validated by an approval and invalidated by a rewrite. */
+  below: number;
+  /** Red boxes among those below. */
+  redBelow: number;
+  /** Blocked boxes that can be cut once it is settled or approved: they require it. */
   unblocks: string[];
-  /** Unrefined boxes under a red box, frozen until it is settled. */
-  frozen: number;
+  /** What a red box with nothing cut under it hides: the boxes a refined box at its depth usually holds. */
+  hidden: number;
   depth: number;
   score: number;
+  /** The reason in words, for the page and the chat. */
+  why: string;
 }
 
 export interface RefinementOrder {
   next: NextPick | undefined;
   ready: NextPick[];
   blocked: Blocked[];
-  /** Unrefined boxes beyond reach: they wait for an approval above them, not for a prerequisite. */
-  waiting: Waiting[];
-  /** What the human can do, ranked by what it releases; the first is the next box for them. */
+  /** What the human can do, ranked by impact; the first is the next box for them. */
   human: HumanPick[];
   /** True when unrefined nodes remain and none is ready. */
   deadlock: boolean;
@@ -115,7 +81,7 @@ export function isRefined(n: ReqNode): boolean {
 
 /** A node that can still be cut: no children, no kind, and not waiting on a human (open, contested). */
 export function isUnrefined(n: ReqNode): boolean {
-  return !isRefined(n) && n.state !== "open" && n.state !== "contested";
+  return !isRefined(n) && !red(n.state);
 }
 
 /** Every cycle among `requires` edges, each as the ids along it. */
@@ -147,50 +113,105 @@ export function requiresCycles(canon: Canon): string[][] {
   return cycles;
 }
 
+const plural = (n: number, one: string, many = `${one}es`) => `${n} ${n === 1 ? one : many}`;
+
+/** The impact of one box for the human, approve or settle, from what hangs on it. */
+function humanPick(canon: Canon, id: string, blocked: Blocked[], usual: Map<number, number>): HumanPick | undefined {
+  const isRoot = id === "ROOT";
+  const node = isRoot ? undefined : canon.nodes[id];
+  const state = isRoot ? canon.root?.state : node?.state;
+  if (!state || approved(state)) return undefined;
+  const belowIds = isRoot ? Object.keys(canon.nodes) : descendants(canon, id);
+  const below = belowIds.length;
+  const redBelow = belowIds.filter((d) => red(canon.nodes[d]?.state)).length;
+  const unblocks = blocked.filter((b) => b.waitingOn.includes(id)).map((b) => b.id).sort(compareIds);
+  const depth = node ? node.depth : -1;
+  const settle = red(state);
+  const hidden = settle && below === 0 ? usual.get(depth) ?? 0 : 0;
+  const parts: string[] = [];
+  if (settle) {
+    parts.push(state);
+    if (below) parts.push(`${plural(below, "box")} below it${redBelow ? `, ${redBelow} red` : ""}`);
+    else if (hidden) parts.push(`hides about ${plural(hidden, "box")}`);
+    if (unblocks.length) parts.push(`${unblocks.length} wait on it`);
+  } else {
+    parts.push(below ? `validates the path for ${plural(below, "box")} below it${redBelow ? `, ${redBelow} of them red` : ""}` : "nothing below it");
+    if (unblocks.length) parts.push(`frees ${unblocks.length}`);
+  }
+  return {
+    id,
+    title: isRoot ? canon.root?.title ?? "the premise" : node!.title,
+    state,
+    action: settle ? "settle" : "approve",
+    below,
+    redBelow,
+    unblocks,
+    hidden,
+    depth,
+    score: 1 + below + hidden + unblocks.length,
+    why: parts.join("; "),
+  };
+}
+
+const byImpact = (a: HumanPick, b: HumanPick) => b.score - a.score || Number(b.action === "settle") - Number(a.action === "settle") || a.depth - b.depth || compareIds(a.id, b.id);
+
+/** What a refined, non-red box at each depth usually holds below it: the measure of what a red box there hides. */
+function usualBelow(canon: Canon): Map<number, number> {
+  const sums = new Map<number, { n: number; total: number }>();
+  for (const n of Object.values(canon.nodes)) {
+    if (!isRefined(n) || red(n.state)) continue;
+    const s = sums.get(n.depth) ?? { n: 0, total: 0 };
+    s.n += 1;
+    s.total += descendants(canon, n.id).length;
+    sums.set(n.depth, s);
+  }
+  return new Map([...sums].map(([d, s]) => [d, Math.round(s.total / s.n)]));
+}
+
 export function refinementOrder(canon: Canon): RefinementOrder {
   const dependents = new Map<string, number>();
   for (const n of Object.values(canon.nodes)) for (const t of n.requires) dependents.set(t, (dependents.get(t) ?? 0) + 1);
-  const pick = (n: ReqNode): NextPick => ({ id: n.id, title: n.title, depth: n.depth, dependents: dependents.get(n.id) ?? 0 });
+  const parentState = (n: ReqNode): State | undefined => (n.parent ? canon.nodes[n.parent]?.state : canon.root ? canon.root.state : "stated");
+  const pick = (n: ReqNode): NextPick => ({ id: n.id, title: n.title, depth: n.depth, dependents: dependents.get(n.id) ?? 0, parentApproved: approved(parentState(n)) });
 
   const ready: NextPick[] = [];
   const blocked: Blocked[] = [];
-  const waiting: Waiting[] = [];
   for (const n of Object.values(canon.nodes)) {
     if (!isUnrefined(n)) continue;
-    const r = reachOf(canon, n);
-    if (r.level + 1 > r.reach) {
-      const parent = n.parent && canon.nodes[n.parent] ? n.parent : canon.root ? "ROOT" : undefined;
-      waiting.push({ id: n.id, title: n.title, level: r.level, anchor: r.anchor, reach: r.reach, approveOneOf: [...(parent ? [parent] : []), n.id] });
-      continue;
-    }
     const waitingOn = n.requires.filter((t) => canon.nodes[t] && !isRefined(canon.nodes[t]!));
     if (waitingOn.length) blocked.push({ id: n.id, title: n.title, waitingOn: waitingOn.sort(compareIds) });
     else ready.push(pick(n));
   }
-  // What the human can do that releases the most: approve a box that brings waiting boxes within reach, or settle
-  // a red box that others wait on.
+  // The frontier: the premise while it is a guess; then every guessed box whose parent is approved. Every red box
+  // besides, wherever it stands, since the session asked for the human there.
+  const usual = usualBelow(canon);
   const human: HumanPick[] = [];
-  const releasesOf = new Map<string, string[]>();
-  for (const w of waiting) for (const b of w.approveOneOf) (releasesOf.get(b) ?? releasesOf.set(b, []).get(b))!.push(w.id);
-  const unblockedBy = (released: Set<string>) => blocked.filter((x) => x.waitingOn.some((t) => released.has(t))).map((x) => x.id).sort(compareIds);
-  for (const [id, rel] of releasesOf) {
-    const n = canon.nodes[id];
-    const state: State | undefined = id === "ROOT" ? canon.root?.state : n?.state;
-    if (!state || state === "stated" || state === "resolved") continue;
-    const red = state === "open" || state === "contested";
-    human.push({ id, title: id === "ROOT" ? canon.root?.title ?? "the premise" : n!.title, state, action: red ? "settle" : "approve", releases: [...rel].sort(compareIds), unblocks: unblockedBy(new Set(rel)), frozen: 0, depth: n ? n.depth : -1, score: rel.length + unblockedBy(new Set(rel)).length });
-  }
+  const add = (id: string) => { const h = humanPick(canon, id, blocked, usual); if (h) human.push(h); };
+  if (canon.root && !approved(canon.root.state)) add("ROOT");
   for (const n of Object.values(canon.nodes)) {
-    if ((n.state !== "open" && n.state !== "contested") || releasesOf.has(n.id)) continue;
-    const unblocks = blocked.filter((x) => x.waitingOn.includes(n.id)).map((x) => x.id).sort(compareIds);
-    const frozen = descendants(canon, n.id).filter((d) => canon.nodes[d] && isUnrefined(canon.nodes[d]!)).length;
-    human.push({ id: n.id, title: n.title, state: n.state, action: "settle", releases: [], unblocks, frozen, depth: n.depth, score: 1 + unblocks.length + frozen });
+    if (red(n.state)) add(n.id);
+    else if (!approved(n.state) && approved(parentState(n))) add(n.id);
   }
-  human.sort((a, b) => b.score - a.score || a.depth - b.depth || compareIds(a.id, b.id));
-  ready.sort((a, b) => a.depth - b.depth || b.dependents - a.dependents || compareIds(a.id, b.id));
+  human.sort(byImpact);
+  ready.sort((a, b) => Number(b.parentApproved) - Number(a.parentApproved) || a.depth - b.depth || b.dependents - a.dependents || compareIds(a.id, b.id));
   blocked.sort((a, b) => compareIds(a.id, b.id));
-  waiting.sort((a, b) => compareIds(a.id, b.id));
-  return { next: ready[0], ready, blocked, waiting, human, deadlock: ready.length === 0 && blocked.length > 0 && waiting.length === 0, cycles: requiresCycles(canon) };
+  return { next: ready[0], ready, blocked, human, deadlock: ready.length === 0 && blocked.length > 0, cycles: requiresCycles(canon) };
+}
+
+/**
+ * The unapproved boxes on the path from the premise down to `id`, top first, each with its impact: what the human
+ * validates before work starts under that box, so that new work hangs from an approved path (DEC-024). Empty when
+ * the path is approved; undefined when the node does not exist.
+ */
+export function pathToValidate(canon: Canon, id: string): HumanPick[] | undefined {
+  const target = id === "ROOT" ? undefined : canon.nodes[id];
+  if (id !== "ROOT" && !target) return undefined;
+  const order = refinementOrder(canon);
+  const usual = usualBelow(canon);
+  const chain: string[] = [];
+  for (let n: ReqNode | undefined = target; n; n = n.parent ? canon.nodes[n.parent] : undefined) chain.unshift(n.id);
+  if (canon.root) chain.unshift("ROOT");
+  return chain.map((x) => humanPick(canon, x, order.blocked, usual)).filter((h): h is HumanPick => Boolean(h));
 }
 
 /** One paragraph for the terminal and the session context. */
@@ -198,20 +219,22 @@ export function describeNext(order: RefinementOrder, canon: Canon): string {
   const lines: string[] = [];
   if (order.cycles.length) lines.push(`Cycle in requires: ${order.cycles.map((c) => c.join(" > ")).join("; ")}. A concept both need belongs at their common ancestor: lift it, or ask which direction stands.`);
   if (order.next) {
-    const why = [`depth ${order.next.depth}`, order.next.dependents ? `${order.next.dependents} node(s) require it` : "nothing requires it yet", "prerequisites met"];
+    const why = [`depth ${order.next.depth}`, order.next.dependents ? `${order.next.dependents} node(s) require it` : "nothing requires it yet", "prerequisites met", order.next.parentApproved ? "under an approved box" : "under a guess"];
     lines.push(`Next to refine: ${order.next.id} ${order.next.title} (${why.join("; ")}).`);
     const rest = order.ready.slice(1, 4).map((p) => p.id);
     if (rest.length) lines.push(`Then: ${rest.join(", ")}${order.ready.length > 4 ? `, and ${order.ready.length - 4} more` : ""}.`);
   } else if (order.deadlock) {
     lines.push("Deadlock: every unrefined node waits on an unrefined prerequisite. Ask the human which prerequisite to refine first, or which edge to drop.");
-  } else if (order.waiting.length) lines.push(`Nothing within reach: ${order.waiting.length} node(s) wait for an approval above them.`);
-  else lines.push("Nothing left to refine: every node has children or a kind, or waits on a human.");
-  if (order.human.length) {
-    const why = (h: HumanPick) => (h.action === "approve" ? `releases ${h.releases.length} box${h.releases.length === 1 ? "" : "es"}${h.unblocks.length ? `, then ${h.unblocks.length} more can be cut` : ""}` : `${h.state}${h.unblocks.length ? `; ${h.unblocks.length} wait on it` : ""}${h.frozen ? `; ${h.frozen} under it` : ""}`);
-    lines.push(`For the human: ${order.human.slice(0, 3).map((h) => `${h.action} ${h.id} (${why(h)})`).join("; ")}${order.human.length > 3 ? `; … ${order.human.length - 3} more` : ""}.`);
-  }
-  if (order.waiting.length) lines.push(`Reach: a draft goes no deeper than ${LOOKAHEAD} levels below the deepest approved box on its path. ${order.waiting.slice(0, 3).map((w) => `${w.id} once ${w.approveOneOf.join(" or ")} is approved`).join("; ")}${order.waiting.length > 3 ? `; … ${order.waiting.length - 3} more` : ""}.`);
+  } else lines.push("Nothing left to refine: every node has children or a kind, or waits on a human.");
+  if (order.human.length) lines.push(`For the human: ${order.human.slice(0, 3).map((h) => `${h.action} ${h.id} (${h.why})`).join("; ")}${order.human.length > 3 ? `; … ${order.human.length - 3} more` : ""}.`);
   for (const b of order.blocked.slice(0, 5)) lines.push(`Blocked: ${b.id} waits on ${b.waitingOn.map((w) => `${w}${canon.nodes[w]?.state === "open" ? " (open)" : ""}`).join(", ")}.`);
   if (order.blocked.length > 5) lines.push(`… ${order.blocked.length - 5} more blocked.`);
   return lines.join("\n");
+}
+
+/** The path line for the terminal: what to validate before working under `id`. */
+export function describePath(id: string, path: HumanPick[] | undefined): string {
+  if (!path) return `${id} is not in the canon.`;
+  if (!path.length) return `The path to ${id} is approved: work under it hangs from the human's words.`;
+  return `To validate the path to ${id}: ${path.map((h) => `${h.action} ${h.id} (${h.why})`).join("; ")}.`;
 }

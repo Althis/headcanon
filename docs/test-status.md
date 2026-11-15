@@ -1,5 +1,9 @@
 # What the Valley runs have exercised, and what they have not
 
+## The ninth run, planned 2026-11-15: two phases under DEC-024
+
+Run 8's intermediate canon (511 files, 4 queued questions, the thread list and the hook) is stored beside the repository in `TheValley-canon-store/2026-11-15-run8-intermediate/`, and The Valley is cleared for a run from zero under the two-phase flow: the machine drafts to the leaves with nobody waiting, every question filed as an issue and left, `## As built` on every node the code speaks to, the verifier over the whole tree, then the human's session down the list `HC next` ranks by impact. What to look at: the kinds of question at the top of the list and whether the whole list can be answered in about fifteen minutes; how long the drafting takes and how many refiners it spends; whether the premise, the documentation and the code come out aligned, which is this phase's goal. Then the result is stored, the intermediate canon restored, and the same session started on it: the start sequence must bring it from format 2 to 3 without a hand, and attend must carry a mixed, half-finished canon on from where it stands. The two canons are compared afterwards.
+
 Status as of 2026-10-18, after six adopt runs on the test project. The fifth run reached the requirement layer through the question flow and was stopped there. The sixth run used the draft-then-review flow (REQ-11.6.3): it drafted 187 nodes in 13 minutes, ran the verifier once, applied its 28 findings before the canvas opened, then opened and attended the canvas; the human had not acted on it when this was written. Nothing has been committed in that project, so everything that happens at or after the first commit is untested on a real project.
 
 ## Exercised on a real project

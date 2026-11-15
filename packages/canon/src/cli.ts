@@ -7,7 +7,7 @@ import { relative } from "node:path";
 import { loadReviewRecord, stagedIntentDiff, storeReviewRecord, validateReviewRecord, type ReviewRecord } from "./review.js";
 import { runMcp } from "./mcp.js";
 import { detectTerms, nameWords } from "./terms.js";
-import { describeNext, refinementOrder } from "./next.js";
+import { describeNext, describePath, pathToValidate, refinementOrder } from "./next.js";
 import { sessionContext } from "./context.js";
 import { initCanon } from "./init.js";
 import { describeFormat } from "./format.js";
@@ -24,7 +24,7 @@ Commands
   summary        Print the requirement tree as plain text.
   render         Write the Mermaid index (canon/INDEX.md by default).
   attention      What is waiting on the human: approvals, unmerged changes, open and contested items.
-  next           Which node to refine next: prerequisites met, shallowest first, then most required; reports deadlocks.
+  next [ID]      Which node to refine next and what the human should approve or settle, by impact; with an ID, the path to validate above it.
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
   review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
   review-record F  Store the finished review in F (JSON) for the staged canon diff. Exit 1 if invalid.
@@ -284,6 +284,12 @@ export async function main(argv: string[]): Promise<number> {
     }
     case "next": {
       const canon = loadCanon(canonDir);
+      // `next <ID>`: the unapproved boxes on the path down to that node, what the human validates before work under it
+      if (args.positional[0]) {
+        const path = pathToValidate(canon, args.positional[0]);
+        out(args.json ? JSON.stringify({ id: args.positional[0], path: path ?? null }, null, 2) + "\n" : describePath(args.positional[0], path) + "\n");
+        return path ? 0 : 1;
+      }
       const order = refinementOrder(canon);
       out(args.json ? JSON.stringify(order, null, 2) + "\n" : describeNext(order, canon) + "\n");
       return order.cycles.length ? 1 : 0;

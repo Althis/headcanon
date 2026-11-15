@@ -1,6 +1,6 @@
 ---
 name: attend
-description: "Attends the HeadCanon canvas: keeps refiner agents cutting every ready node in the background and integrates what they return, waits for what the human does in the page, keeps the canon consistent after each approval, rewrite or deletion, answers their questions in the chat, defines the branches they ask for, and returns when they press Finish, or after that when nothing is left to cut. Use during adoption once the domains exist, whenever the human works in the page on an existing canon, or when they ask you to watch or follow the page."
+description: "Attends the HeadCanon canvas: keeps refiner agents cutting every ready node to the leaves in the background and integrates what they return, then waits for what the human does in the page, keeps the canon consistent after each approval, rewrite or deletion, answers their questions in the chat, defines the branches they ask for, and returns when they press Finish, or after that when nothing is left to cut. Use during adoption once the domains exist, whenever the human works in the page on an existing canon, or when they ask you to watch or follow the page."
 when_to_use: "The viewer is open and the human is working in it; adopt has drafted the domains; the human asks you to attend, watch or follow the page."
 ---
 
@@ -12,14 +12,14 @@ Colours on the canvas, where a box is a node as the canvas shows it: green is ap
 
 ## Knobs
 
-The human's window, about a quarter of an hour. Refiners at once, four. The reach, four levels below the deepest approved box, `HC next`'s rule (DEC-023). The wait for the human's next action, 600 seconds.
+The human's session, about a quarter of an hour. Refiners at once, four. The wait for the human's next action, 600 seconds.
 
 ## Rules
 
 - One question per box: a new ask on a box replaces the one pending, the human's rewrite of a box withdraws its questions, and `headcanon_withdraw` takes back one the Guessing rules would no longer ask; ask again only with what their words taught you.
 - Never approve a node; approval is the human's click. Your rewrites and the refiners' sets are `assumed`; your questions are issues, never nodes.
-- The human's window goes to the premise, the principles, every red box and the yellow ones they pick. Call them only at key points, by a say and a focus: a branch that reached its leaves, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
-- A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. A `waiting` node is never cut early: the reach is the command's rule, not yours.
+- The human's session goes down `HC next`'s `human` list, ranked by impact (DEC-024): its first entry is the next box for them, always, never a pick of your own. Call them only at key points, by a say and a focus: the drafting done, a new red box, a thread that contradicts an approval. One chat line beats a question; a question only when the answer is a choice among options.
+- A deadlock or a blocked prerequisite from `HC next` is said, not solved: the human picks. Nothing is cut under a red box: it is the human's, and what it hides counts in its rank.
 - Write only files under `canon/`; `HC check` after every write; never commit from here.
 
 ## Start
@@ -37,15 +37,13 @@ Then one say: the counts (drafts made, issues filed, sections folded) and the ne
 
 ## Loop
 
-Until the human presses Finish, and after it until nothing is left to cut; or the human says stop. The loop is your whole turn: a wait that returns nothing is followed by another wait, never by a reply that ends the turn; a Stop hook sends you back otherwise. When the human asks you to stop, say the words "stopping attend" and stop.
+Until the human presses Finish, and after it until nothing is left to cut; or the human says stop. Two phases, one loop (DEC-024): while anything is ready or a refiner runs, you draft, launching and integrating without waiting on the human; when nothing is ready and nothing runs, the drafting is done: the verifier over the whole tree (adopt, Consistency), its findings applied, then one say to the human with the counts (boxes, leaves with a check, red) and the first three entries of the `human` list with their reasons, the first focused; from then on you wait for them. The loop is your whole turn: a wait that returns nothing is followed by another wait, never by a reply that ends the turn; a Stop hook sends you back otherwise. When the human asks you to stop, say the words "stopping attend" and stop.
 
 1. **Launch.** `HC next --json`, then:
-   - the `ready` nodes whose parent is not red get refiners in the command's order, green parents before yellow, at most as many at once as the knobs allow and never two siblings together (DEC-022), the rest as returns come;
+   - the `ready` nodes whose parent is not red get refiners in the command's order, at most as many at once as the knobs allow and never two siblings together (DEC-022), the rest as returns come;
    - each runs in the background with the Agent tool, never a workflow, which stops to ask the human; its brief names the repository, the node, the layer its children get, and the thread file;
-   - a node a refiner already holds is not launched twice;
-   - the `waiting` nodes lie beyond the reach and are left alone until the human approves; after Finish nothing waits and the cutting runs to the leaves (DEC-020);
-   - the `human` list ranks what the human can approve or settle by what that releases; its first entry is the next box for them, always, never a pick of your own.
-2. **Wait** for the next event: `headcanon_changes` with the last cursor and `waitSeconds` as the knobs say, or a refiner's return, whichever comes first.
+   - a node a refiner already holds is not launched twice.
+2. **Wait** for the next event: a refiner's return while any runs; otherwise `headcanon_changes` with the last cursor and `waitSeconds` as the knobs say; whichever comes first.
 3. **A refiner's return.**
    - Apply its set-asides (link, lift, merge) and its moved edges; `HC check` and fix every error.
    - Read the new set's parent, siblings and `requires` neighbours for a contradiction or a duplicate; mark it as the adopt skill's Consistency rules say.
@@ -55,7 +53,7 @@ Until the human presses Finish, and after it until nothing is left to cut; or th
    - A refiner that reports blocked waits for its blocker: a red box is the human's, a prerequisite is in the next wave.
 4. **The human's entries**, in order, by kind:
    - **node-approved**: the box is green. Re-read its children: a child whose line no longer follows the approved text is rewritten to follow it, `assumed`; a child that was approved too and now disagrees becomes `contested` with both statements.
-   - **node-edited**: the human's words are stated. Children the new text no longer implies are removed and asked about as an issue; children it still implies but words differently are rewritten `assumed`; the parent's line must still describe its children, or it is rewritten `assumed`; every node that `requires` this one is re-read for a concept that changed.
+   - **node-edited**: the human's words are stated. Children the new text no longer implies are removed and asked about as an issue; children it still implies but words differently are rewritten `assumed`; a node left without children is cut again; the parent's line must still describe its children, or it is rewritten `assumed`; every node that `requires` this one is re-read for a concept that changed.
    - **node-deleted**: nodes that required it lose the edge; a node whose only reason was the deleted one is removed and asked about as an issue; the parent's partition still holds or the parent's line is rewritten `assumed`.
    - **node-created**: the human's node; place it by descent if its parent is wrong, link what it duplicates, and give it a refiner when its layer has children.
    - **message** with a `quote` (words the human highlighted in a node's card; `nodeId` names the node): the text is about that passage. A question gets one or two sentences in the human's words; a glossary term gets its definition and where it is used; wording given with it is applied as a rewrite of that passage, stated. A term the human asks to canonize is asked back with `headcanon_ask`, `terms` carrying your definition, so they keep it, which enters it in the glossary, or drop it; never written to the glossary unasked.
@@ -64,7 +62,7 @@ Until the human presses Finish, and after it until nothing is left to cut; or th
    - **edit-conflict**: you rewrote a box the human was writing in. "keeps their own": leave that box alone until their node-edited arrives, then treat it as theirs. "took yours": nothing to do.
    - **term-enshrined**, **term-dropped**: the glossary changed; reword every node that uses a dropped term with its replacement. A node-approved, node-edited or node-deleted entry with a TERM id comes from the Glossary tab: a rewritten term is the human's meaning now, a deleted one is dropped.
    - **answer**: belongs to a question you asked; handle it by the adopt skill's Asking rules. One that begins `superseded:` needs nothing: the human rewrote or deleted the box, or your newer question on it replaced the old one. For a refiner's question, define its draft node from the chosen or typed words: the title when the answer names the thing, the Intent from the words, `stated`; then launch it when its layer has children. A contradiction issue is settled by the page itself; its node-edited entry follows.
-   - **finish-request**: the human's window is over, whatever is red (DEC-020). `HC check` and fix every error; say how many red boxes and unanswered questions remain, which stay as issues for the loop after Finish; then return to the caller, which is adopt step 6, or `/headcanon:commit` when nothing called you.
+   - **finish-request**: the human's session is over, whatever is red (DEC-020). `HC check` and fix every error; say how many red boxes and unanswered questions remain, which stay as issues, and that their list stands for their next visit; then return to the caller, which is adopt step 5, or `/headcanon:commit` when nothing called you.
 5. After every change of yours: `HC check` and fix every error; then read the touched node's parent, siblings, children and `requires` neighbours for a contradiction or a duplicate, and mark what you find as the Consistency rules say.
 6. `headcanon_say` one or two sentences: what you changed, what is red now, and the next box for the human, the first of `HC next`'s `human` list with its reason, which you also `headcanon_focus`. A say that reports what you did goes to the page's history; one that asks something of the human, or needs their eyes now (a key point), carries `to: "human"` and lands in their chat. Every say carries `doing`: what is running at that moment, one entry per box being cut or verified, empty when nothing runs; the page shows it as your live status.
 

@@ -14,12 +14,12 @@ Text the adopt skill pastes and formats it writes. Use the Write tool, one file 
 
 ## 0. The briefing
 
-The first question's text is this block, verbatim, with one option, **Let's begin**. The premise's proposed text is the question after it.
+The say that opens the canvas carries this block, verbatim, to the human; nothing is asked before the drafting is done.
 
 ```
 Welcome to HeadCanon. Together we are going to write down what this project is for, in a form that is re-read at the start of every session so that work stays true to it. I have already read the repository.
 
-What happens next: I draft the whole thing from your documents, then you review it on a canvas, box by box.
+What happens next: I draft the whole thing from your documents and your code, down to the smallest checkable goals, and you review it on a canvas, box by box, starting with what matters most.
 
 The canon has five layers, top to bottom:
 - Premise: what the project is, its purpose, what it is not, and its vocabulary.
@@ -31,11 +31,11 @@ The canon has five layers, top to bottom:
 On the canvas, every box has a colour:
 - Green: approved by you.
 - Yellow: my guess from your documents. Open it and approve it, rewrite it in your own words, or delete it.
-- Red: I could not guess it, or two statements disagree. Those need you before we can finish.
+- Red: I could not guess it, or two statements disagree. Those need you; the code cannot answer them.
 
-Work top-down: the premise first, then the domains. When you change a box, I rework what hangs from it and tell you in the chat on the right. Select any words in a box's card and the chat is ready for your question about them.
+Work down your list under Issues: it starts with the premise and ranks what matters most, the boxes whose approval validates the most below them and the red ones that hide the most. When you change a box, I rework what hangs from it and tell you in the chat on the right. Select any words in a box's card and the chat is ready for your question about them.
 
-Press Finish when your time is up: I keep going below it, and anything still red waits for you under Issues.
+Press Finish when your time is up: anything still red waits for you under Issues, and your list stands for your next visit.
 ```
 
 ## 1. Root README (`canon/README.md`)
@@ -48,7 +48,7 @@ id: ROOT
 title: "<Project> canon"
 state: stated | resolved
 source: "conversation, <date>"
-format: 2                # the format version this canon is written under; `HC format` prints the current one
+format: 3                # the format version this canon is written under; `HC format` prints the current one
 ---
 
 # <Project> canon
@@ -109,6 +109,9 @@ Source: conversation, <date>
 
 ## Check
 <on a leaf: one sentence, what is observed and what counts as yes>
+
+## As built
+- <what the code does today for this entry, one to three lines, each ending in its path:lines; the session's, rewritten when the code is re-read, never approved>
 
 ## Not this
 <when an artifact or the human made one clear>

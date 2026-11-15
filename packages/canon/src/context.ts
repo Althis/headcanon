@@ -58,7 +58,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   else if (written < FORMAT_VERSION) head.push("## Format", "", `Written under format ${written}; the current is ${FORMAT_VERSION}. Before other canon work, run the start sequence (\`headcanon format\` prints it): ${changesSince(written).flatMap((x) => x.broughtUp).join(" ")}`, "");
   // The next node to refine, so the agent follows the dependency order without computing it (REQ-3.15).
   const order = refinementOrder(canon);
-  const nextLines = describeNext(order, canon).split("\n").filter((l) => /^(Cycle|Next to refine|Nothing within reach|Deadlock|For the human)/.test(l));
+  const nextLines = describeNext(order, canon).split("\n").filter((l) => /^(Cycle|Next to refine|Deadlock|For the human)/.test(l));
   if (nextLines.length) head.push(nextLines.join(" "), "");
 
   if (canon.principles.length) {

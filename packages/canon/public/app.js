@@ -632,19 +632,22 @@ function renderIssues(s) {
   for (const [id, p] of pendingNodes) if (Date.now() - p.since > 15 * 60 * 1000) pendingNodes.delete(id);
   const issues = issuesOf(s);
   const notReady = new Set([...issues.filter((i) => i.preparing).map((i) => i.nodeId), ...pendingNodes.keys()]);
-  const top = (snap.next?.human ?? []).find((h) => !notReady.has(h.id));
+  // what the human can do, ranked by impact (the next command's human list, with its reason): the first is next for
+  // them, a few more follow, so they always see where their time goes furthest, during adoption and after it
+  const picks = (snap.next?.human ?? []).filter((h) => !notReady.has(h.id)).slice(0, 5);
+  const top = picks[0];
   const minutes = (p) => Math.floor((Date.now() - p.since) / 60000);
   const pendingKey = [...pendingNodes].map(([id, p]) => `${id}:${minutes(p)}`);
-  const key = JSON.stringify([top?.id, top?.score, pendingKey, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
+  const key = JSON.stringify([picks.map((h) => `${h.id}:${h.score}`), pendingKey, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
   const open = issues.filter((i) => !i.preparing).length;
   count.textContent = open; count.hidden = open === 0;
   const hint = (i) => i.preparing ? "The session is still writing its question for this draft" : i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
-  // the one line that says what releases the most: the first of the next command's human list, with its reason
-  const reason = (h) => h.action === "approve" ? `releases ${h.releases.length} box${h.releases.length === 1 ? "" : "es"}${h.unblocks.length ? `, then ${h.unblocks.length} more can be cut` : ""}` : `${h.state}${h.unblocks.length ? `; ${h.unblocks.length} wait on it` : ""}${h.frozen ? `; ${h.frozen} under it` : ""}`;
+  const pickLine = (h) => `<a href="#" data-next="${esc(h.id)}" title="Select it on the canvas">${esc(h.action)} ${esc(h.id)}</a> <span class="muted">· ${esc(h.why)}</span>`;
   const ago = (p) => { const m = minutes(p); return m < 1 ? "just now" : m === 1 ? "a minute ago" : `${m} minutes ago`; };
-  body.innerHTML = (top ? `<p class="next-for-you"><span class="muted">Next for you:</span> <a href="#" data-next="${esc(top.id)}" title="Select it on the canvas">${esc(top.action)} ${esc(top.id)}</a> <span class="muted">· ${esc(reason(top))}</span></p>` : "") +
+  body.innerHTML = (top ? `<p class="next-for-you"><span class="muted">Next for you:</span> ${pickLine(top)}</p>` : "") +
+    (picks.length > 1 ? `<p class="for-you"><span class="muted">Then:</span> ${picks.slice(1).map(pickLine).join("<br>")}</p>` : "") +
     [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)} ${esc(ago(p))}</span></p>`).join("") +
     (issues.length ? "" : `<p class="muted">Nothing needs you right now.</p>`) +
     issues.map((i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}${i.preparing ? " preparing" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${i.preparing ? "…" : ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.preparing ? ` <span class="muted">· being prepared</span>` : i.sub ? ` <span class="muted">· ${esc(i.sub)}</span>` : ""}</span></button>`).join("");
@@ -1012,18 +1015,18 @@ function adopt(selectedId) {
   </div>`;
 }
 // Progress of a draft: the agent writes one file per node in dependency order, so the canon on disk says
-// how far it is. Phases: reading, premise, then reviewing while the draft goes on under the reach rule, finished.
+// how far it is. Phases: reading, premise, drafting to the leaves while the human reviews by impact, finished.
 function adoptProgress() {
   const nodes = Object.values(snap.canon.nodes);
   const finished = snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
   if (finished) return { phase: "Adoption finished", fraction: 1, detail: `${nodes.length} nodes committed` };
   if (!snap.canon.root && nodes.length === 0) return { phase: "Reading the repository", fraction: 0.03, detail: "the premise comes first" };
   if (snap.canon.roots.length === 0) return { phase: "Drafting the premise and principles", fraction: 0.1, detail: "the canvas opens with the domains" };
-  // from the domains on, the human reviews while refiners cut what lies within reach of their approvals
+  // from the domains on, refiners cut everything to the leaves while the human works their ranked list
   const c = adoptCounts();
   const total = c.green + c.yellow + c.red || 1;
   const toCut = snap.stats?.unrefined ?? 0;
-  return { phase: "Reviewing while the draft goes on", fraction: 0.2 + 0.8 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you · ${toCut} box${toCut === 1 ? "" : "es"} still to cut` };
+  return { phase: toCut ? "Drafting to the leaves while you review" : "Reviewing by impact", fraction: 0.2 + 0.8 * (c.green / total), detail: `${c.green} approved · ${c.yellow} guessed · ${c.red} need you${toCut ? ` · ${toCut} box${toCut === 1 ? "" : "es"} still to cut` : ""}` };
 }
 function progressStrip() {
   const p = adoptProgress();
@@ -1789,12 +1792,16 @@ function openPopup(id) {
     panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${text}</p>${refs.length ? `<div class="sources"><span class="muted">Where it comes from</span>${refs.map((r) => `<code>${esc(r)}</code>`).join("")}</div>` : `<p class="muted">No source recorded for this statement.</p>`}` });
   });
   for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
-  // the Deferred list, the parts not yet cut, lives in a tab of its own so the intent stands alone
+  // the Deferred list, the parts not yet cut, and As built, what the code does today, live in tabs of their own so
+  // the intent stands alone: what must hold on the card, what holds one click away
   const deferredHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Deferred");
   if (deferredHtml) panes.push({ label: `Deferred (${(deferredHtml.match(/<li/g) || []).length})`, html: deferredHtml });
+  const builtHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "As built");
+  if (builtHtml) panes.push({ label: "As built", html: `<p class="sub">What the code does today for this box, as the session read it; the session rewrites it when it reads the code again, and you never approve it.</p>${builtHtml}` });
   let mainHtml = bodyHtml ?? "";
   if (statements.length >= 2) mainHtml = stripHtmlSection(mainHtml, "Contested");
   if (deferredHtml) mainHtml = stripHtmlSection(mainHtml, "Deferred");
+  if (builtHtml) mainHtml = stripHtmlSection(mainHtml, "As built");
   $popup.innerHTML = `
     <div class="popup-head">${isRoot || prn ? `<span class="id">${esc(id)}</span>` : crumbsHtml(id)} ${badge(state ?? "assumed")} <span><i class="sw ${color}"></i><span class="muted">${because}</span></span><button class="btn small" id="pp-close" title="Close">✕</button></div>
     <h2>${esc(isRoot ? snap.canon.root?.title ?? "Premise" : n.title)}</h2>

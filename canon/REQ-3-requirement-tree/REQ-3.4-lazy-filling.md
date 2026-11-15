@@ -1,13 +1,13 @@
 ---
 id: REQ-3.4
 parent: REQ-3
-title: "The tree is filled lazily: gaps surface when relevant; deeper details may be marked model assumptions"
+title: "The tree is drafted whole by the session and reviewed lazily by the human: what matters most comes first, deeper details stay model assumptions"
 state: stated
-source: "docs/design-brief-v0.md:62; Claude Code session, 2026-10-18"
+source: "docs/design-brief-v0.md:62; Claude Code session, 2026-10-18; Claude Code session, 2026-11-15"
 files: [skills/adopt/SKILL.md, skills/attend/SKILL.md, agents/refiner.md, packages/canon/src/next.ts]
 ---
 
-# The tree is filled lazily: gaps surface when relevant; deeper details may be marked model assumptions
+# The tree is drafted whole by the session and reviewed lazily by the human: what matters most comes first, deeper details stay model assumptions
 
 ## Stated
 
@@ -25,15 +25,18 @@ Source: Claude Code session, 2026-10-18.
 
 Source: Claude Code session, 2026-10-18, after the seventh adopt run.
 
+> Computers can work faster and longer, so I thought introducing detective sub-agents could help us resolve something fully before the human needs to confirm anything. [...] we should be the ones planning to make the most bang out of the human time buck possible.
+
+> [...] the system should still prioritize approvals for the most impactful nodes in the UI even after the adoption process is done, so that the human can always choose to inspect the canon in fruitful ways whenever they want to spend time doing it.
+
+Source: Claude Code session, 2026-11-15 (DEC-024).
+
 ## Intent [assumed]
 
-Nothing has to be defined ahead of time. The deeper in the tree, the more the model may decide itself, as long as it contradicts nothing above and is marked as a model assumption.
+Nothing has to be defined by the human ahead of time. The session drafts the tree to its leaves, every entry a model assumption until the human speaks, as long as it contradicts nothing above it; and the human's attention goes where an answer changes the most. The next command ranks the premise first, then the guessed boxes under approved ones by the boxes below them, whose path an approval validates and a rewrite invalidates, and every red box by what waits on it and what it hides; the list stands after adoption, and before work under a box the command names the unapproved boxes on the path above it, which are asked about alone (DEC-024).
 
-Filling is continuous and local. A node is cut from its family alone: the chain above it, the root README, its siblings' titles, what it requires and what requires it, and the threads in its scope; so the same work fits a canon of forty nodes and one of four thousand, and an implementer working in a branch holds only that family. The cutting goes on while the human reviews the top, after they finish until every leaf carries its check, and again where implementation touches a branch. The human is called at key points, a branch reaching its leaves, a red box, a thread contradicting an approval, and otherwise left to the top of the tree.
-
-The draft runs ahead of approval by a bounded distance (DEC-018). A box is cut only when its children would lie no more than two levels below the deepest approved box on its path, the premise counting as level zero: before the premise is approved only the domains are drafted; with it, the capabilities; an approved domain lets its capabilities be cut into requirements, an approved capability lets its requirements be cut into leaves. Approval moves the frontier under that box and nowhere else, so a rewrite at the top wastes at most two levels of guesses. The next command applies the formula and reports what waits and which approval would release it.
+Filling is continuous and local. A node is cut from its family alone: the chain above it, the root README, its siblings' titles, what it requires and what requires it, and the threads in its scope; so the same work fits a canon of forty nodes and one of four thousand, and an implementer working in a branch holds only that family. The cutting runs to the leaves before the human is asked anything, again where an answer re-opens a branch, and again where implementation touches one. The human is called at key points, the drafting done, a red box, a thread contradicting an approval, and otherwise left to their list.
 
 ## Not this [assumed]
 
-A heavy upfront specification phase.
-
+A specification phase that costs the human hours before any work. The session's own drafting is machine time, unattended and resumable, and is not that phase.

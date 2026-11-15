@@ -46,4 +46,3 @@ An inventory interview, a wholesale conversion of a requirements document, a top
 - The glossary belongs to the overview layer, since it defines the words the later layers use. (model assumption)
 - Threads live in a scratch file outside the canon; only what the human approves is written to it. (model assumption)
 - Dropped threads live in one decision record, DEC-001 of the adopted project. (model assumption)
-- Adoption stops at domains, capabilities and one level of requirements. (model assumption)
