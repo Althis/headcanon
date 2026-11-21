@@ -16,7 +16,7 @@ Source: docs/design-brief-v0.md:69
 
 ## Intent [assumed]
 
-stated: the human's own words. assumed: the agent's interpretation, not yet confirmed. open: a known unknown. contested: human and agent disagree. resolved: settled, with the resolution recorded.
+stated: the user's own words. assumed: the agent's interpretation, not yet confirmed. open: a known unknown. contested: user and agent disagree. resolved: settled, with the resolution recorded.
 
 ## Assumptions
 

@@ -38,7 +38,7 @@ function parseTrailers(block: string): Record<string, string[]> {
   return out;
 }
 
-/** What git knows that needs a human: pending approvals, unmerged intent changes, uncommitted canon edits. */
+/** What git knows that needs a user: pending approvals, unmerged intent changes, uncommitted canon edits. */
 export function gitAttention(canonDir: string): GitAttention {
   const empty: GitAttention = { available: false, error: undefined, repoRoot: undefined, branch: undefined, pending: [], unmerged: [], uncommitted: [] };
   let repoRoot: string;

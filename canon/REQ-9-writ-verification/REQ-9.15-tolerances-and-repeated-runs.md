@@ -1,12 +1,12 @@
 ---
 id: REQ-9.15
 parent: REQ-9
-title: "The model proposes tolerances and the human approves them; repeated runs are left to the team's CI"
+title: "The model proposes tolerances and the user approves them; repeated runs are left to the team's CI"
 state: stated
 source: "docs/design-brief-v0.md:100"
 ---
 
-# The model proposes tolerances and the human approves them; repeated runs are left to the team's CI
+# The model proposes tolerances and the user approves them; repeated runs are left to the team's CI
 
 ## Stated
 

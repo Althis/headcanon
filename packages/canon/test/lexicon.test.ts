@@ -32,7 +32,7 @@ describe("the language checks of the quality list [DEC-024]", () => {
     expect(bareNumber("One transaction per line.")).toBeUndefined();
   });
 
-  it("reports them on a canon: warnings on the session's words, notes on the human's, the layer rule for design terms", () => {
+  it("reports them on a canon: warnings on the session's words, notes on the user's, the layer rule for design terms", () => {
     const dir = join(mkdtempSync(join(tmpdir(), "headcanon-lex-")), "canon");
     mkdirSync(join(dir, "REQ-1-a"), { recursive: true });
     writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"Ledger canon\"\nstate: resolved\nformat: 3\n---\n\n# Ledger canon\n\n## Intent\n\nA ledger.\n\n## Glossary [assumed]\n\n**statement** (`TERM-statement`) [assumed]: a bank's list; it shall be dated.\n");
@@ -54,7 +54,7 @@ describe("the language checks of the quality list [DEC-024]", () => {
     expect(of("REQ-1.1", "number-unit")[0]?.message).toContain("\"2\"");
     expect(of("REQ-1.1", "absolute")).toHaveLength(1);
     expect(of("REQ-1.1", "source-missing")).toHaveLength(1);
-    // the human's words are flagged as notes only, never as a warning to correct
+    // the user's words are flagged as notes only, never as a warning to correct
     expect(of("REQ-1.2", "subjective").map((f) => f.level)).toEqual(["info"]);
     expect(of("REQ-1.2", "subjective")[0]?.message).toContain("Stated words");
     expect(findings.find((f) => f.code === "glossary-prescriptive")?.message).toContain("statement");

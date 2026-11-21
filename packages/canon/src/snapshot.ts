@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { coverageFindings, reflexion } from "./parcel.js";
-import { marksOf, type BoxMark } from "./built.js";
+import { marksOf, type NodeMark } from "./built.js";
 import { loadManifest, loadResults, type TestManifest, type TestResults } from "./testing.js";
 import { loadCodeTree, type CodeTree } from "./code.js";
 import { gitDirOf } from "./ops.js";
@@ -26,9 +26,9 @@ export interface Snapshot {
   findings: Finding[];
   health: BranchHealth[];
   git: GitAttention;
-  /** The refinement order, with what the human can do ranked by what it releases. */
+  /** The refinement order, with what the user can do ranked by what it releases. */
   next: RefinementOrder;
-  /** Boxes being refined right now (DEC-024): node id, or ROOT for the premise, → seconds since its own file was written,
+  /** Nodes being refined right now (DEC-024): node id, or ROOT for the premise, → seconds since its own file was written,
    *  for files written in the last two minutes. Read from disk, not from what a session says: several agents write at
    *  once and none of them reports every move. */
   activity: Record<string, number>;
@@ -37,11 +37,11 @@ export interface Snapshot {
   /** Parents whose children leave bound evidence unbound. */
   coverage: Array<{ id: string; message: string }>;
   /** Per node, whether it is built and tested and the mark the page draws: not built, or out of sync with the code. */
-  marks: Record<string, BoxMark>;
+  marks: Record<string, NodeMark>;
   stats: {
     nodes: number;
     counts: StateCounts;
-    /** Leaves still to refine: no children, no kind, and not waiting on a human (REQ-3.3). */
+    /** Leaves still to refine: no children, no kind, and not waiting on a user (REQ-3.3). */
     unrefined: number;
     /** Leaves that carry a kind, and so a check. */
     measurable: number;

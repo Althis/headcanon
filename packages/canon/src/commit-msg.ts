@@ -201,7 +201,7 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
   const needsApproval = changes.length > 0 || (trailers["Test-Change"]?.length ?? 0) > 0;
   const approved = trailers["Approved-By"] ?? [];
   if (needsApproval && approved.length === 0)
-    errors.push('an Intent-Change or Test-Change needs an "Approved-By:" trailer: the approving human, or "pending (how approval is being sought)"');
+    errors.push('an Intent-Change or Test-Change needs an "Approved-By:" trailer: the approving user, or "pending (how approval is being sought)"');
   for (const value of approved) if (!value.trim()) errors.push("Approved-By trailer is empty");
 
   return result(trailers);

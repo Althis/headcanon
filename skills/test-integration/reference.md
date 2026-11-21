@@ -39,13 +39,13 @@ Checks that rest on HeadCanon's own rules as well as on the sources:
 - **How many.** The pyramid (Cohn, Vocke, Clemson) wants few integration tests above many unit tests, and Rainsberger explains why wide ones cannot cover the paths. The honeycomb (Spotify) and the trophy (Dodds) want mostly integration tests, because unit tests bound to internals slow change and prove less. The skill takes no side on a number: the kind follows what the Check observes, one test per seam the Check names.
 - **What both sides agree on,** which is what the Quality list keeps: the test is narrow; it runs this product against its real dependency, alone; it does not pass or fail on the correctness of someone else's system; a double is trusted only when something checks it against the real part.
 - **The word.** Fowler notes that "integration test" names two different things. The skill uses the narrow sense and sends the broad one to the e2e kind.
-- **A contract test against a live service** fails for reasons outside the repository (Fowler-CT: it need not break the build). It is therefore not recorded as a box's test; it is what a project runs apart, to keep a stand-in true.
+- **A contract test against a live service** fails for reasons outside the repository (Fowler-CT: it need not break the build). It is therefore not recorded as a node's test; it is what a project runs apart, to keep a stand-in true.
 
 ## Worked example: Ledgerline
 
 Ledgerline is an invented bookkeeping tool: entries, months, closing a month, statements.
 
-### The box
+### The node
 
 - Title: A closed month refuses new entries
 - uid: `7c1e9a`
@@ -112,10 +112,10 @@ test "[hc:7c1e9a] a closed month refuses a new entry and keeps the entries it ha
 - through-the-entry: yes. Entries are added and the month is closed the way the product does it.
 - far-side-outcome: yes. The entries the store holds are compared, not the fact that a save was attempted.
 - round-trip: yes. The reader is opened anew after the act.
-- failing-side: the side where the trigger does not hold, an entry dated in an open month is saved, is the sibling box "An open month accepts entries". The Check names no failure of the store. A closing that stops half way belongs to the box "Closing a month is whole or not at all", which gets its own test with a store told to fail.
+- failing-side: the side where the trigger does not hold, an entry dated in an open month is saved, is the sibling node "An open month accepts entries". The Check names no failure of the store. A closing that stops half way belongs to the node "Closing a month is whole or not at all", which gets its own test with a store told to fail.
 - no-lower: yes. One refused save. The cases of the rule, the first day, the last day, a month closed and reopened, are unit tests.
 - no-wider: yes. No screen, no statement, no second seam.
-- only-what-is-fixed: yes. Date, label and amount are compared. The ids the store gives, the time of writing and the wording of the refusal are left free, since the box fixes none of them.
+- only-what-is-fixed: yes. Date, label and amount are compared. The ids the store gives, the time of writing and the wording of the refusal are left free, since the node fixes none of them.
 - can-fail (fatal): yes. Both expectations run on every run; a store that cannot start is a setup error, not a skip.
 - says-where: yes. Each message names the seam, the expected and the seen.
 - leaves-no-trace (fatal): yes. The book is removed and the store deleted, on failure too.

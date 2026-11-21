@@ -30,7 +30,7 @@ describe("leaf contracts [REQ-3.3]", () => {
   });
   const snap = buildSnapshot(dir);
 
-  it("counts leaves still to cut and leaves with a check, never parents or red boxes", () => {
+  it("counts leaves still to cut and leaves with a check, never parents or red nodes", () => {
     expect(snap.stats.unrefined).toBe(2); // REQ-1.3 and REQ-1.5
     expect(snap.stats.measurable).toBe(2); // REQ-1.1 and REQ-1.2
     expect(snap.health[0]?.unrefined).toBe(2);

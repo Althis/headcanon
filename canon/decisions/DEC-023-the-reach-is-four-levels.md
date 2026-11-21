@@ -1,12 +1,12 @@
 ---
 id: DEC-023
-title: "The reach is four levels below the deepest approved box"
+title: "The reach is four levels below the deepest approved node"
 state: stated
 date: 2026-11-04
 intents: [REQ-3.4]
 ---
 
-# The reach is four levels below the deepest approved box
+# The reach is four levels below the deepest approved node
 
 ## Stated
 
@@ -16,4 +16,4 @@ Source: Claude Code session, 2026-11-04, during the resume run of The Valley, on
 
 ## Intent
 
-The reach of DEC-018 is four levels: a box is cut only when its children lie within four levels below the deepest approved box on its path. The rule, its anchor and its lifting after Finish (DEC-020) are unchanged; only the distance is, a knob set from the runs.
+The reach of DEC-018 is four levels: a node is cut only when its children lie within four levels below the deepest approved node on its path. The rule, its anchor and its lifting after Finish (DEC-020) are unchanged; only the distance is, a knob set from the runs.

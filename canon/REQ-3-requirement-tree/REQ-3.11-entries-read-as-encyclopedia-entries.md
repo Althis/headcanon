@@ -17,7 +17,7 @@ Source: Claude Code session, 2026-10-11.
 
 > Once again you over-corrected. Remove the last sentence please.
 
-Source: The Valley adopt session, 2026-10-11, after the agent wrote the human's explanation of a correction into the non-goal being corrected.
+Source: The Valley adopt session, 2026-10-11, after the agent wrote the user's explanation of a correction into the non-goal being corrected.
 
 ## Intent [assumed]
 
@@ -27,9 +27,9 @@ The rule replaces a rule about how the agent handles corrections: the entry is t
 
 ## Not this [assumed]
 
-Stripping the Stated section. A verbatim quote of wording the human typed is provenance, kept beside the entry, and it is the one place the conversation is allowed to show.
+Stripping the Stated section. A verbatim quote of wording the user typed is provenance, kept beside the entry, and it is the one place the conversation is allowed to show.
 
 ## Assumptions
 
-- "Definitions" in the human's words covers every entry type, since non-goals, principles and intents are read the same way. (model assumption)
+- "Definitions" in the user's words covers every entry type, since non-goals, principles and intents are read the same way. (model assumption)
 - A correction typed as an instruction is applied and not recorded in the node; only typed wording is quoted. This narrows REQ-5.3.1, where an earlier note had the correction quoted. (model assumption)

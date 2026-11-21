@@ -38,7 +38,7 @@ function append(path: string, p: Proposal): void {
   appendFileSync(path, JSON.stringify(p) + "\n");
 }
 
-/** The operation in one line: what it does and to which boxes. */
+/** The operation in one line: what it does and to which nodes. */
 export function describeOp(op: Op): string {
   switch (op.op) {
     case "move": return `move ${op.id} under ${op.under}`;
@@ -74,8 +74,8 @@ export function listProposals(canonDir: string, status?: Proposal["status"]): Pr
 }
 
 /**
- * The proposal's operation under today's ids: a move or a merge applied since it was recorded renamed boxes, and
- * the operations log holds each renaming, so the ids the proposer wrote are followed to where their boxes are now.
+ * The proposal's operation under today's ids: a move or a merge applied since it was recorded renamed nodes, and
+ * the operations log holds each renaming, so the ids the proposer wrote are followed to where their nodes are now.
  */
 function currentOp(canonDir: string, p: Proposal): Op {
   const git = gitDirOf(resolve(canonDir));
@@ -161,7 +161,7 @@ export async function proposalsCli(cmd: "propose" | "proposals", rest: string[],
     catch (e) { ctx.err(`propose: the operation is not valid JSON: ${(e as Error).message}\n`); return 2; }
     try {
       const p = propose(ctx.canonDir, op, a.why ?? "", by);
-      print(p, `Recorded ${p.id}: ${describeOp(p.op)}. The session applies it or rejects it; go on with your own boxes.`);
+      print(p, `Recorded ${p.id}: ${describeOp(p.op)}. The session applies it or rejects it; go on with your own nodes.`);
       return 0;
     } catch (e) { ctx.err(`propose: ${(e as Error).message}\n`); return 2; }
   }

@@ -21,7 +21,7 @@ Counts, versions, implementation status and descriptions of what exists today ar
 
 ## Not this [assumed]
 
-Banning numbers that are intent, such as a performance budget the human set. A number is current state when it describes what is, and intent when it describes what must be.
+Banning numbers that are intent, such as a performance budget the user set. A number is current state when it describes what is, and intent when it describes what must be.
 
 ## Assumptions
 

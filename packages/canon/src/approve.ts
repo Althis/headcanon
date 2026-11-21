@@ -1,6 +1,6 @@
 /**
  * The commits HeadCanon makes itself: the build branch with the canon committed on it, the accepted tests, the
- * canon changes of a slice the person approved, and the revert of a slice the person discarded. Every one goes
+ * canon changes of a slice the user approved, and the revert of a slice the user discarded. Every one goes
  * through `git commit` with the commit-msg hook in force, so its message is the intent format and a canon change
  * carries a review record; the message is checked here first with the hook's own check, so a refusal is known
  * before anything is committed. A failure undoes what the call staged, switched or wrote, and says why.
@@ -77,7 +77,7 @@ function stage(repo: string, paths: string[], undo: Undo): void {
 const message = (header: string, body: string[], trailers: Array<[string, string]>): string =>
   [header, ...body.filter((p) => p.trim()), trailers.map(([k, v]) => `${k}: ${oneLine(v)}`).join("\n")].join("\n\n") + "\n";
 
-/** Box ids as Intent trailers, a few to a line. */
+/** Node ids as Intent trailers, a few to a line. */
 function intentTrailers(ids: string[], none: string): Array<[string, string]> {
   if (!ids.length) return [["Intent", `none (${none})`]];
   const out: Array<[string, string]> = [];
@@ -121,14 +121,14 @@ interface CommitPlan {
   header: string;
   /** Paragraphs of prose; `changes` receives what is staged of the canon. */
   body: (c: CanonChanges) => string[];
-  /** The boxes the commit serves, or the reason it serves none. */
+  /** The nodes the commit serves, or the reason it serves none. */
   intent: string[];
   noIntent: string;
   /** The approving person, when one approved; otherwise how approval is being sought. */
   approvedBy?: string;
   pending: string;
   testChanges?: string[];
-  /** Refuse when the change holds sets of boxes and the operations log holds a verdict for none of them. */
+  /** Refuse when the change holds sets of nodes and the operations log holds a verdict for none of them. */
   mustBeReviewed?: boolean;
 }
 
@@ -158,7 +158,7 @@ function commitStaged(repo: string, canonDir: string, canonPath: string, plan: C
       const made = adoptionReviewFrom(diff, entries, gitDir ? readOps(join(gitDir, "headcanon", "ops.jsonl")) : []);
       const { passed, failed, changed: changedSets, unreviewed } = made.sets;
       if (plan.mustBeReviewed && unreviewed > 0 && passed + failed + changedSets === 0)
-        throw new Refusal("the operations log holds no review of any box in this canon, so there is nothing to make its review record from. Have the reviewer review it (/headcanon:commit records the review and commits), then start again.");
+        throw new Refusal("the operations log holds no review of any node in this canon, so there is nothing to make its review record from. Have the reviewer review it (/headcanon:commit records the review and commits), then start again.");
       const path = storeReviewRecord(repo, made.record);
       undo.push(() => rmSync(path, { force: true }));
       trailers.push(["Intent-Review", `${diff.hash}, ${made.outcome}`]);
@@ -236,19 +236,19 @@ function commitCanon(repo: string, canonDir: string, canonPath: string, undo: Un
   stage(repo, [canonPath], undo);
   if (tryGit(repo, ["diff", "--cached", "--quiet"]) !== undefined) return undefined;
   const canon = loadCanon(canonDir);
-  const boxes = Object.keys(canon.nodes).length;
+  const nodes = Object.keys(canon.nodes).length;
   return commitStaged(repo, canonDir, canonPath, {
     header: "docs(canon): record the canon as it stands",
     body: (c) => [
       c.whole
-        ? `The canon enters git as adoption drafted it: ${plural(boxes, "box", "boxes")}, ${plural(canon.journeys.length, "journey")}, ${plural(canon.decisions.length, "decision")}, ${plural(canon.terms.length, "term")}, ${plural(canon.principles.length, "principle")}.`
+        ? `The canon enters git as adoption drafted it: ${plural(nodes, "node", "nodes")}, ${plural(canon.journeys.length, "journey")}, ${plural(canon.decisions.length, "decision")}, ${plural(canon.terms.length, "term")}, ${plural(canon.principles.length, "principle")}.`
         : `The canon's changes since its last commit: ${plural(c.changes.length, "entry", "entries")} created, updated or retired.`,
       c.removed.length ? `Removed from the tree: ${c.removed.join(", ")}.` : "",
       "Each entry keeps its state: a guess stays a guess until the owner approves it on the page. Merging this branch is the approval of the commit.",
     ],
     intent: [],
     noIntent: "the canon itself, no code",
-    pending: "guesses from adoption; the owner approves boxes on the page and merges the build branch",
+    pending: "guesses from adoption; the owner approves nodes on the page and merges the build branch",
     mustBeReviewed: true,
   }, undo);
 }
@@ -277,11 +277,11 @@ export function prepareBuild(repo: string, canonDir: string): { ok: boolean; bra
   }
 }
 
-/** The box a caller names by its id or by its stable id. */
-const boxOf = (canon: Canon, name: string): ReqNode | undefined => canon.nodes[name] ?? Object.values(canon.nodes).find((n) => n.uid !== undefined && n.uid === name);
+/** The node a caller names by its id or by its stable id. */
+const nodeOf = (canon: Canon, name: string): ReqNode | undefined => canon.nodes[name] ?? Object.values(canon.nodes).find((n) => n.uid !== undefined && n.uid === name);
 
 /**
- * Commits the accepted test files of the named boxes (ids or stable ids; all accepted tests when none is named)
+ * Commits the accepted test files of the named nodes (ids or stable ids; all accepted tests when none is named)
  * together with tests.json. A test file that was already in git and changed is named in a Test-Change trailer.
  * `extra` names the files the tests cannot run without and the testers added: helpers, a runner's configuration.
  */
@@ -291,8 +291,8 @@ export function commitTests(repo: string, canonDir: string, ids: string[], extra
     const canonPath = canonInside(repo, canonDir);
     if (!canonPath) throw new Refusal("the canon folder is not inside the repository");
     const canon = loadCanon(canonDir);
-    const wanted = new Set(ids.flatMap((id) => { const n = boxOf(canon, id); return [id, ...(n ? [n.id, ...(n.uid ? [n.uid] : [])] : [])]; }));
-    const tests = loadManifest(canonDir).tests.filter((t) => t.status === "accepted" && (!ids.length || wanted.has(t.box) || wanted.has(t.id)));
+    const wanted = new Set(ids.flatMap((id) => { const n = nodeOf(canon, id); return [id, ...(n ? [n.id, ...(n.uid ? [n.uid] : [])] : [])]; }));
+    const tests = loadManifest(canonDir).tests.filter((t) => t.status === "accepted" && (!ids.length || wanted.has(t.node) || wanted.has(t.id)));
     if (!tests.length) throw new Refusal(ids.length ? `no accepted test is recorded for ${ids.join(", ")}` : "no accepted test is recorded");
     const files = new Set(tests.map((t) => posix(t.file)));
     const record = posix(relative(resolve(repo), manifestPath(canonDir)));
@@ -302,16 +302,16 @@ export function commitTests(repo: string, canonDir: string, ids: string[], extra
     const pending = changes.filter((c) => files.has(c.path) || c.path === record || support.has(c.path));
     if (!pending.length) return { ok: true };
     stage(repo, pending.map((c) => c.path), undo);
-    const boxes = [...new Set(tests.map((t) => boxOf(canon, t.box)?.id ?? (canon.nodes[t.id] ? t.id : undefined)).filter((id): id is string => Boolean(id)))];
+    const nodes = [...new Set(tests.map((t) => nodeOf(canon, t.node)?.id ?? (canon.nodes[t.id] ? t.id : undefined)).filter((id): id is string => Boolean(id)))];
     const kinds = new Map<string, number>();
     for (const t of tests) kinds.set(t.kind, (kinds.get(t.kind) ?? 0) + 1);
     const rewritten = pending.filter((c) => files.has(c.path) && c.xy !== "??" && !c.xy.includes("A"));
     const sha = commitStaged(repo, canonDir, canonPath, {
-      header: `test: record the accepted tests of ${plural(boxes.length || tests.length, boxes.length ? "box" : "test", boxes.length ? "boxes" : "tests")}`,
-      body: () => [`${plural(tests.length, "test")} accepted by the reviewer (${[...kinds].map(([k, n]) => `${n} ${k}`).join(", ")}) in ${plural(files.size, "file")}, with the record of tests. Each was written from its box before the code; failing is expected where the box is not built.`],
-      intent: boxes,
-      noIntent: "the tests' boxes are no longer in the canon",
-      pending: "accepted by HeadCanon's reviewer; the owner reads each test's description on its box",
+      header: `test: record the accepted tests of ${plural(nodes.length || tests.length, nodes.length ? "node" : "test", nodes.length ? "nodes" : "tests")}`,
+      body: () => [`${plural(tests.length, "test")} accepted by the reviewer (${[...kinds].map(([k, n]) => `${n} ${k}`).join(", ")}) in ${plural(files.size, "file")}, with the record of tests. Each was written from its node before the code; failing is expected where the node is not built.`],
+      intent: nodes,
+      noIntent: "the tests' nodes are no longer in the canon",
+      pending: "accepted by HeadCanon's reviewer; the owner reads each test's description on its node",
       testChanges: rewritten.map((c) => `${c.path} ${c.xy.includes("D") ? "removed" : "rewritten"}, on the reviewer's verdict in the record of tests`),
     }, undo);
     return { ok: true, sha };
@@ -348,7 +348,7 @@ function linesWrittenBy(repo: string, file: string, commits: Set<string>): numbe
 const NOT_BUILT = /^\s*(?:[-*]\s+)?(?:\d{4}-\d{2}-\d{2}:?\s+)*not built(?![\w-])/i;
 const NOT_BUILT_SECTIONS = ["Implemented by", "Open", "As built"];
 
-/** Pure: the box's text without its "not built" lines; a section they leave empty goes with them. */
+/** Pure: the node's text without its "not built" lines; a section they leave empty goes with them. */
 export function dropNotBuilt(text: string): string {
   const lines = text.split("\n");
   let section = "";
@@ -370,14 +370,14 @@ export function dropNotBuilt(text: string): string {
 }
 
 /**
- * Rebuilds the code tree, binds to the box as `implements` the units whose lines the commits wrote, and drops the
- * box's "not built" line. A line belongs to the smallest unit around it; a changed file in which the tree knows no
- * unit for the change (another language, a stylesheet, content) is bound as the file itself, so the box still says
+ * Rebuilds the code tree, binds to the node as `implements` the units whose lines the commits wrote, and drops the
+ * node's "not built" line. A line belongs to the smallest unit around it; a changed file in which the tree knows no
+ * unit for the change (another language, a stylesheet, content) is bound as the file itself, so the node still says
  * where it is built. Canon files and recorded tests are never bound.
  */
-export function bindFromCommits(repo: string, canonDir: string, box: string, commits: string[]): { bound: string[] } {
+export function bindFromCommits(repo: string, canonDir: string, nodeId: string, commits: string[]): { bound: string[] } {
   const dir = resolve(canonDir);
-  const node = boxOf(loadCanon(dir), box);
+  const node = nodeOf(loadCanon(dir), nodeId);
   if (!node || !commits.length) return { bound: [] };
   const canonPath = canonInside(repo, dir);
   const gitDir = gitDirOf(dir);
@@ -416,13 +416,13 @@ export function bindFromCommits(repo: string, canonDir: string, box: string, com
   return { bound };
 }
 
-/** The slice of a run for a box named by id or stable id, with the box as the canon holds it now. */
-function sliceAndBox(canonDir: string, run: Run, box: string): { slice: Slice; node: ReqNode } {
-  const slice = run.slices.find((s) => s.box === box) ?? run.slices.find((s) => s.uid !== "" && s.uid === box);
-  if (!slice) throw new Refusal(`${box} is not part of run ${run.id}`);
+/** The slice of a run for a node named by id or stable id, with the node as the canon holds it now. */
+function sliceAndNode(canonDir: string, run: Run, nodeId: string): { slice: Slice; node: ReqNode } {
+  const slice = run.slices.find((s) => s.node === nodeId) ?? run.slices.find((s) => s.uid !== "" && s.uid === nodeId);
+  if (!slice) throw new Refusal(`${nodeId} is not part of run ${run.id}`);
   const canon = loadCanon(canonDir);
-  const node = (slice.uid ? Object.values(canon.nodes).find((n) => n.uid === slice.uid) : undefined) ?? canon.nodes[slice.box];
-  if (!node) throw new Refusal(`${slice.box} is no longer in the canon`);
+  const node = (slice.uid ? Object.values(canon.nodes).find((n) => n.uid === slice.uid) : undefined) ?? canon.nodes[slice.node];
+  if (!node) throw new Refusal(`${slice.node} is no longer in the canon`);
   return { slice, node };
 }
 
@@ -432,28 +432,28 @@ function mustBeOn(repo: string, branch: string): void {
 }
 
 /**
- * The person approved what was built for a box: the code the slice's commits wrote is bound to the box, its
+ * The user approved what was built for a node: the code the slice's commits wrote is bound to the node, its
  * "not built" line goes, and that change, with the canon files the slice's own agent wrote through operations,
  * is one commit in the intent format with Approved-By. Other pending canon changes are left for `prepareBuild`.
  */
-export function approveSlice(repo: string, canonDir: string, run: Run, box: string, approver: string): { ok: boolean; sha?: string; error?: string } {
+export function approveSlice(repo: string, canonDir: string, run: Run, nodeId: string, approver: string): { ok: boolean; sha?: string; error?: string } {
   const undo: Undo = [];
   try {
     const dir = resolve(canonDir);
     const canonPath = canonInside(repo, dir);
     if (!canonPath) throw new Refusal("the canon folder is not inside the repository");
-    if (!approver.trim()) throw new Refusal("an approval carries the name of the person who approves");
-    const { slice, node } = sliceAndBox(dir, run, box);
+    if (!approver.trim()) throw new Refusal("an approval carries the name of the user who approves");
+    const { slice, node } = sliceAndNode(dir, run, nodeId);
     mustBeOn(repo, run.branch);
     mustHaveCleanIndex(changesOf(repo));
 
     const abs = resolve(dir, node.file);
     const before = readFileSync(abs, "utf8");
-    undo.push(() => { if (readFileSync(abs, "utf8") !== before) journalChange(dir, { kind: "revert", summary: `${node.id}: approval not committed, the box is as it was`, id: node.id }, [abs], () => writeFileSync(abs, before)); });
+    undo.push(() => { if (readFileSync(abs, "utf8") !== before) journalChange(dir, { kind: "revert", summary: `${node.id}: approval not committed, the node is as it was`, id: node.id }, [abs], () => writeFileSync(abs, before)); });
     const { bound } = bindFromCommits(repo, dir, node.id, slice.commits);
 
     const gitDir = gitDirOf(dir);
-    const agent = slice.agentName ?? `implementer-${slice.box}`;
+    const agent = slice.agentName ?? `implementer-${slice.node}`;
     const written = new Set([node.file, ...(gitDir ? readOps(join(gitDir, "headcanon", "ops.jsonl")) : []).filter((e) => e.ok && e.by === agent).flatMap((e) => e.changes ?? [])].map((f) => `${canonPath}/${posix(f)}`));
     const pending = changesOf(repo).filter((c) => written.has(c.path));
     if (!pending.length) return { ok: true };
@@ -477,17 +477,17 @@ export function approveSlice(repo: string, canonDir: string, run: Run, box: stri
 }
 
 /**
- * The person discarded what was built for a box: the slice's commits are reverted, newest first, in one commit in
+ * The user discarded what was built for a node: the slice's commits are reverted, newest first, in one commit in
  * the intent format. Git refuses when a file they touched has changes not yet committed; nothing is reverted then.
  */
-export function discardSlice(repo: string, canonDir: string, run: Run, box: string): { ok: boolean; error?: string } {
+export function discardSlice(repo: string, canonDir: string, run: Run, nodeId: string): { ok: boolean; error?: string } {
   const undo: Undo = [];
   try {
     const dir = resolve(canonDir);
     const canonPath = canonInside(repo, dir);
     if (!canonPath) throw new Refusal("the canon folder is not inside the repository");
-    const slice = run.slices.find((s) => s.box === box) ?? run.slices.find((s) => s.uid !== "" && s.uid === box);
-    if (!slice) throw new Refusal(`${box} is not part of run ${run.id}`);
+    const slice = run.slices.find((s) => s.node === nodeId) ?? run.slices.find((s) => s.uid !== "" && s.uid === nodeId);
+    if (!slice) throw new Refusal(`${nodeId} is not part of run ${run.id}`);
     if (!slice.commits.length) return { ok: true };
     mustBeOn(repo, run.branch);
     mustHaveCleanIndex(changesOf(repo));
@@ -504,12 +504,12 @@ export function discardSlice(repo: string, canonDir: string, run: Run, box: stri
     undo.push(() => { if (tryGit(repo, ["revert", "--abort"]) === undefined) git(repo, ["reset", "-q", "--merge", "HEAD"]); });
     git(repo, ["revert", "--no-commit", ...commits]);
     const canon = loadCanon(dir);
-    const node = (slice.uid ? Object.values(canon.nodes).find((n) => n.uid === slice.uid) : undefined) ?? canon.nodes[slice.box];
+    const node = (slice.uid ? Object.values(canon.nodes).find((n) => n.uid === slice.uid) : undefined) ?? canon.nodes[slice.node];
     commitStaged(repo, dir, canonPath, {
-      header: `revert: discard what was built for ${node?.id ?? slice.box}`,
-      body: () => [`${node?.title ?? slice.title}. The person discarded the slice; this reverts, newest first:`, subjects.map((s) => `- ${s}`).join("\n")],
+      header: `revert: discard what was built for ${node?.id ?? slice.node}`,
+      body: () => [`${node?.title ?? slice.title}. The user discarded the slice; this reverts, newest first:`, subjects.map((s) => `- ${s}`).join("\n")],
       intent: node ? [node.id] : [],
-      noIntent: `the discarded box ${slice.box} is no longer in the canon`,
+      noIntent: `the discarded node ${slice.node} is no longer in the canon`,
       pending: "the owner discarded the slice on the page; the reverted canon changes wait for review there",
     }, undo);
     return { ok: true };
@@ -521,12 +521,12 @@ export function discardSlice(repo: string, canonDir: string, run: Run, box: stri
 
 const USAGE = `usage:
   headcanon build prepare            Switch to ${BUILD_BRANCH}, made from this branch when absent, and commit the canon's pending changes there.
-  headcanon build tests [<id>...]    Commit the accepted tests of the named boxes, or of every box, with the record of tests.
-  headcanon slice approve <box>      Bind what the slice built to its box and commit the canon change, approved by you.
-  headcanon slice discard <box>      Revert the slice's commits.
+  headcanon build tests [<id>...]    Commit the accepted tests of the named nodes, or of every node, with the record of tests.
+  headcanon slice approve <node>      Bind what the slice built to its node and commit the canon change, approved by you.
+  headcanon slice discard <node>      Revert the slice's commits.
 `;
 
-/** `HC build prepare|tests`, `HC slice approve|discard <box>`; the first word may be the command itself. */
+/** `HC build prepare|tests`, `HC slice approve|discard <node>`; the first word may be the command itself. */
 export async function approveCli(rest: string[], ctx: CliCtx): Promise<number> {
   const { words, flags } = flagsOf(rest);
   const json = ctx.json || flags["json"] === true;
@@ -551,24 +551,24 @@ export async function approveCli(rest: string[], ctx: CliCtx): Promise<number> {
     return 0;
   }
 
-  const box = words[0];
-  if (!box) { ctx.err(USAGE); return 2; }
+  const node = words[0];
+  if (!node) { ctx.err(USAGE); return 2; }
   const gitDir = ctx.gitDir;
   const run = gitDir ? activeRun(gitDir) ?? latestRun(gitDir) : undefined;
   if (!gitDir || !run) { ctx.err(`slice ${sub}: there is no run to decide on\n`); return 1; }
-  const settle = (status: Slice["status"]) => { try { updateSlice(gitDir, run.id, box, { status }); } catch { /* what git did stands */ } };
+  const settle = (status: Slice["status"]) => { try { updateSlice(gitDir, run.id, node, { status }); } catch { /* what git did stands */ } };
   if (sub === "approve") {
     const who = ctx.by?.trim() || (typeof flags["by"] === "string" ? flags["by"].trim() : "") || tryGit(ctx.repo, ["config", "user.name"])?.trim() || "";
     if (!who) { ctx.err("slice approve: git has no user name in this repository; set one with `git config user.name \"<your name>\"` or pass --by\n"); return 1; }
-    const r = approveSlice(ctx.repo, ctx.canonDir, run, box, who);
+    const r = approveSlice(ctx.repo, ctx.canonDir, run, node, who);
     if (!r.ok) { ctx.err(`slice approve: ${r.error ?? "no reason given"}\n`); return 1; }
     settle("approved");
-    print(r, `${box} is approved by ${who}${r.sha ? `, its canon change committed in ${short(r.sha)}` : "; the canon had nothing to commit"}.\n`);
+    print(r, `${node} is approved by ${who}${r.sha ? `, its canon change committed in ${short(r.sha)}` : "; the canon had nothing to commit"}.\n`);
     return 0;
   }
-  const r = discardSlice(ctx.repo, ctx.canonDir, run, box);
+  const r = discardSlice(ctx.repo, ctx.canonDir, run, node);
   if (!r.ok) { ctx.err(`slice discard: ${r.error ?? "no reason given"}\n`); return 1; }
   settle("discarded");
-  print(r, `${box} is discarded: its commits are reverted.\n`);
+  print(r, `${node} is discarded: its commits are reverted.\n`);
   return 0;
 }

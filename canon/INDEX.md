@@ -31,7 +31,7 @@ flowchart LR
     REQ_3_2["REQ-3.2<br/>KAOS obstacle analysis is kept in mind, not ado…"]:::stated
     REQ_3_3["REQ-3.3<br/>Requirements form a tree, refined down to binar…"]:::stated
     REQ_3_4["REQ-3.4<br/>The tree is drafted whole by the session and re…"]:::stated
-    REQ_3_5["REQ-3.5<br/>Human-judgment leaves are allowed (e.g. aesthet…"]:::stated
+    REQ_3_5["REQ-3.5<br/>User-judgment leaves are allowed (e.g. aestheti…"]:::stated
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
     REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
     REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
@@ -51,7 +51,7 @@ flowchart LR
     REQ_5_2["REQ-5.2<br/>Undefined or badly defined elements are modeled…"]:::stated
     REQ_5_3["REQ-5.3<br/>Five certainty states: stated, assumed, open, c…"]:::stated
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
-    REQ_5_5["REQ-5.5<br/>The human's latest approval outranks every arti…"]:::stated
+    REQ_5_5["REQ-5.5<br/>The user's latest approval outranks every artif…"]:::stated
     REQ_6["REQ-6<br/>The canon is plain files that existing tools al…"]:::stated
     REQ_6_1["REQ-6.1<br/>Canon stored as Markdown with front-matter, in …"]:::stated
     REQ_6_2["REQ-6.2<br/>Generated views: a text tree inside the agent, …"]:::stated
@@ -78,18 +78,18 @@ flowchart LR
     REQ_9_1["REQ-9.1<br/>Intent-traced verification is Writ's headline o…"]:::stated
     REQ_9_2["REQ-9.2<br/>Writ checks intent before code; intent takes pr…"]:::stated
     REQ_9_3["REQ-9.3<br/>Preservation reruns every earlier approved test…"]:::stated
-    REQ_9_4["REQ-9.4<br/>HeadCanon's tester writes the tests of a box be…"]:::stated
+    REQ_9_4["REQ-9.4<br/>HeadCanon's tester writes the tests of a node b…"]:::stated
     REQ_9_5["REQ-9.5<br/>Accepted tests are stored so they aren't regene…"]:::stated
     REQ_9_6["REQ-9.6<br/>Acceptance tests are locked: the agent can run …"]:::assumed
-    REQ_9_7["REQ-9.7<br/>A hash of a box's Intent and Check pins its tes…"]:::assumed
+    REQ_9_7["REQ-9.7<br/>A hash of a node's Intent and Check pins its te…"]:::assumed
     REQ_9_8["REQ-9.8<br/>Writ holds reusable test datasets with ground t…"]:::stated
     REQ_9_9["REQ-9.9<br/>Small datasets are committed to the repo as fix…"]:::stated
     REQ_9_10["REQ-9.10<br/>Separate verifier role; mutation testing"]:::assumed
-    REQ_9_11["REQ-9.11<br/>Weakening a test needs an intent change and hum…"]:::stated
+    REQ_9_11["REQ-9.11<br/>Weakening a test needs an intent change and use…"]:::stated
     REQ_9_12["REQ-9.12<br/>Baselines for numeric and open-ended requiremen…"]:::stated
     REQ_9_13["REQ-9.13<br/>HeadCanon also measures in the session; Writ is…"]:::stated
     REQ_9_14["REQ-9.14<br/>Binary baselines, tolerance in the canon, drift…"]:::stated
-    REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the human app…"]:::stated
+    REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the user appr…"]:::stated
     REQ_9_16["REQ-9.16<br/>Model checks are non-deterministic; Writ's revi…"]:::stated
     REQ_9_17["REQ-9.17<br/>Which CI run's numbers count for baselines"]:::draft
     REQ_9_18["REQ-9.18<br/>Writ judges requirements against the principles…"]:::stated
@@ -216,7 +216,7 @@ flowchart LR
     classDef contested fill:#fde7e8,stroke:#d13438,color:#1a1d23
 ```
 
-## REQ-1 Divergence from intent is caught early, where the human sees it
+## REQ-1 Divergence from intent is caught early, where the user sees it
 
 ```mermaid
 flowchart LR
@@ -278,8 +278,8 @@ flowchart LR
     REQ_3_2["REQ-3.2<br/>KAOS obstacle analysis is kept in mind, not ado…"]:::stated
     REQ_3_3["REQ-3.3<br/>Requirements form a tree, refined down to binar…"]:::stated
     REQ_3_4["REQ-3.4<br/>The tree is drafted whole by the session and re…"]:::stated
-    REQ_3_5["REQ-3.5<br/>Human-judgment leaves are allowed (e.g. aesthet…"]:::stated
-    REQ_3_5_1["REQ-3.5.1<br/>How a human approves a judgment leaf"]:::draft
+    REQ_3_5["REQ-3.5<br/>User-judgment leaves are allowed (e.g. aestheti…"]:::stated
+    REQ_3_5_1["REQ-3.5.1<br/>How a user approves a judgment leaf"]:::draft
     REQ_3_6["REQ-3.6<br/>Binary leaves are proxies; passing leaves do no…"]:::assumed
     REQ_3_7["REQ-3.7<br/>Principles are a layer above the tree: tested a…"]:::stated
     REQ_3_8["REQ-3.8<br/>The top of the tree is derived from the premise…"]:::stated
@@ -342,11 +342,11 @@ flowchart LR
     REQ_5_2["REQ-5.2<br/>Undefined or badly defined elements are modeled…"]:::stated
     REQ_5_3["REQ-5.3<br/>Five certainty states: stated, assumed, open, c…"]:::stated
     REQ_5_3_1["REQ-5.3.1<br/>Stated items are always verbatim quotes collect…"]:::stated
-    REQ_5_3_2["REQ-5.3.2<br/>Resolved only on the human's explicit agreement…"]:::stated
+    REQ_5_3_2["REQ-5.3.2<br/>Resolved only on the user's explicit agreement;…"]:::stated
     REQ_5_3_3["REQ-5.3.3<br/>One state per node; sections may carry their ow…"]:::resolved
     REQ_5_3_4["REQ-5.3.4<br/>A glossary term the agent infers enters as assu…"]:::assumed
     REQ_5_4["REQ-5.4<br/>The agent never fills a gap silently"]:::assumed
-    REQ_5_5["REQ-5.5<br/>The human's latest approval outranks every arti…"]:::stated
+    REQ_5_5["REQ-5.5<br/>The user's latest approval outranks every artif…"]:::stated
     REQ_5 --> REQ_5_1
     REQ_5_1 --> REQ_5_1_1
     REQ_5 --> REQ_5_2
@@ -462,18 +462,18 @@ flowchart LR
     REQ_9_1["REQ-9.1<br/>Intent-traced verification is Writ's headline o…"]:::stated
     REQ_9_2["REQ-9.2<br/>Writ checks intent before code; intent takes pr…"]:::stated
     REQ_9_3["REQ-9.3<br/>Preservation reruns every earlier approved test…"]:::stated
-    REQ_9_4["REQ-9.4<br/>HeadCanon's tester writes the tests of a box be…"]:::stated
+    REQ_9_4["REQ-9.4<br/>HeadCanon's tester writes the tests of a node b…"]:::stated
     REQ_9_5["REQ-9.5<br/>Accepted tests are stored so they aren't regene…"]:::stated
     REQ_9_6["REQ-9.6<br/>Acceptance tests are locked: the agent can run …"]:::assumed
-    REQ_9_7["REQ-9.7<br/>A hash of a box's Intent and Check pins its tes…"]:::assumed
+    REQ_9_7["REQ-9.7<br/>A hash of a node's Intent and Check pins its te…"]:::assumed
     REQ_9_8["REQ-9.8<br/>Writ holds reusable test datasets with ground t…"]:::stated
     REQ_9_9["REQ-9.9<br/>Small datasets are committed to the repo as fix…"]:::stated
     REQ_9_10["REQ-9.10<br/>Separate verifier role; mutation testing"]:::assumed
-    REQ_9_11["REQ-9.11<br/>Weakening a test needs an intent change and hum…"]:::stated
+    REQ_9_11["REQ-9.11<br/>Weakening a test needs an intent change and use…"]:::stated
     REQ_9_12["REQ-9.12<br/>Baselines for numeric and open-ended requiremen…"]:::stated
     REQ_9_13["REQ-9.13<br/>HeadCanon also measures in the session; Writ is…"]:::stated
     REQ_9_14["REQ-9.14<br/>Binary baselines, tolerance in the canon, drift…"]:::stated
-    REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the human app…"]:::stated
+    REQ_9_15["REQ-9.15<br/>The model proposes tolerances and the user appr…"]:::stated
     REQ_9_16["REQ-9.16<br/>Model checks are non-deterministic; Writ's revi…"]:::stated
     REQ_9_17["REQ-9.17<br/>Which CI run's numbers count for baselines"]:::draft
     REQ_9_18["REQ-9.18<br/>Writ judges requirements against the principles…"]:::stated
@@ -571,11 +571,11 @@ flowchart LR
     REQ_12_1_1["REQ-12.1.1<br/>Overview: requirements at a glance"]:::assumed
     REQ_12_1_2["REQ-12.1.2<br/>Tree: the canon as a graph by default, the nest…"]:::stated
     REQ_12_1_3["REQ-12.1.3<br/>Health: problematic branches and their children"]:::assumed
-    REQ_12_1_4["REQ-12.1.4<br/>Attention: changes that need the human's word"]:::assumed
+    REQ_12_1_4["REQ-12.1.4<br/>Attention: changes that need the user's word"]:::assumed
     REQ_12_1_5["REQ-12.1.5<br/>Journeys, decisions and glossary have their own…"]:::assumed
     REQ_12_1_6["REQ-12.1.6<br/>A term new to a draft is gated in the page: a s…"]:::stated
     REQ_12_1_7["REQ-12.1.7<br/>The session asks through the page, focuses the …"]:::resolved
-    REQ_12_1_8["REQ-12.1.8<br/>Adopt: a full canvas of coloured boxes with han…"]:::stated
+    REQ_12_1_8["REQ-12.1.8<br/>Adopt: a full canvas of coloured nodes with han…"]:::stated
     REQ_12_2["REQ-12.2<br/>Paid product: a hosted team layer over the open…"]:::assumed
     REQ_12_3["REQ-12.3<br/>No hosted coding environment; no Claude.ai logi…"]:::assumed
     REQ_12 --> REQ_12_1
@@ -623,15 +623,15 @@ flowchart LR
 ## Journeys
 
 - **JRN-1** A working session with HeadCanon (assumed, 15 steps)
-- **JRN-2** Implement/align: one box or many, from readiness to the human's decision and the commit (assumed, 15 steps)
+- **JRN-2** Implement/align: one node or many, from readiness to the user's decision and the commit (assumed, 15 steps)
 - **JRN-3** Writ gates a pull request (assumed, 11 steps)
-- **JRN-4** Adopting an existing repository: fifteen minutes of the human's time in Full-Auto, an hour in Guided, however long the machine takes (assumed, 15 steps)
-- **JRN-5** Adding a feature after adoption: from a sentence to a finished branch in fifteen minutes of the human's time (assumed, 15 steps)
+- **JRN-4** Adopting an existing repository: fifteen minutes of the user's time in Full-Auto, an hour in Guided, however long the machine takes (assumed, 15 steps)
+- **JRN-5** Adding a feature after adoption: from a sentence to a finished branch in fifteen minutes of the user's time (assumed, 15 steps)
 
 ## Text tree
 
 ```
-REQ-1             Divergence from intent is caught early, where the human sees it           stated
+REQ-1             Divergence from intent is caught early, where the user sees it            stated
 ├─ REQ-1.1        Three target failure modes: substitution, justification, erosion          stated    · unrefined
 ├─ REQ-1.2        Root cause stays an open hypothesis; the design must work under both      stated    · unrefined
 └─ REQ-1.3        Tag each caught divergence with its origin, as an opt-out field; trial …  stated
@@ -652,9 +652,9 @@ REQ-3             Intent is a tree of requirements refined to binary leaves     
 │  └─ REQ-3.1.1   Aim: the canon holds explanation, requirements are the reference, how-t…  stated    · unrefined
 ├─ REQ-3.2        KAOS obstacle analysis is kept in mind, not adopted now                   stated    · unrefined
 ├─ REQ-3.3        Requirements form a tree, refined down to binary-measurable leaves        stated    · unrefined  ! 1 finding
-├─ REQ-3.4        The tree is drafted whole by the session and reviewed lazily by the hum…  stated    · unrefined  ! 1 finding
-├─ REQ-3.5        Human-judgment leaves are allowed (e.g. aesthetics); human approval is …  stated
-│  └─ REQ-3.5.1   How a human approves a judgment leaf                                      draft
+├─ REQ-3.4        The tree is drafted whole by the session and reviewed lazily by the use…  stated    · unrefined  ! 1 finding
+├─ REQ-3.5        User-judgment leaves are allowed (e.g. aesthetics); user approval is en…  stated
+│  └─ REQ-3.5.1   How a user approves a judgment leaf                                       draft
 ├─ REQ-3.6        Binary leaves are proxies; passing leaves do not prove the parent         assumed   · unrefined  ! 1 finding
 ├─ REQ-3.7        Principles are a layer above the tree: tested against requirements by a…  stated    · unrefined
 ├─ REQ-3.8        The top of the tree is derived from the premise and from what every sof…  stated    · unrefined  ! 1 finding
@@ -675,11 +675,11 @@ REQ-5             Terms and certainty are modeled, never hidden                 
 ├─ REQ-5.2        Undefined or badly defined elements are modeled; the AI maps them with …  stated    · unrefined
 ├─ REQ-5.3        Five certainty states: stated, assumed, open, contested, resolved         stated
 │  ├─ REQ-5.3.1   Stated items are always verbatim quotes collected from the conversation   stated    · unrefined  ! 1 finding
-│  ├─ REQ-5.3.2   Resolved only on the human's explicit agreement; tacit approval never c…  stated    · unrefined
+│  ├─ REQ-5.3.2   Resolved only on the user's explicit agreement; tacit approval never co…  stated    · unrefined
 │  ├─ REQ-5.3.3   One state per node; sections may carry their own marker and may be expa…  resolved  · unrefined
 │  └─ REQ-5.3.4   A glossary term the agent infers enters as assumed                        assumed   · unrefined  ! 2 findings
 ├─ REQ-5.4        The agent never fills a gap silently                                      assumed   · unrefined  ! 2 findings
-└─ REQ-5.5        The human's latest approval outranks every artifact; artifacts pre-fill…  stated    · unrefined  ! 1 finding
+└─ REQ-5.5        The user's latest approval outranks every artifact; artifacts pre-fill …  stated    · unrefined  ! 1 finding
 REQ-6             The canon is plain files that existing tools already render               stated
 ├─ REQ-6.1        Canon stored as Markdown with front-matter, in a folder tree mirroring …  stated    · unrefined  ! 1 finding
 ├─ REQ-6.2        Generated views: a text tree inside the agent, a Mermaid index on GitHub  stated    · unrefined
@@ -697,7 +697,7 @@ REQ-7             Success criteria exist before code, and obstacles are negotiat
 ├─ REQ-7.4        "Preserved" means every affected journey still plays out as written       stated    · unrefined
 └─ REQ-7.5        Stopping to raise an obstacle counts as a successful outcome              assumed   · unrefined  ! 2 findings
 REQ-8             Intent never changes silently                                             stated
-├─ REQ-8.1        Intent history is append-only; the agent proposes, the human approves     stated    · unrefined
+├─ REQ-8.1        Intent history is append-only; the agent proposes, the user approves      stated    · unrefined
 ├─ REQ-8.2        Decision records link to intents and get flagged when an intent changes   stated    · unrefined
 ├─ REQ-8.3        Intent descriptions go in commit messages in a fixed format, never free…  stated    · unrefined
 ├─ REQ-8.4        Canon files hold the current intent; commit trailers record how and why…  stated    · unrefined
@@ -714,18 +714,18 @@ REQ-9             Writ verifies every change against the canon                  
 ├─ REQ-9.1        Intent-traced verification is Writ's headline output, leaning on E2E      stated    · unrefined
 ├─ REQ-9.2        Writ checks intent before code; intent takes precedence                   stated    · unrefined
 ├─ REQ-9.3        Preservation reruns every earlier approved test, not only those linked …  stated    · unrefined
-├─ REQ-9.4        HeadCanon's tester writes the tests of a box before it is implemented     stated    · unrefined
+├─ REQ-9.4        HeadCanon's tester writes the tests of a node before it is implemented    stated    · unrefined
 ├─ REQ-9.5        Accepted tests are stored so they aren't regenerated                      stated    · unrefined
 ├─ REQ-9.6        Acceptance tests are locked: the agent can run them but not edit them     assumed   · unrefined  ! 1 finding
-├─ REQ-9.7        A hash of a box's Intent and Check pins its tests; a changed hash marks…  assumed   · unrefined  ! 1 finding
+├─ REQ-9.7        A hash of a node's Intent and Check pins its tests; a changed hash mark…  assumed   · unrefined  ! 1 finding
 ├─ REQ-9.8        Writ holds reusable test datasets with ground truth or a validation met…  stated    · unrefined
 ├─ REQ-9.9        Small datasets are committed to the repo as fixtures in v1; the canon r…  stated    · unrefined
 ├─ REQ-9.10       Separate verifier role; mutation testing                                  assumed   · unrefined  ! 2 findings
-├─ REQ-9.11       Weakening a test needs an intent change and human approval; an explicit…  stated    · unrefined
+├─ REQ-9.11       Weakening a test needs an intent change and user approval; an explicit …  stated    · unrefined
 ├─ REQ-9.12       Baselines for numeric and open-ended requirements; regressions need app…  stated    · unrefined  ! 1 finding
 ├─ REQ-9.13       HeadCanon also measures in the session; Writ is the gate                  stated    · unrefined
 ├─ REQ-9.14       Binary baselines, tolerance in the canon, drift tracking, approval as i…  stated    · unrefined  ! 1 finding
-├─ REQ-9.15       The model proposes tolerances and the human approves them; repeated run…  stated    · unrefined
+├─ REQ-9.15       The model proposes tolerances and the user approves them; repeated runs…  stated    · unrefined
 ├─ REQ-9.16       Model checks are non-deterministic; Writ's review report justifies ever…  stated    · unrefined  ! 1 finding
 ├─ REQ-9.17       Which CI run's numbers count for baselines                                draft
 └─ REQ-9.18       Writ judges requirements against the principles with a model and surfac…  stated    · unrefined
@@ -746,7 +746,7 @@ REQ-11            HeadCanon keeps the agent aligned from inside Claude Code     
 ├─ REQ-11.4       The E2E target is discovered by developing HeadCanon alongside a real p…  stated    · unrefined
 ├─ REQ-11.5       HeadCanon is built with itself from the first commit                      resolved  · unrefined  ! 1 finding
 └─ REQ-11.6       Adopting HeadCanon in an existing project works top-down: overview, pri…  stated
-   ├─ REQ-11.6.1  Selecting an item in a multi-select is approval, and the human is told …  stated    · unrefined
+   ├─ REQ-11.6.1  Selecting an item in a multi-select is approval, and the user is told s…  stated    · unrefined
    ├─ REQ-11.6.2  Drafts read as prose with footnoted sources, and a principle is a title…  stated    · unrefined  ! 1 finding
    └─ REQ-11.6.3  Adoption drafts the canon to its leaves as guesses and questions, then …  stated    · unrefined
 REQ-12            Viewing surfaces and the paid team layer come after v1                    assumed   ! 3 findings
@@ -754,11 +754,11 @@ REQ-12            Viewing surfaces and the paid team layer come after v1        
 │  ├─ REQ-12.1.1  Overview: requirements at a glance                                        assumed   · unrefined  ! 1 finding
 │  ├─ REQ-12.1.2  Tree: the canon as a graph by default, the nested list on request, and …  stated    · unrefined
 │  ├─ REQ-12.1.3  Health: problematic branches and their children                           assumed   · unrefined
-│  ├─ REQ-12.1.4  Attention: changes that need the human's word                             assumed   · unrefined
+│  ├─ REQ-12.1.4  Attention: changes that need the user's word                              assumed   · unrefined
 │  ├─ REQ-12.1.5  Journeys, decisions and glossary have their own pages                     assumed   · unrefined  ! 1 finding
 │  ├─ REQ-12.1.6  A term new to a draft is gated in the page: a span with a tooltip, a ch…  stated    · unrefined
-│  ├─ REQ-12.1.7  The session asks through the page, focuses the human's screen, and read…  resolved  · unrefined  ! 1 finding
-│  └─ REQ-12.1.8  Adopt: a full canvas of coloured boxes with handles, a card to approve,…  stated    · unrefined  ! 1 finding
+│  ├─ REQ-12.1.7  The session asks through the page, focuses the user's screen, and reads…  resolved  · unrefined  ! 1 finding
+│  └─ REQ-12.1.8  Adopt: a full canvas of coloured nodes with handles, a card to approve,…  stated    · unrefined  ! 1 finding
 ├─ REQ-12.2       Paid product: a hosted team layer over the open-source CLI and plugin     assumed   · unrefined  ! 1 finding
 └─ REQ-12.3       No hosted coding environment; no Claude.ai login, API keys only           assumed   · unrefined  ! 1 finding
 REQ-13            Open parts stay genuinely open; revenue comes from the hosted layer       assumed   ! 3 findings
@@ -771,10 +771,10 @@ REQ-13            Open parts stay genuinely open; revenue comes from the hosted 
 
 Journeys
   JRN-1           A working session with HeadCanon  assumed  15 steps
-  JRN-2           Implement/align: one box or many, from readiness to the human's decision and the commit  assumed  15 steps
+  JRN-2           Implement/align: one node or many, from readiness to the user's decision and the commit  assumed  15 steps
   JRN-3           Writ gates a pull request  assumed  11 steps
-  JRN-4           Adopting an existing repository: fifteen minutes of the human's time in Full-Auto, an hour in Guided, however long the machine takes  assumed  15 steps
-  JRN-5           Adding a feature after adoption: from a sentence to a finished branch in fifteen minutes of the human's time  assumed  15 steps
+  JRN-4           Adopting an existing repository: fifteen minutes of the user's time in Full-Auto, an hour in Guided, however long the machine takes  assumed  15 steps
+  JRN-5           Adding a feature after adoption: from a sentence to a finished branch in fifteen minutes of the user's time  assumed  15 steps
 
 Decisions
   DEC-001         Implement the CLI, hooks and plugin in TypeScript on Node  stated
@@ -785,20 +785,20 @@ Decisions
   DEC-006         Commits awaiting review carry `Approved-By: pending (...)`  assumed  origin: obstacle
   DEC-007         The plugin root is the repository root, loaded with --plugin-dir during development  assumed
   DEC-008         The session context fits Claude Code's 10,000-character hook limit by shallowing the tree, never by dropping the rules  assumed  origin: obstacle
-  DEC-009         The adopt skill was rewritten top-down after its first run asked the human for file provenance  assumed  origin: misread
+  DEC-009         The adopt skill was rewritten top-down after its first run asked the user for file provenance  assumed  origin: misread
   DEC-010         Skills and the injected rules follow the published skill-authoring guidance, and the rules stay short  assumed
   DEC-011         The Valley test sessions run on Opus, not Fable  stated
   DEC-012         Skill examples never come from the project the skill is being tested on  assumed  origin: side-effect
   DEC-013         Capabilities are a layer of the one tree, not a separate entity  resolved
   DEC-014         The canon is a directed acyclic graph: one home per node, typed links, lifting before linking  resolved  origin: misread
   DEC-015         Children are built by laddering, with the axis read off the set, never chosen first  resolved  origin: misread
-  DEC-017         Drafting is continuous and local: one refiner agent per node in a fresh context, in dependency order, with the human called at key points  stated  origin: misread
-  DEC-018         Drafting runs two levels ahead of approval: a box is cut only when its children lie within two levels of the deepest approved box on its path  stated  origin: side-effect
-  DEC-020         Finish ends the human's window whatever is red, and drafting runs to the leaves after it  assumed
+  DEC-017         Drafting is continuous and local: one refiner agent per node in a fresh context, in dependency order, with the user called at key points  stated  origin: misread
+  DEC-018         Drafting runs two levels ahead of approval: a node is cut only when its children lie within two levels of the deepest approved node on its path  stated  origin: side-effect
+  DEC-020         Finish ends the user's window whatever is red, and drafting runs to the leaves after it  assumed
   DEC-021         A requirement is a requirement at every depth: a parent is verified by its children when they entail it, and by a check of its own when they do not  assumed
   DEC-022         The session decides by precedence and asks only three things; four refiners run at a time  assumed
-  DEC-023         The reach is four levels below the deepest approved box  stated
-  DEC-024         Adoption drafts the canon to its leaves before the human is asked; the human works a list ranked by impact  stated
+  DEC-023         The reach is four levels below the deepest approved node  stated
+  DEC-024         Adoption drafts the canon to its leaves before the user is asked; the user works a list ranked by impact  stated
   DEC-025         After the ninth run: adoption is reading and onboarding, the premise is approved first, draft is a state, only red blocks, documents outrank code, the requirement is the leaf  stated
-  DEC-026         After the tenth run: one context for the map and one per capability, tests of every kind written by HeadCanon, one box as the unit of building, implementation agents held only at stop and at commit, the human's decision on what was built  stated
+  DEC-026         After the tenth run: one context for the map and one per capability, tests of every kind written by HeadCanon, one node as the unit of building, implementation agents held only at stop and at commit, the user's decision on what was built  stated
 ```

@@ -13,11 +13,11 @@ import { approveNode, deletePrinciple, deleteTerm, dropSection, editNode, editPr
 import { addGlossaryTerm } from "../glossary.js";
 import { descendants, loadCanon } from "../load.js";
 import { parseFrontMatter, str } from "../parse.js";
-import { SessionState, isHumanEntry, type AskAnswer, type AskRequest, type PendingQuestion, type TermDecision } from "../session.js";
+import { SessionState, isUserEntry, type AskAnswer, type AskRequest, type PendingQuestion, type TermDecision } from "../session.js";
 import { buildSnapshot } from "../snapshot.js";
 import { isLayer, type Layer } from "../types.js";
 import { approveSlice, discardSlice } from "../approve.js";
-import { marksOf, type BoxMark } from "../built.js";
+import { marksOf, type NodeMark } from "../built.js";
 import { activeRun, latestRun, runsDir, updateSlice, type Run, type Slice } from "../runs.js";
 import { loadManifest, loadResults, resultsPath, testsOf, type TestEntry, type TestManifest, type TestResults } from "../testing.js";
 
@@ -58,9 +58,9 @@ export interface Served {
 const canonRevLast = new Map<string, string>();
 /** When the session's MCP server last called, per canon: the page tells a live session from a dead one by it. */
 const agentSeenAt = new Map<string, number>();
-// The principles gate (DEC-025): the session waits for `principles-approved`. It arrives when the human presses
+// The principles gate (DEC-025): the session waits for `principles-approved`. It arrives when the user presses
 // "Approve the rest", or, once, when the last principle is settled one by one; a principle going back to a guess
-// re-arms it. The human never has to press a button for a list they already went through.
+// re-arms it. The user never has to press a button for a list they already went through.
 const principlesGateSent = new Map<string, boolean>();
 const principleSettled = (state: string): boolean => state === "stated" || state === "resolved";
 function principlesGate(canonDir: string, session: SessionState): void {
@@ -134,7 +134,7 @@ function testStores(canonDir: string): { manifest: TestManifest | undefined; res
   return { manifest, results };
 }
 
-interface MarksBody { rev: string; marks: Record<string, BoxMark>; counts: { notBuilt: number; outOfSync: number; tested: number; measurable: number } }
+interface MarksBody { rev: string; marks: Record<string, NodeMark>; counts: { notBuilt: number; outOfSync: number; tested: number; measurable: number } }
 /** The last answer per canon: the page asks again on every change of `marksRev`, and often nothing it reads changed. */
 const marksLast = new Map<string, MarksBody>();
 function marksBody(canonDir: string): MarksBody {
@@ -143,9 +143,9 @@ function marksBody(canonDir: string): MarksBody {
   if (hit && hit.rev === rev) return hit;
   const canon = loadCanon(canonDir);
   const { manifest, results } = testStores(canonDir);
-  let marks: Record<string, BoxMark> = {};
+  let marks: Record<string, NodeMark> = {};
   try { marks = marksOf(canon, results, manifest); } catch { /* nothing is marked rather than the page failing */ }
-  // counted over the boxes that carry a check, so a parent's mark never counts its children twice; a draft has no mark
+  // counted over the nodes that carry a check, so a parent's mark never counts its children twice; a draft has no mark
   const measured = Object.values(canon.nodes).filter((n) => n.kind && n.state !== "draft");
   const counts = { notBuilt: 0, outOfSync: 0, tested: 0, measurable: measured.length };
   for (const n of measured) {
@@ -160,7 +160,7 @@ function marksBody(canonDir: string): MarksBody {
   return body;
 }
 
-/** A box's recorded tests in plain words, each with its last outcome when it has run. */
+/** A node's recorded tests in plain words, each with its last outcome when it has run. */
 function testsFor(canonDir: string, id: string) {
   const node = loadCanon(canonDir).nodes[id];
   const { manifest, results } = testStores(canonDir);
@@ -169,7 +169,7 @@ function testsFor(canonDir: string, id: string) {
   try { entries = node.uid ? testsOf(manifest, node.uid) : manifest.tests.filter((t) => t.id === id); } catch { return []; }
   const recorded = results && Array.isArray(results.results) ? results.results : [];
   return entries.map((t) => {
-    const r = recorded.find((x) => x.box === t.box && x.title === t.title && x.file === t.file) ?? recorded.find((x) => x.box === t.box && x.title === t.title);
+    const r = recorded.find((x) => x.node === t.node && x.title === t.title && x.file === t.file) ?? recorded.find((x) => x.node === t.node && x.title === t.title);
     return {
       description: t.description, kind: t.kind, file: t.file, runner: t.runner, status: t.status,
       ...(t.journey ? { journey: t.journey } : {}),
@@ -181,7 +181,7 @@ function testsFor(canonDir: string, id: string) {
 }
 
 /**
- * The run the page shows: the one in progress, or one that ended while a slice of it still waits on the person's
+ * The run the page shows: the one in progress, or one that ended while a slice of it still waits on the user's
  * decision. A run that is over and decided is none, so the page offers a new one.
  */
 function currentRun(canonDir: string): Run | undefined {
@@ -198,15 +198,15 @@ function currentRun(canonDir: string): Run | undefined {
 const stepOf = (run: Run): string | null =>
   (run.steps.find((s) => s.status === "running" || s.status === "blocked") ?? run.steps.find((s) => s.status === "waiting"))?.name ?? null;
 
-/** The slice that waits on the person's decision for a box, with what a decision needs; or why there is none. */
-function sliceInReview(canonDir: string, box: string): { git: string; repo: string; run: Run; slice: Slice } | { error: string } {
+/** The slice that waits on the user's decision for a node, with what a decision needs; or why there is none. */
+function sliceInReview(canonDir: string, node: string): { git: string; repo: string; run: Run; slice: Slice } | { error: string } {
   const git = gitDirOf(canonDir);
   if (!git) return { error: "The canon is not inside a git repository, so there is no run to decide on." };
   const run = currentRun(canonDir);
   if (!run) return { error: "No run is waiting on your decision." };
-  const slice = run.slices.find((s) => s.box === box || s.uid === box);
-  if (!slice) return { error: `${box} is not part of the run.` };
-  if (slice.status !== "review") return { error: `${slice.box} is not waiting on your decision: it is ${slice.status}.` };
+  const slice = run.slices.find((s) => s.node === node || s.uid === node);
+  if (!slice) return { error: `${node} is not part of the run.` };
+  if (slice.status !== "review") return { error: `${slice.node} is not waiting on your decision: it is ${slice.status}.` };
   let repo = "";
   try { repo = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: canonDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { /* reported below */ }
   if (!repo) return { error: "The repository of this canon could not be found." };
@@ -275,7 +275,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   if (p === "/api/terminal" && method === "POST") {
     const body = (await readJson(req)) as { role?: string; text?: string };
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
-    return json(200, session.push("terminal", { text: body.text.trim().slice(0, 4000), role: body.role === "session" ? "session" : "human" }));
+    return json(200, session.push("terminal", { text: body.text.trim().slice(0, 4000), role: body.role === "session" ? "session" : "user" }));
   }
   if (p === "/api/status" && method === "GET") {
     const run = currentRun(canonDir);
@@ -294,55 +294,55 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const body = (await readJson(req)) as { ids?: unknown; single?: boolean };
     if (!Array.isArray(body?.ids)) return json(400, { ok: false, error: "ids is required" });
     const ids = body.ids.map((x) => (typeof x === "string" ? x.trim() : ""));
-    // an id that is not a box is refused rather than dropped: an empty scope means every box
+    // an id that is not a node is refused rather than dropped: an empty scope means every node
     const nodes = loadCanon(canonDir).nodes;
     const unknown = body.ids.filter((_, i) => !ids[i] || (ids[i] !== "ROOT" && !nodes[ids[i]!]));
-    if (unknown.length) return json(400, { ok: false, error: `no such box: ${unknown.map(String).join(", ")}` });
+    if (unknown.length) return json(400, { ok: false, error: `no such node: ${unknown.map(String).join(", ")}` });
     const scope = [...new Set(ids)], single = body.single === true;
-    if (single && scope.length !== 1) return json(400, { ok: false, error: "single takes one box" });
+    if (single && scope.length !== 1) return json(400, { ok: false, error: "single takes one node" });
     session.push("implement-request", { id: scope.join(" "), text: single ? "single" : "all" });
     return json(200, { ok: true, listening: listening(canonDir) });
   }
   if (p === "/api/run/stop" && method === "POST") {
-    session.push("run-stop", { text: "The human asked to stop the run." });
+    session.push("run-stop", { text: "The user asked to stop the run." });
     return json(200, { ok: true, listening: listening(canonDir) });
   }
   if (p === "/api/run/continue" && method === "POST") {
-    session.push("run-continue", { text: "The human asked to continue the run." });
+    session.push("run-continue", { text: "The user asked to continue the run." });
     return json(200, { ok: true, listening: listening(canonDir) });
   }
-  // The person's final decision on a slice. Approving and discarding are done here, in git, before the session hears.
+  // The user's final decision on a slice. Approving and discarding are done here, in git, before the session hears.
   const sliceMatch = method === "POST" ? /^\/api\/slice\/(approve|discard|send-back)$/.exec(p) : null;
   if (sliceMatch) {
-    const body = (await readJson(req)) as { box?: string; note?: string };
-    const box = typeof body?.box === "string" ? body.box.trim() : "";
-    if (!box) return json(400, { ok: false, error: "box is required" });
+    const body = (await readJson(req)) as { node?: string; note?: string };
+    const node = typeof body?.node === "string" ? body.node.trim() : "";
+    if (!node) return json(400, { ok: false, error: "node is required" });
     const note = typeof body.note === "string" ? body.note.trim() : "";
     if (sliceMatch[1] === "send-back" && !note) return json(400, { ok: false, error: "note is required: say what to change" });
-    const found = sliceInReview(canonDir, box);
+    const found = sliceInReview(canonDir, node);
     if ("error" in found) return json(200, { ok: false, error: found.error });
     const { git, repo, run, slice } = found;
     // what git did stands even when the run's file cannot be written: the session still hears the decision
-    const settle = (status: Slice["status"]) => { try { updateSlice(git, run.id, slice.box, { status }); } catch { /* the feed carries it */ } };
+    const settle = (status: Slice["status"]) => { try { updateSlice(git, run.id, slice.node, { status }); } catch { /* the feed carries it */ } };
     try {
       if (sliceMatch[1] === "send-back") {
-        updateSlice(git, run.id, slice.box, { status: "sent-back", note });
-        session.push("slice-sent-back", { id: slice.box, text: note });
+        updateSlice(git, run.id, slice.node, { status: "sent-back", note });
+        session.push("slice-sent-back", { id: slice.node, text: note });
         return json(200, { ok: true });
       }
       if (sliceMatch[1] === "discard") {
-        const r = discardSlice(repo, canonDir, run, slice.box);
-        if (!r.ok) return json(200, { ok: false, error: r.error ?? `${slice.box} could not be discarded.` });
+        const r = discardSlice(repo, canonDir, run, slice.node);
+        if (!r.ok) return json(200, { ok: false, error: r.error ?? `${slice.node} could not be discarded.` });
         settle("discarded");
-        session.push("slice-discarded", { id: slice.box, text: `${slice.box}: the human discarded what was built` });
+        session.push("slice-discarded", { id: slice.node, text: `${slice.node}: the user discarded what was built` });
         return json(200, { ok: true });
       }
       const who = gitUser(repo);
       if (!who) return json(200, { ok: false, error: "Git has no user name in this repository. Set one with `git config user.name \"<your name>\"`, then approve again." });
-      const r = approveSlice(repo, canonDir, run, slice.box, who);
-      if (!r.ok) return json(200, { ok: false, error: r.error ?? `${slice.box} could not be approved.` });
+      const r = approveSlice(repo, canonDir, run, slice.node, who);
+      if (!r.ok) return json(200, { ok: false, error: r.error ?? `${slice.node} could not be approved.` });
       settle("approved");
-      session.push("slice-approved", { id: slice.box, text: `${slice.box}: approved by ${who}${r.sha ? `, commit ${r.sha.slice(0, 10)}` : ""}` });
+      session.push("slice-approved", { id: slice.node, text: `${slice.node}: approved by ${who}${r.sha ? `, commit ${r.sha.slice(0, 10)}` : ""}` });
       return json(200, { ok: true, ...(r.sha ? { sha: r.sha } : {}) });
     } catch (e) {
       return json(200, { ok: false, error: errorText(e) });
@@ -358,14 +358,14 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     return json(200, { ok: true, approved: open, feed: session.push("principles-approved", { text: "the principles were approved as listed" }) });
   }
   if (p === "/api/session" && method === "GET") {
-    // the queue file may have been rewritten by an operation (ids moved); the canon may have lost a box whose
+    // the queue file may have been rewritten by an operation (ids moved); the canon may have lost a node whose
     // question is still queued: both are read from disk here, where the page asks
     session.refresh();
     const rev = canonRev(canonDir);
     if (rev !== undefined && rev !== canonRevLast.get(canonDir)) {
       canonRevLast.set(canonDir, rev);
       const nodes = loadCanon(canonDir).nodes;
-      for (const id of new Set(session.queued().map((x) => x.nodeId).filter((x): x is string => Boolean(x) && x !== "ROOT" && !nodes[x!]))) session.supersede(id, "the box is gone");
+      for (const id of new Set(session.queued().map((x) => x.nodeId).filter((x): x is string => Boolean(x) && x !== "ROOT" && !nodes[x!]))) session.supersede(id, "the node is gone");
     }
     const q = session.current();
     // the queue is the heavy part of this poll (every open question with its options): it travels only when it changed
@@ -390,7 +390,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     const body = (await readJson(req)) as Partial<AskAnswer>;
     if (!body?.questionId) return json(400, { error: "questionId is required" });
     const ok = session.answer({ questionId: body.questionId, selected: body.selected ?? [], other: body.other ?? "", terms: (body.terms ?? []) as TermDecision[] });
-    return json(ok ? 200 : 404, ok ? { ok } : { ok, error: "that question is no longer open: it was answered, withdrawn, or replaced by a newer one on the same box" });
+    return json(ok ? 200 : 404, ok ? { ok } : { ok, error: "that question is no longer open: it was answered, withdrawn, or replaced by a newer one on the same node" });
   }
   if (p === "/api/focus" && method === "POST") {
     const body = (await readJson(req)) as { id?: string; open?: boolean };
@@ -401,8 +401,8 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
   if (p === "/api/changes" && method === "GET") {
     const since = Number(url.searchParams.get("since") ?? 0);
     const timeout = Math.min(Math.max(Number(url.searchParams.get("timeout") ?? 0), 0), 25);
-    // `wake=human`: the session's own says and the terminal mirror do not end the wait (DEC-025, waiting costs nothing)
-    const wakes = url.searchParams.get("wake") === "human" ? isHumanEntry : undefined;
+    // `wake=user`: the session's own says and the terminal mirror do not end the wait (DEC-025, waiting costs nothing)
+    const wakes = url.searchParams.get("wake") === "user" ? isUserEntry : undefined;
     listeners.set(canonDir, (listeners.get(canonDir) ?? 0) + 1);
     try { return json(200, await session.waitChanges(since, timeout * 1000, wakes)); } finally { listeners.set(canonDir, Math.max(0, (listeners.get(canonDir) ?? 1) - 1)); }
   }
@@ -411,29 +411,29 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
     return json(200, session.push("message", { text: body.text.trim(), id: body.nodeId, quote: body.quote?.trim() || undefined }));
   }
-  // The session rewrote a box the human was writing in; the human chose, and the session hears which.
+  // The session rewrote a node the user was writing in; the user chose, and the session hears which.
   if (p === "/api/conflict" && method === "POST") {
     const body = (await readJson(req)) as { id?: string; choice?: string };
     if (!body?.id) return json(400, { error: "id is required" });
     const keep = body.choice === "keep";
-    return json(200, session.push("edit-conflict", { id: body.id, text: keep ? `${body.id}: the human keeps their own rewrite in progress over yours; leave the box until their words arrive` : `${body.id}: the human took your rewrite and dropped theirs` }));
+    return json(200, session.push("edit-conflict", { id: body.id, text: keep ? `${body.id}: the user keeps their own rewrite in progress over yours; leave the node until their words arrive` : `${body.id}: the user took your rewrite and dropped theirs` }));
   }
-  // The session speaks to the human: a line in the page's chat, optionally about a node.
+  // The session speaks to the user: a line in the page's chat, optionally about a node.
   if (p === "/api/say" && method === "POST") {
     const body = (await readJson(req)) as { text?: string; nodeId?: string; to?: string; doing?: string[]; attention?: boolean };
     if (!body?.text?.trim()) return json(400, { error: "text is required" });
     if (Array.isArray(body.doing)) session.setDoing(body.doing);
-    return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId, to: body.to === "human" ? "human" : undefined, ...(body.attention === true ? { attention: true } : {}), ...(body.to === "intro" ? { intro: true } : {}) }));
+    return json(200, session.push("say", { text: body.text.trim(), id: body.nodeId, to: body.to === "user" ? "user" : undefined, ...(body.attention === true ? { attention: true } : {}), ...(body.to === "intro" ? { intro: true } : {}) }));
   }
   if (p === "/api/withdraw" && method === "POST") {
     const body = (await readJson(req)) as { nodeId?: string; reason?: string; by?: string };
     if (!body?.nodeId) return json(400, { error: "nodeId is required" });
-    // with `by`, only that author's questions on the box: an agent withdraws its own, never another's
+    // with `by`, only that author's questions on the node: an agent withdraws its own, never another's
     const by = typeof body.by === "string" && body.by.trim() ? body.by.trim() : undefined;
     return json(200, { withdrawn: session.supersede(body.nodeId, body.reason?.trim() || "the session decided it", by ? (q) => q.by === by : undefined) });
   }
   if (p === "/api/finish" && method === "POST") {
-    return json(200, session.push("finish-request", { text: "The human asked to finish the adoption." }));
+    return json(200, session.push("finish-request", { text: "The user asked to finish the adoption." }));
   }
   if (p === "/api/refine" && method === "POST") {
     const body = (await readJson(req)) as { id?: string; note?: string };
@@ -522,17 +522,17 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
       const { data } = parseFrontMatter(body.text);
       if (str(data["id"])?.trim() !== id) return json(400, { error: `the front-matter id must stay ${id}` });
       journalChange(canonDir, { kind: "page", summary: `${id} edited as text`, id }, [file.abs], () => writeFileSync(file.abs, body.text!.endsWith("\n") ? body.text! : body.text + "\n"));
-      session.supersede(id, "the human edited the box");
+      session.supersede(id, "the user edited the node");
       return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: "edited in the page" }) });
     }
-    // Fields from the popup: the typed text is the human's wording, stated, and becomes the entry.
+    // Fields from the popup: the typed text is the user's wording, stated, and becomes the entry.
     if (typeof body?.intent !== "string" || !body.intent.trim()) return json(400, { error: "text or intent is required" });
     // settling an issue with these words also drops the section the issue came from
     let out = editNode(readFileSync(file.abs, "utf8"), { title: body.title?.trim() || undefined, intent: body.intent }, today());
     if (body.resolve === "contested") out = dropSection(out, "Contested");
     journalChange(canonDir, { kind: "page", summary: `${id} ${body.resolve ? "settled" : "rewritten"} in the page`, id }, [file.abs], () => writeFileSync(file.abs, out));
-    // the human's words make every pending question on the box stale
-    session.supersede(id, "the human rewrote the box");
+    // the user's words make every pending question on the node stale
+    session.supersede(id, "the user rewrote the node");
     return json(200, { ok: true, path: file.rel, feed: session.push("node-edited", { id, path: file.rel, text: `${id} ${body.resolve ? "settled" : "rewritten"}: ${body.intent.trim().slice(0, 120)}` }) });
   }
   if (nodeMatch && method === "DELETE" && !nodeMatch[2]) {
@@ -545,7 +545,7 @@ async function route(req: IncomingMessage, res: ServerResponse, canonDir: string
       if (basename(file.abs) === "README.md") rmSync(dirname(file.abs), { recursive: true, force: true });
       else rmSync(file.abs, { force: true });
     });
-    for (const r of removed) session.supersede(r, "the box was deleted");
+    for (const r of removed) session.supersede(r, "the node was deleted");
     return json(200, { ok: true, removed, feed: session.push("node-deleted", { id, path: file.rel, text: `${removed.join(", ")} deleted in the page` }) });
   }
   if (p === "/api/node" && method === "POST") {
@@ -644,7 +644,7 @@ function createNode(canonDir: string, parentId: string | undefined, title: strin
   const chosen: Layer = layer ?? (["domain", "capability", "requirement"][Math.min(depth, 2)] as Layer);
   const file = join(dir, `${id}-${slugOf(title)}.md`);
   const today = new Date().toISOString().slice(0, 10);
-  const text = `---\nid: ${id}\n${parentId ? `parent: ${parentId}\n` : ""}title: "${title.replace(/"/g, "'")}"\nstate: stated\nlayer: ${chosen}\nsource: "created in the viewer, ${today}"\n---\n\n# ${title}\n\n## Stated\n\n> ${intent || title}\n\nSource: typed by the human in the viewer, ${today}\n`;
+  const text = `---\nid: ${id}\n${parentId ? `parent: ${parentId}\n` : ""}title: "${title.replace(/"/g, "'")}"\nstate: stated\nlayer: ${chosen}\nsource: "created in the viewer, ${today}"\n---\n\n# ${title}\n\n## Stated\n\n> ${intent || title}\n\nSource: typed by the user in the viewer, ${today}\n`;
   writeFileSync(file, text);
   return { id, path: file.slice(resolve(canonDir).length + 1).split("\\").join("/") };
 }

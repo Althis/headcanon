@@ -1,13 +1,13 @@
 ---
 id: REQ-3.4
 parent: REQ-3
-title: "The tree is drafted whole by the session and reviewed lazily by the human: what matters most comes first, deeper details stay model assumptions"
+title: "The tree is drafted whole by the session and reviewed lazily by the user: what matters most comes first, deeper details stay model assumptions"
 state: stated
 source: "docs/design-brief-v0.md:62; Claude Code session, 2026-10-18; Claude Code session, 2026-11-15"
 files: [skills/adopt/SKILL.md, skills/attend/SKILL.md, agents/refiner.md, packages/canon/src/next.ts]
 ---
 
-# The tree is drafted whole by the session and reviewed lazily by the human: what matters most comes first, deeper details stay model assumptions
+# The tree is drafted whole by the session and reviewed lazily by the user: what matters most comes first, deeper details stay model assumptions
 
 ## Stated
 
@@ -33,10 +33,10 @@ Source: Claude Code session, 2026-11-15 (DEC-024).
 
 ## Intent [assumed]
 
-Nothing has to be defined by the human ahead of time. The session drafts the tree to its leaves, every entry a model assumption until the human speaks, as long as it contradicts nothing above it; and the human's attention goes where an answer changes the most. The next command ranks the premise first, then the guessed boxes under approved ones by the boxes below them, whose path an approval validates and a rewrite invalidates, and every red box by what waits on it and what it hides; the list stands after adoption, and the command names the unapproved boxes on the path above a box for a human who chooses to validate them (DEC-024). Building waits on none of them: guessed and approved boxes are built alike, a red box alone is left out, and the human reviews what was built after the round (DEC-026).
+Nothing has to be defined by the user ahead of time. The session drafts the tree to its leaves, every entry a model assumption until the user speaks, as long as it contradicts nothing above it; and the user's attention goes where an answer changes the most. The next command ranks the premise first, then the guessed nodes under approved ones by the nodes below them, whose path an approval validates and a rewrite invalidates, and every red node by what waits on it and what it hides; the list stands after adoption, and the command names the unapproved nodes on the path above a node for a user who chooses to validate them (DEC-024). Building waits on none of them: guessed and approved nodes are built alike, a red node alone is left out, and the user reviews what was built after the round (DEC-026).
 
-Filling is continuous and local. A node is refined from its family: the chain above it, the root README with the map of domains and capabilities, its siblings' titles, what it requires and what requires it, and the threads in its scope. Two lookups reach the rest of the tree on demand, the context of any one box and a search of every box by its words (DEC-026); so the same work fits a canon of forty nodes and one of four thousand, and an implementation agent working in a branch holds only that family and what it looked up. The refining runs to the leaves before the human is asked anything, again where an answer re-opens a branch, and again where implementation touches one. The human is called at key points, the drafting done, a red box, a thread contradicting an approval, a build round ready for their decision, and otherwise left to their list.
+Filling is continuous and local. A node is refined from its family: the chain above it, the root README with the map of domains and capabilities, its siblings' titles, what it requires and what requires it, and the threads in its scope. Two lookups reach the rest of the tree on demand, the context of any one node and a search of every node by its words (DEC-026); so the same work fits a canon of forty nodes and one of four thousand, and an implementation agent working in a branch holds only that family and what it looked up. The refining runs to the leaves before the user is asked anything, again where an answer re-opens a branch, and again where implementation touches one. The user is called at key points, the drafting done, a red node, a thread contradicting an approval, a build round ready for their decision, and otherwise left to their list.
 
 ## Not this [assumed]
 
-A specification phase that costs the human hours before any work. The session's own drafting is machine time, unattended and resumable, and is not that phase.
+A specification phase that costs the user hours before any work. The session's own drafting is machine time, unattended and resumable, and is not that phase.

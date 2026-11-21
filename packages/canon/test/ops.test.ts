@@ -88,12 +88,12 @@ describe("operations [DEC-024]", () => {
     expect(JSON.parse(readFileSync(c.queue, "utf8")).queue[0].nodeId).toBe("REQ-2.1.2");
     expect(existsSync(join(c.dir, "REQ-1-import/REQ-1.1-parsing"))).toBe(false);
     expect(checkCanon(canon2).some((f) => f.level === "error")).toBe(false);
-    // a box cannot move into itself, and a layer above its new parent's is refused before anything is written
+    // a node cannot move into itself, and a layer above its new parent's is refused before anything is written
     expect(applyOp(c.dir, { op: "move", id: "REQ-2", under: "REQ-2.1" }, opts(c)).error).toContain("into itself");
     expect(applyOp(c.dir, { op: "move", id: "REQ-1", under: "REQ-2.1" }, opts(c)).error).toContain("domain");
   });
 
-  it("merges a node into another: edges and evidence carried, references rewritten, the file gone; an approved box is never merged", () => {
+  it("merges a node into another: edges and evidence carried, references rewritten, the file gone; an approved node is never merged", () => {
     const c = fresh();
     applyOp(c.dir, { op: "link", from: "REQ-1.1.1", to: "REQ-2", kind: "relates" }, opts(c));
     const r = applyOp(c.dir, { op: "merge", from: "REQ-1.1.2", to: "REQ-1.1.1", why: "both say a statement becomes transactions" }, opts(c));
@@ -108,10 +108,10 @@ describe("operations [DEC-024]", () => {
     expect(JSON.parse(readFileSync(c.queue, "utf8")).queue[0].nodeId).toBe("REQ-1.1.1");
     expect(checkCanon(canon2).some((f) => f.level === "error")).toBe(false);
     writeFileSync(join(c.dir, "REQ-2-reporting.md"), readFileSync(join(c.dir, "REQ-2-reporting.md"), "utf8").replace("state: assumed", "state: stated"));
-    expect(applyOp(c.dir, { op: "merge", from: "REQ-2", to: "REQ-1" }, opts(c)).error).toContain("human's");
+    expect(applyOp(c.dir, { op: "merge", from: "REQ-2", to: "REQ-1" }, opts(c)).error).toContain("user's");
   });
 
-  it("contests two boxes with both statements, links them, and leaves the issue to the caller", () => {
+  it("contests two nodes with both statements, links them, and leaves the issue to the caller", () => {
     const c = fresh();
     const r = applyOp(c.dir, { op: "contest", id: "REQ-1.1.1", other: "REQ-2", summary: "They cannot both hold.", statements: [{ text: "one transaction per line", source: "docs/a.md:3" }, { text: "one per block", source: "src/parse.ts:12" }] }, opts(c));
     expect(r.ok).toBe(true);
@@ -121,7 +121,7 @@ describe("operations [DEC-024]", () => {
     expect(readFileSync(join(c.dir, canon2.nodes["REQ-2"]!.file), "utf8")).toContain("## Contested\n\nThey cannot both hold.\n\n- one transaction per line (docs/a.md:3)\n- one per block (src/parse.ts:12)");
   });
 
-  it("writes an assumed glossary term, updates an assumed one, and refuses the human's", () => {
+  it("writes an assumed glossary term, updates an assumed one, and refuses the user's", () => {
     const c = fresh();
     expect(applyOp(c.dir, { op: "term", term: "transaction", definition: "one movement of money on a statement" }, opts(c))).toMatchObject({ ok: true, id: "TERM-transaction" });
     let terms = loadCanon(c.dir).terms;
@@ -130,16 +130,16 @@ describe("operations [DEC-024]", () => {
     terms = loadCanon(c.dir).terms;
     expect(terms.filter((t) => t.id === "TERM-statement")).toHaveLength(1);
     expect(terms.find((t) => t.id === "TERM-statement")?.definition).toBe("a bank's dated list of transactions");
-    expect(applyOp(c.dir, { op: "term", term: "ledger", definition: "something else" }, opts(c)).error).toContain("human's term");
+    expect(applyOp(c.dir, { op: "term", term: "ledger", definition: "something else" }, opts(c)).error).toContain("user's term");
   });
 
-  it("rewords a guess, never the human's words", () => {
+  it("rewords a guess, never the user's words", () => {
     const c = fresh();
     expect(applyOp(c.dir, { op: "reword", id: "REQ-1.1.1", from: "CSV parsing", to: "CSV reading" }, opts(c)).ok).toBe(true);
     expect(loadCanon(c.dir).nodes["REQ-1.1.1"]?.title).toBe("CSV reading");
     expect(applyOp(c.dir, { op: "reword", id: "REQ-1.1.1", from: "nowhere", to: "x" }, opts(c)).error).toContain("does not occur");
     writeFileSync(join(c.dir, "REQ-2-reporting.md"), readFileSync(join(c.dir, "REQ-2-reporting.md"), "utf8").replace("state: assumed", "state: resolved"));
-    expect(applyOp(c.dir, { op: "reword", id: "REQ-2", from: "Reporting", to: "Reports" }, opts(c)).error).toContain("human's words");
+    expect(applyOp(c.dir, { op: "reword", id: "REQ-2", from: "Reporting", to: "Reports" }, opts(c)).error).toContain("user's words");
   });
 
   it("deletes a leaf and cleans the edges and decisions that named it; a parent needs subtree; a journey step still naming it refuses the plan", () => {
@@ -156,14 +156,14 @@ describe("operations [DEC-024]", () => {
     expect(loadCanon(c.dir).nodes["REQ-1.1.1"]).toBeDefined();
   });
 
-  it("makes a guess a draft with its diagnosis, never the human's box", () => {
+  it("makes a guess a draft with its diagnosis, never the user's node", () => {
     const c = fresh();
     expect(applyOp(c.dir, { op: "draft", id: "REQ-1.1.2", why: "two readings of 'its transactions' survived two corrections" }, opts(c)).ok).toBe(true);
     const n = loadCanon(c.dir).nodes["REQ-1.1.2"]!;
     expect(n.state).toBe("draft");
     expect(readFileSync(join(c.dir, n.file), "utf8")).toMatch(/## Open\n\n- \d{4}-\d{2}-\d{2}: made a draft by review: two readings/);
     writeFileSync(join(c.dir, "REQ-2-reporting.md"), readFileSync(join(c.dir, "REQ-2-reporting.md"), "utf8").replace("state: assumed", "state: stated"));
-    expect(applyOp(c.dir, { op: "draft", id: "REQ-2", why: "x" }, opts(c)).error).toContain("human's");
+    expect(applyOp(c.dir, { op: "draft", id: "REQ-2", why: "x" }, opts(c)).error).toContain("user's");
   });
 
   it("counts review failures per node and per check, and says when the budget is spent", () => {
@@ -180,7 +180,7 @@ describe("operations [DEC-024]", () => {
     expect(stats.byOp["review"]).toEqual({ ok: 5, failed: 0 });
   });
 
-  it("notes a guess under Open, keeping earlier notes and the state; the human's box takes an issue instead", () => {
+  it("notes a guess under Open, keeping earlier notes and the state; the user's node takes an issue instead", () => {
     const c = fresh();
     expect(applyOp(c.dir, { op: "note", id: "REQ-1.1.2", text: "the OFX sample carries no dates" }, opts(c))).toMatchObject({ ok: true, id: "REQ-1.1.2", changes: ["REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.md"] });
     expect(applyOp(c.dir, { op: "note", id: "REQ-1.1.2", text: "amounts come in cents" }, opts(c)).ok).toBe(true);
@@ -191,7 +191,7 @@ describe("operations [DEC-024]", () => {
     expect(text).toContain("## Implemented by\n\n- OFX amounts are read in cents (src/ofx.ts:8)");
     expect(applyOp(c.dir, { op: "note", id: "REQ-1.1.2", text: "  " }, opts(c)).error).toContain("needs its text");
     writeFileSync(join(c.dir, "REQ-2-reporting.md"), readFileSync(join(c.dir, "REQ-2-reporting.md"), "utf8").replace("state: assumed", "state: stated"));
-    expect(applyOp(c.dir, { op: "note", id: "REQ-2", text: "x" }, opts(c)).error).toBe("REQ-2 is the human's; its drift is an issue, never a note");
+    expect(applyOp(c.dir, { op: "note", id: "REQ-2", text: "x" }, opts(c)).error).toBe("REQ-2 is the user's; its drift is an issue, never a note");
   });
 
   it("records a dispatch and a return without writing, so a compacted session reads back what is held", () => {
@@ -218,7 +218,7 @@ describe("operations [DEC-024]", () => {
     expect(checkCanon(loadCanon(c.dir)).filter((f) => f.level === "error").map((f) => `${f.code}:${f.id}`)).toEqual(["link-unknown:REQ-1.1.2"]);
     expect(applyOp(c.dir, { op: "move", id: "REQ-1.1", under: "REQ-2" }, opts(c))).toMatchObject({ ok: true, id: "REQ-2.1" });
     expect(loadCanon(c.dir).nodes["REQ-2.1.2"]?.requires).toEqual(["REQ-2.1.1", "REQ-9"]);
-    // the same edge, carried onto the absorbing box by a merge
+    // the same edge, carried onto the absorbing node by a merge
     const d = fresh();
     const ofx2 = join(d.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.2-ofx.md");
     writeFileSync(ofx2, readFileSync(ofx2, "utf8").replace("requires: [REQ-1.1.1]", "requires: [REQ-1.1.1, REQ-9]"));
@@ -226,7 +226,7 @@ describe("operations [DEC-024]", () => {
     expect(loadCanon(d.dir).nodes["REQ-1.1.1"]?.requires).toEqual(["REQ-9"]);
   });
 
-  it("a merge rewrites the absorbing box's own text: its prose and the bullets it took no longer name the gone id", () => {
+  it("a merge rewrites the absorbing node's own text: its prose and the bullets it took no longer name the gone id", () => {
     const c = fresh();
     const csv = join(c.dir, "REQ-1-import/REQ-1.1-parsing/REQ-1.1.1-csv.md");
     writeFileSync(csv, readFileSync(csv, "utf8").replace("one transaction per line.", "one transaction per line, as REQ-1.1.2 does for OFX."));
@@ -253,7 +253,7 @@ describe("operations [DEC-024]", () => {
     expect(loadCanon(c.dir).nodes["REQ-2"]?.state).toBe("assumed");
   });
 
-  it("a second contest on a box adds to the first: one paragraph, the union of the statements, both conflicts; never against itself", () => {
+  it("a second contest on a node adds to the first: one paragraph, the union of the statements, both conflicts; never against itself", () => {
     const c = fresh();
     const st = (a: string, b: string) => [{ text: a, source: "docs/a.md:3" }, { text: b, source: "src/parse.ts:12" }];
     expect(applyOp(c.dir, { op: "contest", id: "REQ-1.1.1", other: "REQ-2", summary: "They cannot both hold.", statements: st("one transaction per line", "one per block") }, opts(c)).ok).toBe(true);
@@ -348,7 +348,7 @@ describe("the border a name carries [alpha contract 3.4]", () => {
     for (const id of ["REQ-1.10", "REQ-1.11.1", "REQ-1", "REQ-1.2", "REQ-2", "REQ-11.1", "ROOT"]) expect(scopeOp(note(id), refiner)).toEqual({ error: outside });
   });
 
-  it("a refiner writes inside its capability: every operation on a box below it is applied", () => {
+  it("a refiner writes inside its capability: every operation on a node below it is applied", () => {
     const c = fresh();
     const o = as(c, refiner);
     expect(applyOp(c.dir, { op: "create", under: "REQ-1.1", title: "QIF parsing", intent: "A QIF statement yields its transactions." }, o)).toMatchObject({ ok: true, id: "REQ-1.1.3" });
@@ -357,7 +357,7 @@ describe("the border a name carries [alpha contract 3.4]", () => {
     expect(applyOp(c.dir, { op: "reword", id: "REQ-1.1.2", from: "OFX parsing", to: "OFX reading" }, o).ok).toBe(true);
     expect(applyOp(c.dir, { op: "bind", id: "REQ-1.1.2", unit: "src/ofx.ts#read", relation: "implements" }, o).ok).toBe(true);
     expect(applyOp(c.dir, { op: "unbind", id: "REQ-1.1.2", unit: "src/ofx.ts#read" }, o).ok).toBe(true);
-    // the box written is its own; the box named may be anywhere
+    // the node written is its own; the node named may be anywhere
     expect(applyOp(c.dir, { op: "link", from: "REQ-1.1.3", to: "REQ-2", kind: "relates" }, o).ok).toBe(true);
     expect(applyOp(c.dir, { op: "unlink", from: "REQ-1.1.3", to: "REQ-2", kind: "relates" }, o).ok).toBe(true);
     expect(applyOp(c.dir, { op: "link", from: "REQ-1.1.3", to: "REQ-1.1", kind: "requires" }, o).ok).toBe(true);
@@ -390,7 +390,7 @@ describe("the border a name carries [alpha contract 3.4]", () => {
       { op: "delete", id: "REQ-2" },
       { op: "delete", id: "REQ-1", subtree: true },
       { op: "contest", id: "REQ-2", summary: "x", statements: st },
-      // a contest writes both boxes: the other one is outside
+      // a contest writes both nodes: the other one is outside
       { op: "contest", id: "REQ-1.1.1", other: "REQ-2", summary: "x", statements: st },
       { op: "link", from: "REQ-2", to: "REQ-1.1.1", kind: "relates" },
       { op: "unlink", from: "REQ-2", to: "REQ-1.1", kind: "requires" },
@@ -433,7 +433,7 @@ describe("the border a name carries [alpha contract 3.4]", () => {
     expect(readOps(d.log)[0]?.by).toBeUndefined();
   });
 
-  it("an implementation agent adds a guessed box under any box, marked as the builder's, and nothing else", () => {
+  it("an implementation agent adds a guessed node under any node, marked as the builder's, and nothing else", () => {
     const c = fresh();
     const o = as(c, "implementer-REQ-1.1.1");
     const only = "an implementation agent adds assumptions and issues only";
@@ -456,11 +456,11 @@ describe("the border a name carries [alpha contract 3.4]", () => {
       { op: "journey", title: "First import", steps: [{ label: "Import a file", requirements: ["REQ-1.1.1"] }] },
     ];
     for (const op of refused) expect(applyOp(c.dir, op, o), JSON.stringify(op)).toEqual({ ok: false, changes: [], error: only });
-    expect(applyOp(c.dir, { op: "create", under: "ROOT", title: "Export", intent: "Books leave the product." }, o).error).toBe("an implementation agent adds an assumption under a box, never at the top level");
+    expect(applyOp(c.dir, { op: "create", under: "ROOT", title: "Export", intent: "Books leave the product." }, o).error).toBe("an implementation agent adds an assumption under a node, never at the top level");
     expect(texts(c.dir)).toEqual(before);
   });
 
-  it("a tester records journeys, notes inside its capability, and guessed boxes there; the rest is refused", () => {
+  it("a tester records journeys, notes inside its capability, and guessed nodes there; the rest is refused", () => {
     const c = fresh();
     const o = as(c, "tester-REQ-1.1");
     const out = "outside tester-REQ-1.1's capability (REQ-1.1): record it with HC propose";
@@ -475,7 +475,7 @@ describe("the border a name carries [alpha contract 3.4]", () => {
     expect(loadCanon(c.dir).nodes["REQ-1.1.1"]?.title).toBe("CSV parsing");
   });
 
-  it("in Guided, top and a refiner draft nothing under a box the human has not approved; a question, a tester, an implementation agent and the session still write [DEC-025]", () => {
+  it("in Guided, top and a refiner draft nothing under a node the user has not approved; a question, a tester, an implementation agent and the session still write [DEC-025]", () => {
     const c = fresh();
     const root = join(c.dir, "..");
     execSync("git init -q", { cwd: root });
@@ -483,7 +483,7 @@ describe("the border a name carries [alpha contract 3.4]", () => {
     mkdirSync(join(settings, ".."), { recursive: true });
     const mode = (text: string) => writeFileSync(settings, text);
     const under = (id: string, title: string): Extract<Op, { op: "create" }> => ({ op: "create", under: id, title, intent: `${title} holds.` });
-    const waits = (id: string) => ({ ok: false, changes: [], error: `Guided: ${id} waits for the human's approval and nothing is drafted under it before that; name it in your report` });
+    const waits = (id: string) => ({ ok: false, changes: [], error: `Guided: ${id} waits for the user's approval and nothing is drafted under it before that; name it in your report` });
     mode(JSON.stringify({ mode: "guided" }));
     const before = texts(c.dir);
     // the domain REQ-2 and the capability REQ-1.1 are guesses: nothing hangs under them yet
@@ -491,15 +491,15 @@ describe("the border a name carries [alpha contract 3.4]", () => {
     expect(applyOp(c.dir, under("REQ-1.1", "A header line is skipped"), as(c, refiner))).toEqual(waits("REQ-1.1"));
     expect(texts(c.dir)).toEqual(before);
     expect(readOps(c.log).map((e) => [e.by, e.ok])).toEqual([["top", false], [refiner, false]]);
-    // the premise is approved, so the domains are drafted under it; a box that is not in the canon keeps its own refusal
+    // the premise is approved, so the domains are drafted under it; a node that is not in the canon keeps its own refusal
     expect(applyOp(c.dir, under("ROOT", "Export"), as(c, "top"))).toMatchObject({ ok: true, id: "REQ-3" });
     expect(applyOp(c.dir, under("REQ-9", "Nowhere"), as(c, "top")).error).toBe("REQ-9 is not in the canon");
-    // a draft is a question for the human and stands anywhere; the other names are not the drafting
+    // a draft is a question for the user and stands anywhere; the other names are not the drafting
     expect(applyOp(c.dir, { ...under("REQ-1.1", "Which separator"), state: "draft" }, as(c, refiner))).toMatchObject({ ok: true, id: "REQ-1.1.3" });
     expect(applyOp(c.dir, under("REQ-1.1", "A blank line is skipped"), as(c, "tester-REQ-1.1")).ok).toBe(true);
     expect(applyOp(c.dir, under("REQ-1.1", "A quoted field keeps its comma"), as(c, "implementer-REQ-1.1")).ok).toBe(true);
     expect(applyOp(c.dir, under("REQ-2", "Yearly report"), as(c, "session")).ok).toBe(true);
-    // the human approves the capability: its refiner writes the rung under it, and not the one below
+    // the user approves the capability: its refiner writes the rung under it, and not the one below
     const capability = join(c.dir, "REQ-1-import/REQ-1.1-parsing/README.md");
     writeFileSync(capability, readFileSync(capability, "utf8").replace("state: assumed", "state: stated"));
     const rung = applyOp(c.dir, under("REQ-1.1", "A header line is skipped"), as(c, refiner));
@@ -519,12 +519,12 @@ describe("the journey operation [alpha contract 3.4]", () => {
   const fresh = () => { const c = canon(); roots.push(join(c.dir, "..")); return c; };
   const opts = (c: { log: string; queue: string }) => ({ log: c.log, queue: c.queue, by: "top" });
   const steps = [
-    { label: "Import a file", requirements: ["REQ-1.1.1", "REQ-1.1.2"], given: "a statement on disk", does: "the person picks the file", sees: "one line per transaction" },
-    { label: "Read the report", requirements: ["REQ-2"], does: "the person opens the report", sees: "the month's totals" },
+    { label: "Import a file", requirements: ["REQ-1.1.1", "REQ-1.1.2"], given: "a statement on disk", does: "the user picks the file", sees: "one line per transaction" },
+    { label: "Read the report", requirements: ["REQ-2"], does: "the user opens the report", sees: "the month's totals" },
     { label: "Close", requirements: ["REQ-2"] },
   ];
 
-  it("writes a new assumed journey in the format the loader reads: front matter, a graph, a table of steps with their boxes", () => {
+  it("writes a new assumed journey in the format the loader reads: front matter, a graph, a table of steps with their nodes", () => {
     const c = fresh();
     const r = applyOp(c.dir, { op: "journey", title: "Reading a report after an import", steps, source: "docs/guide.md:3-20", why: "the guide walks this path" }, opts(c));
     expect(r).toEqual({ ok: true, changes: ["journeys/JRN-2-reading-a-report-after-an-import.md"], id: "JRN-2" });
@@ -543,8 +543,8 @@ describe("the journey operation [alpha contract 3.4]", () => {
       "```mermaid", "flowchart TD", '    S1["Import a file"] --> S2["Read the report"]', '    S2 --> S3["Close"]', "```", "",
       "| Step | State | Linked requirements | Given | Does | Sees |",
       "| --- | --- | --- | --- | --- | --- |",
-      "| S1 Import a file | assumed | REQ-1.1.1, REQ-1.1.2 | a statement on disk | the person picks the file | one line per transaction |",
-      "| S2 Read the report | assumed | REQ-2 |  | the person opens the report | the month's totals |",
+      "| S1 Import a file | assumed | REQ-1.1.1, REQ-1.1.2 | a statement on disk | the user picks the file | one line per transaction |",
+      "| S2 Read the report | assumed | REQ-2 |  | the user opens the report | the month's totals |",
       "| S3 Close | assumed | REQ-2 |  |  |  |", "",
     ].join("\n"));
     // it raises no finding of its own: not an error, not an unlinked step, not a missing graph
@@ -571,15 +571,15 @@ describe("the journey operation [alpha contract 3.4]", () => {
     expect(checkCanon(canon2).some((f) => f.level === "error")).toBe(false);
   });
 
-  it("refuses a journey without a title, without steps, with a step that has no label or cites no box or an unknown one, and any state but assumed", () => {
+  it("refuses a journey without a title, without steps, with a step that has no label or cites no node or an unknown one, and any state but assumed", () => {
     const c = fresh();
     const j = (extra: object) => applyOp(c.dir, { op: "journey", title: "First import", steps: [{ label: "Import a file", requirements: ["REQ-1.1.1"] }], ...extra } as Op, opts(c));
     expect(j({ title: "  " }).error).toContain("needs a title");
     expect(j({ steps: [] }).error).toContain("needs its steps");
     expect(j({ steps: undefined }).error).toContain("needs its steps");
-    expect(j({ steps: [{ label: "Import a file", requirements: ["REQ-1.1.1"] }, { label: " ", requirements: ["REQ-2"] }] }).error).toBe("step 2 needs a label: what the person does, in a few words");
-    expect(j({ steps: [{ label: "Import a file", requirements: [] }] }).error).toBe("step 1 cites no box: name the requirements it exercises");
-    expect(j({ steps: [{ label: "Import a file" }] }).error).toBe("step 1 cites no box: name the requirements it exercises");
+    expect(j({ steps: [{ label: "Import a file", requirements: ["REQ-1.1.1"] }, { label: " ", requirements: ["REQ-2"] }] }).error).toBe("step 2 needs a label: what the user does, in a few words");
+    expect(j({ steps: [{ label: "Import a file", requirements: [] }] }).error).toBe("step 1 cites no node: name the requirements it exercises");
+    expect(j({ steps: [{ label: "Import a file" }] }).error).toBe("step 1 cites no node: name the requirements it exercises");
     expect(j({ steps: [{ label: "Import a file", requirements: ["REQ-1.1.1", "REQ-9"] }] }).error).toBe("step 1 cites REQ-9, which is not in the canon");
     expect(j({ state: "stated" }).error).toContain("is assumed");
     expect(j({ id: "JRN-7" }).error).toBe("JRN-7 is not in the canon");
@@ -591,17 +591,17 @@ describe("the journey operation [alpha contract 3.4]", () => {
   it("rewrites the steps of an assumed journey where they stand: the prose around them stays, the graph is added, the title follows", () => {
     const c = fresh();
     const file = join(c.dir, "journeys/JRN-1-first.md");
-    writeFileSync(file, readFileSync(file, "utf8").replace("# First import\n", "# First import\n\nHow a person gets a first statement in.\n") + "\nMinutes in total: 2.\n");
+    writeFileSync(file, readFileSync(file, "utf8").replace("# First import\n", "# First import\n\nHow a user gets a first statement in.\n") + "\nMinutes in total: 2.\n");
     const r = applyOp(c.dir, { op: "journey", id: "JRN-1", title: "First import and report", steps, source: "docs/guide.md:3-20" }, opts(c));
     expect(r).toEqual({ ok: true, changes: ["journeys/JRN-1-first.md"], id: "JRN-1" });
     expect(readFileSync(file, "utf8")).toBe([
       "---", "id: JRN-1", 'title: "First import and report"', "state: assumed", 'source: "docs/guide.md:3-20"', "---", "",
-      "# First import and report", "", "How a person gets a first statement in.", "",
+      "# First import and report", "", "How a user gets a first statement in.", "",
       "```mermaid", "flowchart TD", '    S1["Import a file"] --> S2["Read the report"]', '    S2 --> S3["Close"]', "```", "",
       "| Step | State | Linked requirements | Given | Does | Sees |",
       "| --- | --- | --- | --- | --- | --- |",
-      "| S1 Import a file | assumed | REQ-1.1.1, REQ-1.1.2 | a statement on disk | the person picks the file | one line per transaction |",
-      "| S2 Read the report | assumed | REQ-2 |  | the person opens the report | the month's totals |",
+      "| S1 Import a file | assumed | REQ-1.1.1, REQ-1.1.2 | a statement on disk | the user picks the file | one line per transaction |",
+      "| S2 Read the report | assumed | REQ-2 |  | the user opens the report | the month's totals |",
       "| S3 Close | assumed | REQ-2 |  |  |  |", "",
       "Minutes in total: 2.", "",
     ].join("\n"));
@@ -610,7 +610,7 @@ describe("the journey operation [alpha contract 3.4]", () => {
     const text = readFileSync(file, "utf8");
     expect(text.match(/```mermaid/g)).toHaveLength(1);
     expect(text.match(/^\| S\d/gm)).toHaveLength(2);
-    expect(text).toContain("How a person gets a first statement in.");
+    expect(text).toContain("How a user gets a first statement in.");
     expect(text).toContain("\nMinutes in total: 2.\n");
     const j = loadCanon(c.dir).journeys[0]!;
     expect(j).toMatchObject({ id: "JRN-1", title: "First import and report", state: "assumed", source: "docs/guide.md:3-20" });
@@ -618,14 +618,14 @@ describe("the journey operation [alpha contract 3.4]", () => {
     expect(loadCanon(c.dir).journeys).toHaveLength(1);
   });
 
-  it("never rewrites a journey the human approved, nor one that is a draft or contested", () => {
+  it("never rewrites a journey the user approved, nor one that is a draft or contested", () => {
     const c = fresh();
     const file = join(c.dir, "journeys/JRN-1-first.md");
     const original = readFileSync(file, "utf8");
     for (const state of ["stated", "resolved"]) {
       writeFileSync(file, original.replace("state: assumed", `state: ${state}`));
       const before = readFileSync(file, "utf8");
-      expect(applyOp(c.dir, { op: "journey", id: "JRN-1", title: "First import", steps }, opts(c))).toEqual({ ok: false, changes: [], error: "JRN-1 is the human's; a change to an approved journey is asked, never applied" });
+      expect(applyOp(c.dir, { op: "journey", id: "JRN-1", title: "First import", steps }, opts(c))).toEqual({ ok: false, changes: [], error: "JRN-1 is the user's; a change to an approved journey is asked, never applied" });
       expect(readFileSync(file, "utf8")).toBe(before);
     }
     for (const state of ["draft", "contested"]) {
@@ -634,12 +634,12 @@ describe("the journey operation [alpha contract 3.4]", () => {
     }
   });
 
-  it("a journey it wrote follows a move and a merge like every other: its cells are renamed, and a box named twice is named once", () => {
+  it("a journey it wrote follows a move and a merge like every other: its cells are renamed, and a node named twice is named once", () => {
     const c = fresh();
     expect(applyOp(c.dir, { op: "journey", title: "Reading a report after an import", steps }, opts(c)).ok).toBe(true);
     expect(applyOp(c.dir, { op: "merge", from: "REQ-1.1.2", to: "REQ-1.1.1" }, opts(c)).ok).toBe(true);
     const file = join(c.dir, "journeys/JRN-2-reading-a-report-after-an-import.md");
-    expect(readFileSync(file, "utf8")).toContain("| S1 Import a file | assumed | REQ-1.1.1 | a statement on disk | the person picks the file | one line per transaction |");
+    expect(readFileSync(file, "utf8")).toContain("| S1 Import a file | assumed | REQ-1.1.1 | a statement on disk | the user picks the file | one line per transaction |");
     expect(applyOp(c.dir, { op: "move", id: "REQ-1.1", under: "REQ-2" }, opts(c)).ok).toBe(true);
     const canon2 = loadCanon(c.dir);
     expect(canon2.journeys.find((x) => x.id === "JRN-2")?.steps.map((s) => s.requirements)).toEqual([["REQ-2.1.1"], ["REQ-2"], ["REQ-2"]]);

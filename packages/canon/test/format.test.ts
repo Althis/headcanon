@@ -24,7 +24,7 @@ describe("the canon format [REQ-6]", () => {
   it("the quality list names a decider for every test, a code for every deterministic one, and no name twice in a scope", () => {
     expect(QUALITY.length).toBeGreaterThan(40);
     for (const q of QUALITY) {
-      expect(["check", "reviewer", "human"]).toContain(q.how);
+      expect(["check", "reviewer", "user"]).toContain(q.how);
       if (q.how === "check") expect(q.code, q.name).toMatch(/^[a-z-]+$/);
       expect(q.test.endsWith("?") || q.test.includes("?")).toBe(true);
     }

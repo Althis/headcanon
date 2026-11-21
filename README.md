@@ -7,7 +7,7 @@
   </picture>
 </p>
 
-A Claude Code plugin that keeps a coding agent aligned with what the human
+A Claude Code plugin that keeps a coding agent aligned with what the user
 is actually trying to build.
 
 AI coding agents lose track of intent in large projects and over many
@@ -71,7 +71,7 @@ All commands read `./canon`; pass `--canon <dir>` for another one.
 npm run headcanon -- init       # canon skeleton + commit-msg hook in this repo
 npm run check                   # validate the canon; exit 1 on errors
 npm run summary                 # the requirement tree as plain text
-npm run headcanon -- attention  # what waits on the human
+npm run headcanon -- attention  # what waits on the user
 npm run headcanon -- render     # canon/INDEX.md, the Mermaid index for GitHub
 npm run ui                      # local viewer at http://127.0.0.1:4317/
 npm test
@@ -94,7 +94,7 @@ Apache 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Work through the page
 
-The plugin registers an MCP server, `headcanon mcp`, that starts the viewer when none is running and gives the session five tools: ask a question in the page, keep waiting for its answer, focus a node on the screen, read what the human did in the page, and open the browser. During adoption the agent asks through the page: the draft appears beside the tree, jargon the glossary does not define is marked with a tooltip where a check enshrines the term and a cross drops it, and the answer returns to the session. In the tree, every node has Define this branch, Edit and New child; what you type there is recorded as your words, and the session reads it before its next draft.
+The plugin registers an MCP server, `headcanon mcp`, that starts the viewer when none is running and gives the session five tools: ask a question in the page, keep waiting for its answer, focus a node on the screen, read what the user did in the page, and open the browser. During adoption the agent asks through the page: the draft appears beside the tree, jargon the glossary does not define is marked with a tooltip where a check enshrines the term and a cross drops it, and the answer returns to the session. In the tree, every node has Define this branch, Edit and New child; what you type there is recorded as your words, and the session reads it before its next draft.
 
 ```bash
 npm run headcanon -- terms --text "a draft to scan for jargon"

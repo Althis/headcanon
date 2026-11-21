@@ -21,7 +21,7 @@ Source: Claude Code session, 2026-10-11, during the fifth adopt run, after the c
 
 ## Intent [assumed]
 
-The view opens as a graph: each node a box coloured by its state, containment drawn as solid edges, and the typed links drawn as labelled edges, dashed for requires, dotted for relates, crossed for conflicts. With nothing selected the graph shows the top level and its children; with a node selected it shows that node's ancestors, siblings and children, every node linked to or from it, and their parents for context, so one branch is read at a time. Clicking a box selects that node. A toggle switches to the nested list, which keeps its search, state filters, flags and expand and collapse controls, and the choice is remembered in the browser. Selecting a node in either mode opens the reading pane with the node's verbatim quotes, its sections with their own state markers, its partition and links, its children, the decisions resting on it, the journey steps that link to it, and its findings. With nothing selected, the pane shows the same plain-text tree the agent sees.
+The view opens as a graph: each node a node coloured by its state, containment drawn as solid edges, and the typed links drawn as labelled edges, dashed for requires, dotted for relates, crossed for conflicts. With nothing selected the graph shows the top level and its children; with a node selected it shows that node's ancestors, siblings and children, every node linked to or from it, and their parents for context, so one branch is read at a time. Clicking a node selects that node. A toggle switches to the nested list, which keeps its search, state filters, flags and expand and collapse controls, and the choice is remembered in the browser. Selecting a node in either mode opens the reading pane with the node's verbatim quotes, its sections with their own state markers, its partition and links, its children, the decisions resting on it, the journey steps that link to it, and its findings. With nothing selected, the pane shows the same plain-text tree the agent sees.
 
 ## Not this
 
@@ -29,6 +29,6 @@ A layout that invents a third shape: the graph draws exactly the containment of 
 
 ## Assumptions
 
-- The graph is a Cytoscape canvas with a layered layout, loaded from a CDN like Mermaid, so the viewer stays a static page with no build step and the human can pan, zoom and drag. (model assumption)
-- With nothing selected and more than about forty nodes at the first two levels, only the top level is drawn, with the count of hidden children on each box. (model assumption)
+- The graph is a Cytoscape canvas with a layered layout, loaded from a CDN like Mermaid, so the viewer stays a static page with no build step and the user can pan, zoom and drag. (model assumption)
+- With nothing selected and more than about forty nodes at the first two levels, only the top level is drawn, with the count of hidden children on each node. (model assumption)
 - In the list, top-level branches start expanded and deeper branches collapsed; a heading marker such as `## Not this [assumed]` renders as a badge; the reading pane strips the body's H1; filters and search combine with AND, and a non-matching ancestor is dimmed rather than hidden. (model assumption)

@@ -1,6 +1,6 @@
 /**
- * Where a box is built, and the two marks the page draws from it: not built, and out of sync with the code.
- * A box says where it is built with its code binds, or that it is not with a "not built" line; saying neither
+ * Where a node is built, and the two marks the page draws from it: not built, and out of sync with the code.
+ * A node says where it is built with its code binds, or that it is not with a "not built" line; saying neither
  * is unstated, which the parcel gate refuses.
  */
 import { sectionText } from "./check.js";
@@ -18,7 +18,7 @@ const NOT_BUILT = /^\s*(?:[-*]\s+)?(?:\d{4}-\d{2}-\d{2}:?\s+)*not built(?![\w-])
 /** Where the line is read: the format's section first, then the two older canons used. */
 const NOT_BUILT_SECTIONS = ["Implemented by", "Open", "As built"];
 
-/** The words after "not built" on the box's line; undefined when it carries no such line. */
+/** The words after "not built" on the node's line; undefined when it carries no such line. */
 function notBuiltNote(body: string): string | undefined {
   for (const heading of NOT_BUILT_SECTIONS)
     for (const line of sectionText(body, heading).split(/\r?\n/)) {
@@ -29,8 +29,8 @@ function notBuiltNote(body: string): string | undefined {
 }
 
 /**
- * Code bound as implements decides first: the box is built, and a "not built" line beside it is stale. Then the
- * line: code that only contributes sits near the box without doing what it says, so the line stands. Code that
+ * Code bound as implements decides first: the node is built, and a "not built" line beside it is stale. Then the
+ * line: code that only contributes sits near the node without doing what it says, so the line stands. Code that
  * contributes with no line counts as built.
  */
 export function builtOf(node: ReqNode): BuiltInfo {
@@ -43,7 +43,7 @@ export function builtOf(node: ReqNode): BuiltInfo {
 
 export type Mark = "not-built" | "out-of-sync";
 export type Tested = "passing" | "failing" | "untested" | "stale";
-export interface BoxMark { mark: Mark | undefined; built: Built; tested: Tested; failing: number; tests: number }
+export interface NodeMark { mark: Mark | undefined; built: Built; tested: Tested; failing: number; tests: number }
 
 interface Tally { tests: number; passed: number; failing: number; stale: number }
 
@@ -51,29 +51,29 @@ interface Tally { tests: number; passed: number; failing: number; stale: number 
 const FAILING: ReadonlySet<Outcome> = new Set<Outcome>(["failed", "errored", "missing", "changed"]);
 
 /**
- * Per box uid, the outcome of each test that counts: the accepted tests of the manifest, each with its result when
+ * Per node uid, the outcome of each test that counts: the accepted tests of the manifest, each with its result when
  * one is recorded; with no manifest, the results as they are.
  */
-function tallyByBox(results: TestResults | undefined, manifest: TestManifest | undefined): Map<string, Tally> {
+function tallyByNode(results: TestResults | undefined, manifest: TestManifest | undefined): Map<string, Tally> {
   const recorded = new Map<string, TestResult[]>();
-  for (const r of results?.results ?? []) (recorded.get(r.box) ?? recorded.set(r.box, []).get(r.box)!).push(r);
+  for (const r of results?.results ?? []) (recorded.get(r.node) ?? recorded.set(r.node, []).get(r.node)!).push(r);
   const out = new Map<string, Tally>();
-  const add = (box: string, outcome: Outcome) => {
-    const t = out.get(box) ?? out.set(box, { tests: 0, passed: 0, failing: 0, stale: 0 }).get(box)!;
+  const add = (node: string, outcome: Outcome) => {
+    const t = out.get(node) ?? out.set(node, { tests: 0, passed: 0, failing: 0, stale: 0 }).get(node)!;
     t.tests++;
     if (outcome === "passed") t.passed++;
     else if (FAILING.has(outcome)) t.failing++;
     else if (outcome === "stale") t.stale++;
   };
   if (!manifest) {
-    for (const [box, rs] of recorded) for (const r of rs) add(box, r.outcome);
+    for (const [node, rs] of recorded) for (const r of rs) add(node, r.outcome);
     return out;
   }
   for (const t of manifest.tests) {
     if (t.status !== "accepted") continue;
-    const rs = recorded.get(t.box) ?? [];
+    const rs = recorded.get(t.node) ?? [];
     const r = rs.find((x) => x.title === t.title && x.file === t.file) ?? rs.find((x) => x.title === t.title);
-    add(t.box, r?.outcome ?? "not-run");
+    add(t.node, r?.outcome ?? "not-run");
   }
   return out;
 }
@@ -82,25 +82,25 @@ const NO_TESTS: Tally = { tests: 0, passed: 0, failing: 0, stale: 0 };
 
 const testedOf = (t: Tally): Tested => (t.failing ? "failing" : t.stale ? "stale" : t.passed ? "passing" : "untested");
 
-/** The mark of a box by its own check alone. A draft never gets one; a box with no kind is not measured. */
+/** The mark of a node by its own check alone. A draft never gets one; a node with no kind is not measured. */
 function ownMark(n: ReqNode, info: BuiltInfo, t: Tally): Mark | undefined {
   if (!n.kind || n.state === "draft") return undefined;
   if (info.contradicts.length) return "out-of-sync";
-  // a passing test on a box said to be not built means the note is stale
+  // a passing test on a node said to be not built means the note is stale
   if (info.built === "not-built") return t.passed ? undefined : "not-built";
   if (info.built === "built" && t.failing) return "out-of-sync";
   return undefined;
 }
 
-/** What the boxes below one carry, counting those with a kind that are not drafts. */
+/** What the nodes below one carry, counting those with a kind that are not drafts. */
 interface Below { outOfSync: boolean; measured: number; notBuilt: number }
 
 /**
- * The mark of every box, by id. A box with children takes out of sync from any box below, and not built when every
- * box below that carries a kind is; a parent that keeps a check of its own, built or passing, is not greyed by them.
+ * The mark of every node, by id. A node with children takes out of sync from any node below, and not built when every
+ * node below that carries a kind is; a parent that keeps a check of its own, built or passing, is not greyed by them.
  */
-export function marksOf(canon: Canon, results?: TestResults, manifest?: TestManifest): Record<string, BoxMark> {
-  const tallies = tallyByBox(results, manifest);
+export function marksOf(canon: Canon, results?: TestResults, manifest?: TestManifest): Record<string, NodeMark> {
+  const tallies = tallyByNode(results, manifest);
   const info: Record<string, BuiltInfo> = {}, tally: Record<string, Tally> = {}, own: Record<string, Mark | undefined> = {};
   for (const n of Object.values(canon.nodes)) {
     info[n.id] = builtOf(n);
@@ -127,7 +127,7 @@ export function marksOf(canon: Canon, results?: TestResults, manifest?: TestMani
     }
     return sum;
   };
-  const out: Record<string, BoxMark> = {};
+  const out: Record<string, NodeMark> = {};
   for (const n of Object.values(canon.nodes)) {
     const i = info[n.id]!, t = tally[n.id]!;
     let mark = own[n.id];

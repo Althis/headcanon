@@ -16,9 +16,9 @@ Source: docs/design-brief-v0.md:71
 
 ## Not this [assumed]
 
-The agent's paraphrase of what the human said. A paraphrase is assumed, however faithful.
+The agent's paraphrase of what the user said. A paraphrase is assumed, however faithful.
 
 
 ## Corrections are not quoted [assumed]
 
-When the human types a correction as an instruction ("drop the counts") rather than the wording itself, the agent applies it and shows the merged text; only the approved merged text is written, and the correction is not quoted in the node. A node is read without the conversation (REQ-3.11), and only wording the human typed is a Stated quote. (model assumption)
+When the user types a correction as an instruction ("drop the counts") rather than the wording itself, the agent applies it and shows the merged text; only the approved merged text is written, and the correction is not quoted in the node. A node is read without the conversation (REQ-3.11), and only wording the user typed is a Stated quote. (model assumption)

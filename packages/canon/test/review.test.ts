@@ -15,7 +15,7 @@ describe("a review record made from adoption's own reviews [REQ-8.5.4]", () => {
   const ops: OpRecord[] = [
     logged({ op: "review", id: "REQ-1", verdict: "pass" }, { by: "reviewer-REQ-1" }),
     logged({ op: "create", under: "REQ-1", title: "t", intent: "i" }),
-    logged({ op: "review", id: "REQ-2", verdict: "fail", findings: [{ test: "one-concept", child: "REQ-2.1", text: "two rules in one box" } as unknown as { check: string; text: string }] }, { by: "reviewer-REQ-2" }),
+    logged({ op: "review", id: "REQ-2", verdict: "fail", findings: [{ test: "one-concept", child: "REQ-2.1", text: "two rules in one node" } as unknown as { check: string; text: string }] }, { by: "reviewer-REQ-2" }),
     logged({ op: "reword", id: "REQ-2.1", from: "a", to: "b" }, { ok: false, changes: [] }),
     logged({ op: "move", id: "REQ-2", under: "REQ-1" }, { renamed: { "REQ-2": "REQ-1.5", "REQ-2.1": "REQ-1.5.1" } }),
     logged({ op: "review", id: "REQ-3", verdict: "fail" }),
@@ -27,7 +27,7 @@ describe("a review record made from adoption's own reviews [REQ-8.5.4]", () => {
     const sets = setReviews(ops);
     expect([...sets.keys()].sort()).toEqual(["REQ-1", "REQ-1.5", "REQ-3"]);
     expect(sets.get("REQ-1")).toMatchObject({ verdict: "pass", opsSince: 2, by: "reviewer-REQ-1" });
-    expect(sets.get("REQ-1.5")).toMatchObject({ parent: "REQ-1.5", verdict: "fail", opsSince: 0, findings: [{ test: "one-concept", child: "REQ-1.5.1", text: "two rules in one box" }] });
+    expect(sets.get("REQ-1.5")).toMatchObject({ parent: "REQ-1.5", verdict: "fail", opsSince: 0, findings: [{ test: "one-concept", child: "REQ-1.5.1", text: "two rules in one node" }] });
     expect(sets.get("REQ-3")).toMatchObject({ verdict: "pass", opsSince: 0 });
   });
 
@@ -43,7 +43,7 @@ describe("a review record made from adoption's own reviews [REQ-8.5.4]", () => {
       ["unreviewed", ["REQ-4", "ROOT"]],
       ["unreviewed", ["JRN-2", "ROOT"]],
     ]);
-    expect(made.record.findings[0]).toMatchObject({ summary: "one-concept: two rules in one box", resolution: expect.stringMatching(/^not changed since the review; left as written/) });
+    expect(made.record.findings[0]).toMatchObject({ summary: "one-concept: two rules in one node", resolution: expect.stringMatching(/^not changed since the review; left as written/) });
     expect(made.record.findings.every((f) => !/approved|decided/.test(f.resolution ?? ""))).toBe(true);
     expect(made.record.parents?.map((p) => `${p.id}: ${p.reason.split(/[,;]/)[0]}`)).toEqual([
       "REQ-1: its children passed the review of 2026-11-18 and were changed afterwards",
@@ -174,7 +174,7 @@ describe("the staged canon change, read whole [REQ-8.5.4]", () => {
 
   it("reads the canon's entries only: a record kept in the folder asks for no review", () => {
     expect(entryPathspec("docs/canon/")).toBe(":(glob,icase)docs/canon/**/*.md");
-    write("canon/tests.json", JSON.stringify({ runners: {}, tests: Array.from({ length: 40 }, (_, i) => ({ box: `u${i}` })) }, null, 1));
+    write("canon/tests.json", JSON.stringify({ runners: {}, tests: Array.from({ length: 40 }, (_, i) => ({ node: `u${i}` })) }, null, 1));
     git("add", "canon");
     expect(stagedIntentDiff(repo)).toMatchObject({ files: [], required: false, changedLines: 0 });
     expect(adoptionReviewRecord(repo)).toBeUndefined();

@@ -12,16 +12,16 @@ import { addTests, describeResults, fingerprintOf, isFailing, loadManifest, load
 const fixture = (name: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fixtures", "results", name), "utf8");
 const byTag = <T extends { title: string }>(rows: T[], uid: string) => rows.filter((r) => r.title.includes(tagOf(uid)));
 
-const BOXES: Array<[id: string, uid: string, title: string, check: string]> = [
+const NODES: Array<[id: string, uid: string, title: string, check: string]> = [
   ["REQ-1.1.1", "k3m9pq", "A closed month refuses entries", "An entry dated inside a closed month is refused."],
   ["REQ-1.1.2", "w7x2ab", "A statement totals its entries", "The total of a statement equals the sum of its entries, in cents."],
-  ["REQ-1.1.3", "r5t8yz", "Only the owner reopens a month", "A person who is not the owner cannot reopen a closed month."],
+  ["REQ-1.1.3", "r5t8yz", "Only the owner reopens a month", "A user who is not the owner cannot reopen a closed month."],
   ["REQ-1.1.4", "n4h6cd", "An entry has a numeric amount", "An entry whose amount is text is refused."],
   ["REQ-1.1.5", "j8v3ef", "A statement lists the month's entries", "Every entry of the month is on its statement."],
   ["REQ-1.1.6", "q2q2q2", "A month closes once", "Closing a month that is closed changes nothing."],
 ];
 
-/** One case file per box: what the product must answer and what it answered. The last is one the runner never reports. */
+/** One case file per node: what the product must answer and what it answered. The last is one the runner never reports. */
 const CASES: Record<string, { title: string; expect: unknown; got: unknown; silent?: boolean }> = {
   k3m9pq: { title: "an entry dated inside a closed month is refused [hc:k3m9pq]", expect: "refused", got: "refused" },
   w7x2ab: { title: 'the statement\'s "total" is the sum of its entries [hc:w7x2ab]', expect: 1400, got: 1300 },
@@ -80,7 +80,7 @@ function project(): Project {
   write("canon/README.md", `---\nid: ROOT\ntitle: "Ledgerline"\nstate: resolved\nformat: 4\n---\n\n# Ledgerline\n\n## Intent\n\nA bookkeeping tool: entries, months, statements.\n`);
   write("canon/REQ-1-months/README.md", node("REQ-1", "Months", "layer: domain\n"));
   write("canon/REQ-1-months/REQ-1.1-closing/README.md", node("REQ-1.1", "Closing a month", "layer: capability\n"));
-  for (const [id, uid, title, check] of BOXES) write(`canon/REQ-1-months/REQ-1.1-closing/${id}-box.md`, node(id, title, `layer: requirement\nkind: binary\nuid: ${uid}\n`, `\n## Check\n\n${check}\n`));
+  for (const [id, uid, title, check] of NODES) write(`canon/REQ-1-months/REQ-1.1-closing/${id}-node.md`, node(id, title, `layer: requirement\nkind: binary\nuid: ${uid}\n`, `\n## Check\n\n${check}\n`));
   write("canon/journeys/JRN-1-close.md", `---\nid: JRN-1\ntitle: "Closing a month"\nstate: assumed\n---\n\n# Closing a month\n\n| Step | Requirements |\n|---|---|\n| S1 Close the month | REQ-1.1.1 |\n| S2 Read the statement | REQ-1.1.5 |\n`);
   write(".gitignore", "ignored/\n");
   write("tools/run-cases.mjs", RUN_CASES);
@@ -92,19 +92,19 @@ function project(): Project {
   return { repo, canon: join(repo, "canon"), git, write, commit };
 }
 
-const caseEntry = (uid: string, runner = "cases") => ({ box: uid, runner, kind: "eval" as const, file: `cases/${uid}.case.json`, title: CASES[uid]!.title, description: "Runs the sample case and compares what the product answered with what the box says it must answer." });
+const caseEntry = (uid: string, runner = "cases") => ({ node: uid, runner, kind: "eval" as const, file: `cases/${uid}.case.json`, title: CASES[uid]!.title, description: "Runs the sample case and compares what the product answered with what the node says it must answer." });
 
-/** Six accepted tests, one per box, run by the case runner; everything committed. */
+/** Six accepted tests, one per node, run by the case runner; everything committed. */
 function accepted(): Project {
   const p = project();
   setRunner(p.canon, "cases", { kind: "eval", command: "node tools/run-cases.mjs --titles {titles} --out {out} {files}", format: "headcanon-json" });
-  expect(addTests(p.canon, BOXES.map(([, uid]) => caseEntry(uid)), "tester-REQ-1.1")).toEqual({ added: 6, errors: [] });
-  for (const [, uid] of BOXES) expect(reviewTests(p.canon, uid, "pass")).toBe(1);
+  expect(addTests(p.canon, NODES.map(([, uid]) => caseEntry(uid)), "tester-REQ-1.1")).toEqual({ added: 6, errors: [] });
+  for (const [, uid] of NODES) expect(reviewTests(p.canon, uid, "pass")).toBe(1);
   p.commit("tests");
   return p;
 }
 
-const outcomes = (r: TestResults): Record<string, Outcome> => Object.fromEntries(r.results.map((x) => [x.box, x.outcome]));
+const outcomes = (r: TestResults): Record<string, Outcome> => Object.fromEntries(r.results.map((x) => [x.node, x.outcome]));
 const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.name === ".git" ? [] : e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
 const runFolders = () => readdirSync(tmpdir()).filter((n) => n.startsWith("headcanon-run-")).sort();
 
@@ -137,10 +137,10 @@ describe("reading what a runner wrote [DEC-026]", () => {
     expect(rows[2]).toMatchObject({ outcome: "skipped", message: "tests/test_months.py:55: needs the owner fixture" });
     expect(rows[3]?.message).toContain('File "tests/test_months.py", line 63');
     expect(rows[3]?.message).toContain("read(entry) > 0 && done");
-    // a case under a suite that carries the tag belongs to that box
+    // a case under a suite that carries the tag belongs to that node
     expect(rows[4]?.title).toBe("closing a month [hc:j8v3ef] > lists every entry of the month");
     expect(rows[5]).toMatchObject({ title: "closing a month [hc:j8v3ef] > shows the closing balance > 0", outcome: "failed", message: "balance was -4", ms: 300 });
-    expect(rows[6]).toEqual({ title: "a case that names no box", outcome: "passed" });
+    expect(rows[6]).toEqual({ title: "a case that names no node", outcome: "passed" });
     expect(rows.some((r) => r.title.includes("zz9zz9") || r.title.includes("not a case"))).toBe(false);
   });
 
@@ -158,7 +158,7 @@ describe("reading what a runner wrote [DEC-026]", () => {
   it("reads Playwright's JSON reporter: nested suites, one test per project, the last attempt decides", () => {
     const rows = parseResults("playwright-json", fixture("playwright.json"));
     expect(rows.map((r) => [uidsIn(r.title)[0], r.outcome])).toEqual([["j8v3ef", "passed"], ["j8v3ef", "passed"], ["k3m9pq", "passed"], ["k3m9pq", "failed"], ["r5t8yz", "skipped"], ["w7x2ab", "failed"], ["n4h6cd", "passed"]]);
-    expect(rows[0]).toEqual({ title: "a person adds an entry and sees it on the month's statement [hc:j8v3ef]", outcome: "passed", file: "closing.spec.ts", ms: 812 });
+    expect(rows[0]).toEqual({ title: "a user adds an entry and sees it on the month's statement [hc:j8v3ef]", outcome: "passed", file: "closing.spec.ts", ms: 812 });
     // the titles of the groups a test sits in come before its own, and the terminal's colour codes are gone
     expect(rows[3]?.title).toBe("closing a month > a closed month refuses a new entry and says why [hc:k3m9pq]");
     expect(rows[3]?.message?.startsWith("firefox: Error: expect(locator).toBeVisible()\n\nLocator: getByText('This month is closed')")).toBe(true);
@@ -210,14 +210,14 @@ describe("the record of tests [DEC-026]", () => {
     expect(() => setRunner(p.canon, "my runner", { kind: "unit", command: "x", format: "junit" })).toThrow(/name/);
   });
 
-  it("records a test only when it names a box, carries the tag, points at a file and says in plain words what it checks", () => {
+  it("records a test only when it names a node, carries the tag, points at a file and says in plain words what it checks", () => {
     const p = project();
     const good = caseEntry("k3m9pq");
     const r = addTests(p.canon, [
       good,
-      { ...good, box: "nobody" },
+      { ...good, node: "nobody" },
       { ...good, title: "an entry dated inside a closed month is refused" },
-      { ...good, title: "tagged for another box [hc:w7x2ab]" },
+      { ...good, title: "tagged for another node [hc:w7x2ab]" },
       { ...good, file: "cases/absent.case.json" },
       { ...good, file: "../outside.json" },
       { ...good, description: "closes it" },
@@ -229,25 +229,25 @@ describe("the record of tests [DEC-026]", () => {
     ], "tester-REQ-1.1");
     expect(r.added).toBe(1);
     expect(r.errors.map((e) => e.replace(/^test \d+ "[^\n]*?": /, ""))).toEqual([
-      'box "nobody" is not the uid of a box in the canon',
+      'node "nobody" is not the uid of a node in the canon',
       "the title must carry [hc:k3m9pq]",
       "the title must carry [hc:k3m9pq]",
       "the file cases/absent.case.json does not exist",
       "the file ../outside.json is outside the repository",
       "the description must say in plain words what is checked and how",
-      'the description must be plain words a person who cannot read code understands; it holds code ("closeMonth(")',
-      'the description must be plain words a person who cannot read code understands; it holds code ("`")',
+      'the description must be plain words a user who cannot read code understands; it holds code ("closeMonth(")',
+      'the description must be plain words a user who cannot read code understands; it holds code ("`")',
       "an e2e test names the journey it plays; record the journey first",
       'journey "JRN-9" is not in the canon',
       "kind must be one of unit, integration, e2e, eval, other",
     ]);
     expect(r.errors[1]?.startsWith('test 3 "an entry dated inside a closed month is refused": ')).toBe(true);
     const [t] = loadManifest(p.canon).tests;
-    expect(t).toMatchObject({ box: "k3m9pq", id: "REQ-1.1.1", runner: "cases", kind: "eval", file: "cases/k3m9pq.case.json", status: "proposed", by: "tester-REQ-1.1", pin: pinOf(loadCanon(p.canon).nodes["REQ-1.1.1"]!) });
+    expect(t).toMatchObject({ node: "k3m9pq", id: "REQ-1.1.1", runner: "cases", kind: "eval", file: "cases/k3m9pq.case.json", status: "proposed", by: "tester-REQ-1.1", pin: pinOf(loadCanon(p.canon).nodes["REQ-1.1.1"]!) });
     expect(t?.fingerprint).toBeUndefined();
     expect(Number.isNaN(Date.parse(t!.at))).toBe(false);
     // an e2e test with its journey is recorded, a file given whole is kept from the repository's root, and a description may use a plural in brackets
-    expect(addTests(p.canon, [{ ...good, box: "j8v3ef", title: "a person closes the month and reads the statement [hc:j8v3ef]", kind: "e2e", journey: "JRN-1", file: join(p.repo, "cases", "j8v3ef.case.json"), description: "Plays the journey step by step: closes the month, opens the statement and looks for the entry(s) of that month; a second line follows." }])).toEqual({ added: 1, errors: [] });
+    expect(addTests(p.canon, [{ ...good, node: "j8v3ef", title: "a user closes the month and reads the statement [hc:j8v3ef]", kind: "e2e", journey: "JRN-1", file: join(p.repo, "cases", "j8v3ef.case.json"), description: "Plays the journey step by step: closes the month, opens the statement and looks for the entry(s) of that month; a second line follows." }])).toEqual({ added: 1, errors: [] });
     expect(testsOf(loadManifest(p.canon), "j8v3ef")[0]).toMatchObject({ id: "REQ-1.1.5", journey: "JRN-1", file: "cases/j8v3ef.case.json" });
     expect(testsOf(loadManifest(p.canon), "j8v3ef")[0]?.by).toBeUndefined();
   });
@@ -255,13 +255,13 @@ describe("the record of tests [DEC-026]", () => {
   it("accepts with the file's fingerprint on a pass, rejects with the note on a fail, and a test recorded again waits for review again", () => {
     const p = project();
     addTests(p.canon, [caseEntry("k3m9pq"), caseEntry("w7x2ab")]);
-    expect(reviewTests(p.canon, "w7x2ab", "fail", "The expected total is taken from the code. Take it from the box.")).toBe(1);
+    expect(reviewTests(p.canon, "w7x2ab", "fail", "The expected total is taken from the code. Take it from the node.")).toBe(1);
     expect(reviewTests(p.canon, "k3m9pq", "pass")).toBe(1);
     expect(reviewTests(p.canon, "k3m9pq", "pass")).toBe(0);
     expect(reviewTests(p.canon, "nobody", "pass")).toBe(0);
     let m = loadManifest(p.canon);
     expect(testsOf(m, "k3m9pq")[0]).toMatchObject({ status: "accepted", fingerprint: fingerprintOf(p.repo, "cases/k3m9pq.case.json") });
-    expect(testsOf(m, "w7x2ab")[0]).toMatchObject({ status: "rejected", review: "The expected total is taken from the code. Take it from the box." });
+    expect(testsOf(m, "w7x2ab")[0]).toMatchObject({ status: "rejected", review: "The expected total is taken from the code. Take it from the node." });
     expect(testsOf(m, "w7x2ab")[0]?.fingerprint).toBeUndefined();
     // the corrected test replaces the rejected entry instead of standing beside it
     expect(addTests(p.canon, [caseEntry("w7x2ab")]).added).toBe(1);
@@ -299,9 +299,9 @@ describe("the record of tests [DEC-026]", () => {
     expect(readdirSync(p.canon).filter((n) => n.startsWith("tests.json"))).toEqual(["tests.json"]);
   });
 
-  it("pins a test to the box's Intent and Check, and fingerprints a file the same under either line ending", () => {
+  it("pins a test to the node's Intent and Check, and fingerprints a file the same under either line ending", () => {
     const p = project();
-    const file = join(p.canon, "REQ-1-months", "REQ-1.1-closing", "REQ-1.1.1-box.md");
+    const file = join(p.canon, "REQ-1-months", "REQ-1.1-closing", "REQ-1.1.1-node.md");
     const before = pinOf(loadCanon(p.canon).nodes["REQ-1.1.1"]!);
     const text = readFileSync(file, "utf8");
     // a reflow, a new title and a new section change nothing a test depends on
@@ -413,26 +413,26 @@ describe("running the tests [DEC-026]", () => {
   it("runs accepted tests through their runner in a real repository and stores each outcome beside the canon", () => {
     const p = accepted();
     const gitDir = gitDirOf(p.canon)!;
-    // after acceptance: one test file is deleted, one is edited, one box is reworded, and one case the runner never reports
+    // after acceptance: one test file is deleted, one is edited, one node is reworded, and one case the runner never reports
     rmSync(join(p.repo, "cases", "r5t8yz.case.json"));
     p.write("cases/n4h6cd.case.json", JSON.stringify({ title: "an entry whose amount is text is refused [hc:n4h6cd]", expect: 1, got: 1, loosened: true }));
-    const box = join(p.canon, "REQ-1-months", "REQ-1.1-closing", "REQ-1.1.5-box.md");
-    writeFileSync(box, readFileSync(box, "utf8").replace("Every entry of the month is on its statement.", "Every entry of the month is on its statement, oldest first."));
+    const node = join(p.canon, "REQ-1-months", "REQ-1.1-closing", "REQ-1.1.5-node.md");
+    writeFileSync(node, readFileSync(node, "utf8").replace("Every entry of the month is on its statement.", "Every entry of the month is on its statement, oldest first."));
     const status = p.git("status", "--porcelain");
     const folders = runFolders();
 
     const r = runTests(p.canon);
 
     expect(outcomes(r)).toEqual({ k3m9pq: "passed", w7x2ab: "failed", r5t8yz: "missing", n4h6cd: "changed", j8v3ef: "stale", q2q2q2: "not-run" });
-    // the runner reported its cases last first: each result found its box by the tag
-    expect(r.results.map((x) => x.box)).toEqual(BOXES.map(([, uid]) => uid));
-    expect(r.results[0]).toEqual({ box: "k3m9pq", title: "an entry dated inside a closed month is refused [hc:k3m9pq]", file: "cases/k3m9pq.case.json", runner: "cases", outcome: "passed", message: "asked for hc:(k3m9pq|w7x2ab|q2q2q2)", ms: 3 });
+    // the runner reported its cases last first: each result found its node by the tag
+    expect(r.results.map((x) => x.node)).toEqual(NODES.map(([, uid]) => uid));
+    expect(r.results[0]).toEqual({ node: "k3m9pq", title: "an entry dated inside a closed month is refused [hc:k3m9pq]", file: "cases/k3m9pq.case.json", runner: "cases", outcome: "passed", message: "asked for hc:(k3m9pq|w7x2ab|q2q2q2)", ms: 3 });
     expect(r.results[1]).toMatchObject({ outcome: "failed", message: "expected 1400, got 1300" });
     expect(r.results[2]?.message).toBe("The test file cases/r5t8yz.case.json is gone.");
     expect(r.results[3]?.message).toBe("The test file cases/n4h6cd.case.json changed after the test was accepted.");
     expect(r.results[4]?.message).toContain("REQ-1.1.5 was reworded");
     expect(r.results[5]?.message).toBe("The runner reported nothing under this title.");
-    expect(r.results.filter((x) => isFailing(x.outcome)).map((x) => x.box)).toEqual(["w7x2ab", "r5t8yz", "n4h6cd", "j8v3ef"]);
+    expect(r.results.filter((x) => isFailing(x.outcome)).map((x) => x.node)).toEqual(["w7x2ab", "r5t8yz", "n4h6cd", "j8v3ef"]);
     expect(r.runs).toHaveLength(1);
     expect(r.runs[0]).toMatchObject({ runner: "cases", exit: 1 });
     expect(r.runs[0]?.error).toBeUndefined();
@@ -445,21 +445,21 @@ describe("running the tests [DEC-026]", () => {
     expect(runFolders()).toEqual(folders);
   }, 60_000);
 
-  it("runs some boxes and keeps what the others last said, marked with the tree they were measured on", () => {
+  it("runs some nodes and keeps what the others last said, marked with the tree they were measured on", () => {
     const p = accepted();
     const whole = runTests(p.canon);
     expect(outcomes(whole)).toEqual({ k3m9pq: "passed", w7x2ab: "failed", r5t8yz: "passed", n4h6cd: "passed", j8v3ef: "passed", q2q2q2: "not-run" });
     // every test of the runner is in the run: the pattern is the tag's start alone
     expect(whole.results[0]?.message).toBe("asked for hc:");
     p.write("src/total.mjs", "export const total = 1400;\n");
-    const part = runTests(p.canon, { boxes: ["w7x2ab", "k3m9pq"] });
+    const part = runTests(p.canon, { nodes: ["w7x2ab", "k3m9pq"] });
     expect(part.tree).not.toBe(whole.tree);
-    expect(part.results.map((x) => [x.box, x.outcome, x.tree])).toEqual([["k3m9pq", "passed", undefined], ["w7x2ab", "failed", undefined], ["r5t8yz", "passed", whole.tree], ["n4h6cd", "passed", whole.tree], ["j8v3ef", "passed", whole.tree], ["q2q2q2", "not-run", whole.tree]]);
-    // the runner was asked for the titles of those two boxes only, the pattern whole through the shell
+    expect(part.results.map((x) => [x.node, x.outcome, x.tree])).toEqual([["k3m9pq", "passed", undefined], ["w7x2ab", "failed", undefined], ["r5t8yz", "passed", whole.tree], ["n4h6cd", "passed", whole.tree], ["j8v3ef", "passed", whole.tree], ["q2q2q2", "not-run", whole.tree]]);
+    // the runner was asked for the titles of those two nodes only, the pattern whole through the shell
     expect(part.results[0]?.message).toBe("asked for hc:(k3m9pq|w7x2ab)");
-    expect(runTests(p.canon, { boxes: ["k3m9pq"] }).results[0]?.message).toBe("asked for hc:k3m9pq");
+    expect(runTests(p.canon, { nodes: ["k3m9pq"] }).results[0]?.message).toBe("asked for hc:k3m9pq");
     // a run of nothing runs nothing and keeps everything; a run by kind takes only that kind
-    expect(runTests(p.canon, { boxes: [] }).runs).toEqual([]);
+    expect(runTests(p.canon, { nodes: [] }).runs).toEqual([]);
     expect(runTests(p.canon, { kinds: ["unit"] }).runs).toEqual([]);
     expect(runTests(p.canon, { kinds: ["eval"] }).results.every((x) => x.tree === undefined)).toBe(true);
     expect(loadResults(gitDirOf(p.canon)!)?.results).toHaveLength(6);
@@ -470,7 +470,7 @@ describe("running the tests [DEC-026]", () => {
     setRunner(p.canon, "cases", { kind: "eval", command: "node tools/run-cases.mjs --titles {titles} --out {out} {files}", format: "headcanon-json" });
     addTests(p.canon, [caseEntry("k3m9pq"), caseEntry("w7x2ab"), caseEntry("r5t8yz")]);
     reviewTests(p.canon, "k3m9pq", "pass");
-    reviewTests(p.canon, "w7x2ab", "fail", "The case does not check what the box says.");
+    reviewTests(p.canon, "w7x2ab", "fail", "The case does not check what the node says.");
     expect(outcomes(runTests(p.canon))).toEqual({ k3m9pq: "passed" });
     expect(outcomes(runTests(p.canon, { all: true }))).toEqual({ k3m9pq: "passed", r5t8yz: "passed" });
   }, 60_000);
@@ -593,7 +593,7 @@ describe("saying the results and the commands [DEC-026]", () => {
     return { ctx, out, err, text: () => out.join("") };
   };
 
-  it("describes a run in plain lines: the counts, each box, and what every test that did not pass said", () => {
+  it("describes a run in plain lines: the counts, each node, and what every test that did not pass said", () => {
     const p = accepted();
     rmSync(join(p.repo, "cases", "r5t8yz.case.json"));
     const r = runTests(p.canon);
@@ -614,7 +614,7 @@ describe("saying the results and the commands [DEC-026]", () => {
       "    The runner reported nothing under this title.",
     ]);
     expect(describeResults({ at: r.at, tree: r.tree, results: [], runs: [] }, loadCanon(p.canon))).toBe("No recorded test ran.");
-    expect(describeResults({ ...r, results: [{ box: "gone99", title: "t [hc:gone99]", file: "f", runner: "cases", outcome: "passed" }], runs: [{ runner: "cases", exit: null, ms: 1, error: "the runner did not return within 2 seconds and was stopped" }] }, loadCanon(p.canon)).split("\n").slice(1)).toEqual(["[hc:gone99] (no longer in the canon): 1 passed", "Runner cases: the runner did not return within 2 seconds and was stopped"]);
+    expect(describeResults({ ...r, results: [{ node: "gone99", title: "t [hc:gone99]", file: "f", runner: "cases", outcome: "passed" }], runs: [{ runner: "cases", exit: null, ms: 1, error: "the runner did not return within 2 seconds and was stopped" }] }, loadCanon(p.canon)).split("\n").slice(1)).toEqual(["[hc:gone99] (no longer in the canon): 1 passed", "Runner cases: the runner did not return within 2 seconds and was stopped"]);
   }, 60_000);
 
   it("records a runner, adds, reviews, lists, runs and shows results from the command line", async () => {
@@ -637,15 +637,15 @@ describe("saying the results and the commands [DEC-026]", () => {
     c = io(p);
     expect(await testsCli(["add", "@" + join(side, "entries.json")], c.ctx)).toBe(0);
     expect(c.text()).toBe("2 tests recorded as proposed.\n");
-    c = io(p, { stdin: () => JSON.stringify([caseEntry("r5t8yz"), { ...caseEntry("n4h6cd"), box: "nobody" }]) });
+    c = io(p, { stdin: () => JSON.stringify([caseEntry("r5t8yz"), { ...caseEntry("n4h6cd"), node: "nobody" }]) });
     expect(await testsCli(["add", "-", "--by", "tester-REQ-1"], c.ctx)).toBe(1);
-    expect(c.text()).toBe('1 test recorded as proposed.\nRefused: test 2 "an entry whose amount is text is refused [hc:n4h6cd]": box "nobody" is not the uid of a box in the canon\n');
+    expect(c.text()).toBe('1 test recorded as proposed.\nRefused: test 2 "an entry whose amount is text is refused [hc:n4h6cd]": node "nobody" is not the uid of a node in the canon\n');
     expect(loadManifest(p.canon).tests.map((t) => t.by)).toEqual(["tester-REQ-1.1", "tester-REQ-1.1", "tester-REQ-1"]);
     c = io(p);
     expect(await testsCli(["add", "{not json"], c.ctx)).toBe(1);
     expect(c.err.join("")).toContain("tests add: not valid JSON");
 
-    // a review names the box by its id or its uid; a fail needs its note
+    // a review names the node by its id or its uid; a fail needs its note
     c = io(p);
     expect(await testsCli(["review", "REQ-1.1.1", "pass"], c.ctx)).toBe(0);
     expect(c.text()).toBe("1 test of REQ-1.1.1 accepted.\n");
@@ -657,18 +657,18 @@ describe("saying the results and the commands [DEC-026]", () => {
     expect(c.text()).toBe("1 test of REQ-1.1.2 rejected.\n");
     c = io(p);
     expect(await testsCli(["review", "REQ-1.1.3", "pass", "--json"], c.ctx)).toBe(0);
-    expect(JSON.parse(c.text())).toEqual({ ok: true, box: "r5t8yz", changed: 1 });
+    expect(JSON.parse(c.text())).toEqual({ ok: true, node: "r5t8yz", changed: 1 });
     c = io(p);
     expect(await testsCli(["review", "REQ-1.1.3", "pass"], c.ctx)).toBe(1);
     c = io(p);
     expect(await testsCli(["review", "REQ-7", "pass"], c.ctx)).toBe(1);
-    expect(c.err.join("")).toBe("tests review: REQ-7 is not a box with a uid in the canon\n");
+    expect(c.err.join("")).toBe("tests review: REQ-7 is not a node with a uid in the canon\n");
 
     c = io(p);
     expect(await testsCli(["results"], c.ctx)).toBe(0);
     expect(c.text()).toBe("No test has run yet.\n");
 
-    // a run of a capability takes the boxes below it; it exits 0 only when nothing fails
+    // a run of a capability takes the nodes below it; it exits 0 only when nothing fails
     c = io(p);
     expect(await testsCli(["run", "REQ-1.1"], c.ctx)).toBe(0);
     expect(c.text().split("\n").slice(1)).toEqual(["REQ-1.1.1 A closed month refuses entries: 1 passed", "REQ-1.1.3 Only the owner reopens a month: 1 passed", ""]);
@@ -676,7 +676,7 @@ describe("saying the results and the commands [DEC-026]", () => {
     expect(await testsCli(["review", "REQ-1.1.2", "pass"], io(p).ctx)).toBe(0);
     c = io(p, { json: true });
     expect(await testsCli(["run", "REQ-1.1.2", "REQ-1.1.1", "--kind", "eval"], c.ctx)).toBe(1);
-    expect((JSON.parse(c.text()) as TestResults).results.map((x) => [x.box, x.outcome])).toEqual([["k3m9pq", "passed"], ["w7x2ab", "failed"], ["r5t8yz", "passed"]]);
+    expect((JSON.parse(c.text()) as TestResults).results.map((x) => [x.node, x.outcome])).toEqual([["k3m9pq", "passed"], ["w7x2ab", "failed"], ["r5t8yz", "passed"]]);
     c = io(p);
     expect(await testsCli(["run", "--kind", "smoke"], c.ctx)).toBe(1);
     expect(c.err.join("")).toBe("tests run: --kind is one of unit, integration, e2e, eval, other; got smoke\n");
@@ -691,7 +691,7 @@ describe("saying the results and the commands [DEC-026]", () => {
 
     c = io(p);
     expect(await testsCli(["list", "REQ-1.1.2"], c.ctx)).toBe(0);
-    expect(c.text()).toBe("REQ-1.1.2 eval, accepted, failed: Runs the sample case and compares what the product answered with what the box says it must answer. (cases/w7x2ab.case.json)\n");
+    expect(c.text()).toBe("REQ-1.1.2 eval, accepted, failed: Runs the sample case and compares what the product answered with what the node says it must answer. (cases/w7x2ab.case.json)\n");
     c = io(p, { json: true });
     expect(await testsCli(["list"], c.ctx)).toBe(0);
     const listed = JSON.parse(c.text()) as { runners: Record<string, unknown>; tests: Array<{ id: string; status: string; outcome?: string }> };
@@ -713,12 +713,12 @@ describe("saying the results and the commands [DEC-026]", () => {
     // the run as runs.ts stores it: <git dir>/headcanon/runs/<run id>.json
     const runs = join(gitDirOf(p.canon)!, "headcanon", "runs");
     mkdirSync(runs, { recursive: true });
-    writeFileSync(join(runs, "run-1.json"), JSON.stringify({ id: "run-1", startedAt: "2026-11-18T00:00:00Z", scope: ["REQ-1.1.2"], single: true, branch: "headcanon/build", base: "main", status: "running", steps: [], slices: [{ box: "REQ-1.1.2", uid: "w7x2ab", title: "A statement totals its entries", status: "building", owes: ["w7x2ab"], attempts: 0, lastFailing: [], commits: [], issues: [] }], firstRun: { passing: [CASES["k3m9pq"]!.title] } }));
+    writeFileSync(join(runs, "run-1.json"), JSON.stringify({ id: "run-1", startedAt: "2026-11-18T00:00:00Z", scope: ["REQ-1.1.2"], single: true, branch: "headcanon/build", base: "main", status: "running", steps: [], slices: [{ node: "REQ-1.1.2", uid: "w7x2ab", title: "A statement totals its entries", status: "building", owes: ["w7x2ab"], attempts: 0, lastFailing: [], commits: [], issues: [] }], firstRun: { passing: [CASES["k3m9pq"]!.title] } }));
     let c = io(p, { json: true });
     expect(await testsCli(["run", "--run", "run-1"], c.ctx)).toBe(1);
     expect(c.err.join("")).toBe("");
-    expect((JSON.parse(c.text()) as TestResults).results.map((x) => [x.box, x.outcome, x.message])).toEqual([["k3m9pq", "passed", "asked for hc:(k3m9pq|w7x2ab)"], ["w7x2ab", "failed", "expected 1400, got 1300"]]);
-    // a box named with the run narrows it further
+    expect((JSON.parse(c.text()) as TestResults).results.map((x) => [x.node, x.outcome, x.message])).toEqual([["k3m9pq", "passed", "asked for hc:(k3m9pq|w7x2ab)"], ["w7x2ab", "failed", "expected 1400, got 1300"]]);
+    // a node named with the run narrows it further
     c = io(p);
     expect(await testsCli(["run", "REQ-1.1.1", "--run=run-1"], c.ctx)).toBe(0);
     expect(c.text()).toContain("REQ-1.1.1 A closed month refuses entries: 1 passed");

@@ -16,7 +16,7 @@ Source: Claude Code session, 2026-10-11.
 
 ## Intent [assumed]
 
-Writ's intent check (REQ-9.2, stage 1) compares every requirement a change request creates or updates against the principles in the root README, using the user-supplied model (REQ-2.5). For each requirement it reports which principles it upholds and which it drifts from, with a justification, as part of the review report that is the audit trail (REQ-9.16). Drift blocks the check until the human approves it; approving drift is an intent change (REQ-8.1) that updates the principle or the requirement and is recorded in the history. HeadCanon performs the same judgment in the session when proposing a change request, as an early warning; Writ is the gate (REQ-9.13).
+Writ's intent check (REQ-9.2, stage 1) compares every requirement a change request creates or updates against the principles in the root README, using the user-supplied model (REQ-2.5). For each requirement it reports which principles it upholds and which it drifts from, with a justification, as part of the review report that is the audit trail (REQ-9.16). Drift blocks the check until the user approves it; approving drift is an intent change (REQ-8.1) that updates the principle or the requirement and is recorded in the history. HeadCanon performs the same judgment in the session when proposing a change request, as an early warning; Writ is the gate (REQ-9.13).
 
 ## Not this [assumed]
 

@@ -90,7 +90,7 @@ describe("commit-msg [REQ-8.5, REQ-8.5.1]", () => {
       writeFileSync(join(canonDir, "README.md"), "---\nid: ROOT\ntitle: x\nstate: resolved\n---\n# x\n\n## Intent\n\nA ledger.\n");
       writeFileSync(join(canonDir, "REQ-1-a.md"), "---\nid: REQ-1\ntitle: a\nstate: assumed\n---\n# a\n\n## Intent\n\nA holds.\n");
       git("add", "canon");
-      const msg = "docs(canon): add a box\n\nIntent: REQ-1\nIntent-Change: create REQ-1\nApproved-By: pending (the owner reviews on the page)\n";
+      const msg = "docs(canon): add a node\n\nIntent: REQ-1\nIntent-Change: create REQ-1\nApproved-By: pending (the owner reviews on the page)\n";
       expect(checkStagedCommit(repo, canonDir, msg).errors.join("\n")).toMatch(/no intent review is recorded/);
       expect(checkStagedCommit(repo, canonDir, msg.replace("REQ-1\nIntent-Change", "REQ-7\nIntent-Change")).errors).toContain("Intent REQ-7 does not exist in the canon");
       const diff = stagedIntentDiff(repo);

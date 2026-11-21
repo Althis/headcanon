@@ -21,7 +21,7 @@ import { treeDigest, type TestEntry, type TestResult, type TestResults } from ".
 
 const TREE = "tree-now";
 const title = (uid: string, words: string) => `${words} [hc:${uid}]`;
-const res = (uid: string, words: string, outcome: TestResult["outcome"], message?: string): TestResult => ({ box: uid, title: title(uid, words), file: `tests/${uid}.test.js`, runner: "unit", outcome, ...(message ? { message } : {}) });
+const res = (uid: string, words: string, outcome: TestResult["outcome"], message?: string): TestResult => ({ node: uid, title: title(uid, words), file: `tests/${uid}.test.js`, runner: "unit", outcome, ...(message ? { message } : {}) });
 const resultsOf = (results: TestResult[], tree = TREE): TestResults => ({ at: "2026-11-18T10:00:00Z", tree, results, runs: [] });
 
 const DATE = title("aaaaa2", "refuses an entry without a date");
@@ -29,14 +29,14 @@ const AMOUNT = title("aaaaa2", "refuses an entry without an amount");
 const STORED = title("fffff2", "writes the totals at closing");
 const LISTED = title("ddddd2", "lists the oldest entry first");
 
-/** A slice for REQ-1.1.1 that also owes the box with uid fffff2. */
-const sliceOf = (patch: Partial<Slice> = {}): Slice => ({ box: "REQ-1.1.1", uid: "aaaaa2", title: "An entry carries a date and an amount", status: "building", agentName: "implementer-REQ-1.1.1", owes: ["aaaaa2", "fffff2"], attempts: 0, lastFailing: [], commits: [], issues: [], ...patch });
+/** A slice for REQ-1.1.1 that also owes the node with uid fffff2. */
+const sliceOf = (patch: Partial<Slice> = {}): Slice => ({ node: "REQ-1.1.1", uid: "aaaaa2", title: "An entry carries a date and an amount", status: "building", agentName: "implementer-REQ-1.1.1", owes: ["aaaaa2", "fffff2"], attempts: 0, lastFailing: [], commits: [], issues: [], ...patch });
 const runOf = (slice: Slice, patch: Partial<Run> = {}): Run => ({ id: "run-1", startedAt: "2026-11-18T09:00:00Z", scope: ["REQ-1.1.1"], single: true, branch: "headcanon/build", base: "main", status: "running", steps: [], slices: [slice], ...patch });
 /** Everything passing on a clean tree with sound commits; each test changes what it is about. */
 function input(patch: Partial<StopInput> & { slicePatch?: Partial<Slice> } = {}): StopInput {
   const { slicePatch, ...rest } = patch;
   const slice = sliceOf(slicePatch);
-  return { run: runOf(slice), slice, results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), res("fffff2", "writes the totals at closing", "passed")]), tree: TREE, dirty: false, badCommits: [], openIssuesByBox: {}, regressed: [], ...rest };
+  return { run: runOf(slice), slice, results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), res("fffff2", "writes the totals at closing", "passed")]), tree: TREE, dirty: false, badCommits: [], openIssuesByNode: {}, regressed: [], ...rest };
 }
 const failingDate = resultsOf([res("aaaaa2", "refuses an entry without a date", "failed", "the entry was accepted"), res("fffff2", "writes the totals at closing", "passed")]);
 const failingBoth = resultsOf([res("aaaaa2", "refuses an entry without a date", "failed", "the entry was accepted"), res("fffff2", "writes the totals at closing", "errored", "closeMonth is not a function")]);
@@ -59,7 +59,7 @@ describe("stopDecision", () => {
     expect(d.reason).toContain("Run the tests first");
   });
 
-  it("blocks when one owed test's result was kept from an earlier tree, and ignores such a result of a box it does not owe", () => {
+  it("blocks when one owed test's result was kept from an earlier tree, and ignores such a result of a node it does not owe", () => {
     const kept = (uid: string) => ({ ...res(uid, "kept from before", "passed"), tree: "tree-before" });
     expect(stopDecision(input({ results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), kept("fffff2")]) })).reason).toContain("Run the tests first");
     expect(stopDecision(input({ results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), kept("ddddd2")]) })).decision).toBe("allow");
@@ -74,23 +74,23 @@ describe("stopDecision", () => {
     expect(d.reason).not.toContain("do not pass yet");
   });
 
-  it("blocks while a test that passed in the first run fails now, even when its own boxes pass", () => {
+  it("blocks while a test that passed in the first run fails now, even when its own nodes pass", () => {
     const d = stopDecision(input({ regressed: [LISTED], results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), res("ddddd2", "lists the oldest entry first", "failed", "2 March came first")]) }));
     expect(d.decision).toBe("block");
     expect(d.reason).toContain("passed before you started and fail now");
     expect(d.reason).toContain(`- ${LISTED} (tests/ddddd2.test.js): failed: 2 March came first`);
   });
 
-  it("allows when every owed box passes and the tree is clean", () => {
-    expect(stopDecision(input())).toEqual({ decision: "allow", reason: "every test of its boxes passes and the tree is clean" });
+  it("allows when every owed node passes and the tree is clean", () => {
+    expect(stopDecision(input())).toEqual({ decision: "allow", reason: "every test of its nodes passes and the tree is clean" });
   });
 
-  it("does not count a failing test of a box the slice does not owe", () => {
+  it("does not count a failing test of a node the slice does not owe", () => {
     const d = stopDecision(input({ results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), res("ddddd2", "lists the oldest entry first", "failed")]) }));
     expect(d.decision).toBe("allow");
   });
 
-  it("allows a slice whose boxes carry no test at all, on a clean tree", () => {
+  it("allows a slice whose nodes carry no test at all, on a clean tree", () => {
     expect(stopDecision(input({ results: resultsOf([]) })).decision).toBe("allow");
   });
 
@@ -101,30 +101,30 @@ describe("stopDecision", () => {
   });
 
   it("blocks on an unclean tree before it weighs issues or the budget", () => {
-    const d = stopDecision(input({ dirty: true, results: failingDate, openIssuesByBox: { aaaaa2: 1 }, slicePatch: { attempts: RETRY_BUDGET, lastFailing: [DATE] } }));
+    const d = stopDecision(input({ dirty: true, results: failingDate, openIssuesByNode: { aaaaa2: 1 }, slicePatch: { attempts: RETRY_BUDGET, lastFailing: [DATE] } }));
     expect(d.decision).toBe("block");
     expect(d.reason).toMatch(/^Commit your work: the tree is not clean/);
   });
 
-  it("allows when every failing owed box has an open issue of this slice", () => {
-    const d = stopDecision(input({ results: failingBoth, openIssuesByBox: { aaaaa2: 1, fffff2: 2 } }));
-    expect(d).toEqual({ decision: "allow", reason: "every box still failing has an issue waiting on the person" });
+  it("allows when every failing owed node has an open issue of this slice", () => {
+    const d = stopDecision(input({ results: failingBoth, openIssuesByNode: { aaaaa2: 1, fffff2: 2 } }));
+    expect(d).toEqual({ decision: "allow", reason: "every node still failing has an issue waiting on the user" });
   });
 
-  it("blocks when one failing box has an issue and another has none", () => {
-    const d = stopDecision(input({ results: failingBoth, openIssuesByBox: { aaaaa2: 1 } }));
+  it("blocks when one failing node has an issue and another has none", () => {
+    const d = stopDecision(input({ results: failingBoth, openIssuesByNode: { aaaaa2: 1 } }));
     expect(d.decision).toBe("block");
-    expect(d.reason).toContain("Boxes that already have your issue need no second one.");
+    expect(d.reason).toContain("Nodes that already have your issue need no second one.");
   });
 
   it("blocks with the failing tests, their messages and both exits named", () => {
     const d = stopDecision(input({ results: failingBoth }));
     expect(d.decision).toBe("block");
-    expect(d.reason).toContain("These tests of your boxes do not pass yet:");
+    expect(d.reason).toContain("These tests of your nodes do not pass yet:");
     expect(d.reason).toContain(`- ${DATE} (tests/aaaaa2.test.js): failed: the entry was accepted`);
     expect(d.reason).toContain(`- ${STORED} (tests/fffff2.test.js): broke before it could finish: closeMonth is not a function`);
     expect(d.reason).toContain("One: make them pass, run `HC tests run --run run-1` again, commit, then stop.");
-    expect(d.reason).toContain("Two: for each box you cannot make pass, file an issue that blocks it");
+    expect(d.reason).toContain("Two: for each node you cannot make pass, file an issue that blocks it");
     expect(d.reason).toContain('`by` "implementer-REQ-1.1.1", `blocks` true, and `kind` "impossible"');
     expect(d.fileIssues).toBeUndefined();
   });
@@ -148,34 +148,34 @@ describe("stopDecision", () => {
     expect(d.fileIssues).toBeUndefined();
   });
 
-  it("allows when the same tests fail again and the budget is reached, with an impossible issue to file for each failing box", () => {
+  it("allows when the same tests fail again and the budget is reached, with an impossible issue to file for each failing node", () => {
     const d = stopDecision(input({ results: failingBoth, slicePatch: { attempts: RETRY_BUDGET, lastFailing: [STORED, DATE] } }));
     expect(d.decision).toBe("allow");
-    expect(d.reason).toContain("filed for the person as impossible");
-    expect(d.fileIssues?.map((i) => i.box)).toEqual(["aaaaa2", "fffff2"]);
-    expect(d.fileIssues?.[0]?.text).toContain("could not make this box pass");
+    expect(d.reason).toContain("filed for the user as impossible");
+    expect(d.fileIssues?.map((i) => i.node)).toEqual(["aaaaa2", "fffff2"]);
+    expect(d.fileIssues?.[0]?.text).toContain("could not make this node pass");
     expect(d.fileIssues?.[0]?.text).toContain(`- ${DATE} (tests/aaaaa2.test.js): failed: the entry was accepted`);
     expect(d.fileIssues?.[0]?.text).not.toContain(STORED);
     expect(d.fileIssues?.[1]?.text).toContain(STORED);
   });
 
-  it("files no second issue for a failing box that already has one when the budget is reached", () => {
-    const d = stopDecision(input({ results: failingBoth, openIssuesByBox: { fffff2: 1 }, slicePatch: { attempts: RETRY_BUDGET, lastFailing: [DATE, STORED] } }));
+  it("files no second issue for a failing node that already has one when the budget is reached", () => {
+    const d = stopDecision(input({ results: failingBoth, openIssuesByNode: { fffff2: 1 }, slicePatch: { attempts: RETRY_BUDGET, lastFailing: [DATE, STORED] } }));
     expect(d.decision).toBe("allow");
-    expect(d.fileIssues?.map((i) => i.box)).toEqual(["aaaaa2"]);
+    expect(d.fileIssues?.map((i) => i.node)).toEqual(["aaaaa2"]);
   });
 
-  it("lets go of a break it could not undo once the budget is reached, with an issue on the slice's box", () => {
+  it("lets go of a break it could not undo once the budget is reached, with an issue on the slice's node", () => {
     const results = resultsOf([res("aaaaa2", "refuses an entry without a date", "passed"), res("ddddd2", "lists the oldest entry first", "failed")]);
     const blocked = stopDecision(input({ regressed: [LISTED], results, slicePatch: { attempts: RETRY_BUDGET - 1, lastFailing: [LISTED] } }));
     expect(blocked.decision).toBe("block");
     const d = stopDecision(input({ regressed: [LISTED], results, slicePatch: { attempts: RETRY_BUDGET, lastFailing: [LISTED] } }));
     expect(d.decision).toBe("allow");
     expect(d.fileIssues).toHaveLength(1);
-    expect(d.fileIssues?.[0]).toMatchObject({ box: "aaaaa2" });
+    expect(d.fileIssues?.[0]).toMatchObject({ node: "aaaaa2" });
     expect(d.fileIssues?.[0]?.text).toContain(`- ${LISTED}`);
-    // an issue on the failing box does not excuse the break before the budget is reached
-    expect(stopDecision(input({ regressed: [LISTED], results: failingDate, openIssuesByBox: { aaaaa2: 1 } })).decision).toBe("block");
+    // an issue on the failing node does not excuse the break before the budget is reached
+    expect(stopDecision(input({ regressed: [LISTED], results: failingDate, openIssuesByNode: { aaaaa2: 1 } })).decision).toBe("block");
   });
 });
 
@@ -196,7 +196,7 @@ describe("what a stop records", () => {
 
   it("starts over when everything passes, and keeps the count when the agent is let go with tests failing", () => {
     expect(nextAttempt(input({ slicePatch: { attempts: 2, lastFailing: [DATE] } }))).toEqual({ attempts: 0, lastFailing: [] });
-    expect(nextAttempt(input({ results: failingDate, openIssuesByBox: { aaaaa2: 1 }, slicePatch: { attempts: 1, lastFailing: [AMOUNT] } }))).toEqual({ attempts: 1, lastFailing: [DATE] });
+    expect(nextAttempt(input({ results: failingDate, openIssuesByNode: { aaaaa2: 1 }, slicePatch: { attempts: 1, lastFailing: [AMOUNT] } }))).toEqual({ attempts: 1, lastFailing: [DATE] });
   });
 
   it("reaches the budget after as many stops sent back with the same tests", () => {
@@ -270,7 +270,7 @@ function ledgerline(): Repo {
   return { repo, canonDir, gitDir };
 }
 
-const entry = (uid: string, words: string): TestEntry => ({ box: uid, id: "", runner: "unit", kind: "unit", file: `tests/${uid}.test.js`, title: title(uid, words), description: `${words}.`, pin: "pin", status: "accepted", at: "2026-11-18T00:00:00Z" });
+const entry = (uid: string, words: string): TestEntry => ({ node: uid, id: "", runner: "unit", kind: "unit", file: `tests/${uid}.test.js`, title: title(uid, words), description: `${words}.`, pin: "pin", status: "accepted", at: "2026-11-18T00:00:00Z" });
 /** Record the accepted tests and what the last run said, measured on the files as they are now. */
 function record(r: Repo, tests: TestEntry[], results: TestResult[]): void {
   // the record of tests is a file of the tree, so it is written before the tree is measured
@@ -345,7 +345,7 @@ describe("gate subagent-stop", () => {
     expect(b.err).toEqual([]);
   });
 
-  it("lets an agent go whose run was stopped or whose slice the person already decided", async () => {
+  it("lets an agent go whose run was stopped or whose slice the user already decided", async () => {
     const r = ledgerline();
     const { run, hook } = building(r);
     record(r, [DATE_TEST], [res("aaaaa2", "refuses an entry without a date", "failed")]);
@@ -392,7 +392,7 @@ describe("gate subagent-stop", () => {
     expect(sliceNow(r, run)).toMatchObject({ status: "building", attempts: 0, agent: "a1" });
   });
 
-  it("blocks when an accepted test of an owed box has no stored result", async () => {
+  it("blocks when an accepted test of an owed node has no stored result", async () => {
     const r = ledgerline();
     const { hook } = building(r);
     record(r, [DATE_TEST], []);
@@ -450,7 +450,7 @@ describe("gate subagent-stop", () => {
     expect((JSON.parse(out[0]!) as { reason: string }).reason).toContain('- bad0000 wip: missing "Intent:" trailer');
   });
 
-  it("lets go when the failing box has the slice's own blocking issue, and holds for an issue someone else filed", async () => {
+  it("lets go when the failing node has the slice's own blocking issue, and holds for an issue someone else filed", async () => {
     const r = ledgerline();
     const { run, hook } = building(r);
     record(r, [DATE_TEST], [res("aaaaa2", "refuses an entry without a date", "failed")]);
@@ -471,7 +471,7 @@ describe("gate subagent-stop", () => {
     expect(sliceNow(r, run)).toMatchObject({ status: "blocked", issues: ["q-implementer-REQ-1.1.1"], lastFailing: [DATE] });
   });
 
-  it("after the budget of stops with the same tests failing, files the box as impossible in the question store and lets the agent go", async () => {
+  it("after the budget of stops with the same tests failing, files the node as impossible in the question store and lets the agent go", async () => {
     const r = ledgerline();
     const { run, hook } = building(r);
     record(r, [DATE_TEST], [res("aaaaa2", "refuses an entry without a date", "failed", "the entry was accepted")]);
@@ -493,7 +493,7 @@ describe("gate subagent-stop", () => {
     expect(String(filed[0]!["why"])).toContain(`- ${DATE} (tests/aaaaa2.test.js): failed: the entry was accepted`);
     expect((filed[0]!["options"] as Array<{ label: string }>).map((o) => o.label)).toEqual(["Try again", "Change the requirement", "Leave it for now"]);
     expect(sliceNow(r, run)).toMatchObject({ status: "blocked", issues: [filed[0]!["id"]] });
-    // the issue now stands for the box: a later stop is let go without a second one
+    // the issue now stands for the node: a later stop is let go without a second one
     const again = ctxOf(r, hook);
     expect(await gateCli(["subagent-stop"], again.ctx)).toBe(0);
     expect(again.out).toEqual([]);
@@ -551,20 +551,20 @@ describe("gate subagent-stop", () => {
 });
 
 describe("the session's own check of a slice", () => {
-  it("is blocked, not failed, when what fails waits on the person", () => {
+  it("is blocked, not failed, when what fails waits on the user", () => {
     const r = ledgerline();
     const { run } = building(r);
     record(r, [DATE_TEST], []);
     writeFileSync(join(r.gitDir, "headcanon", "questions.json"), JSON.stringify({ queue: [{ id: "q9", askedAt: "2026-11-18T10:00:00Z", kind: "impossible", question: "How?", header: "Could not be built", options: [], multiSelect: false, nodeId: "REQ-1.1.1", terms: [], by: "implementer-REQ-1.1.1", blocks: true }] }));
     const at = { canonDir: r.canonDir, repo: r.repo, gitDir: r.gitDir, run: loadRun(r.gitDir, run.id)!, slice: sliceNow(r, run) };
     const blocked = checkSlice({ ...at, results: resultsOf([res("aaaaa2", "refuses an entry without a date", "failed")], treeDigest(r.repo)) });
-    expect(blocked).toMatchObject({ box: "REQ-1.1.1", verdict: "blocked", passing: 0, issues: ["q9"] });
-    expect(blocked.text).toContain("blocked: what fails waits on the person");
+    expect(blocked).toMatchObject({ node: "REQ-1.1.1", verdict: "blocked", passing: 0, issues: ["q9"] });
+    expect(blocked.text).toContain("blocked: what fails waits on the user");
     const passing = checkSlice({ ...at, results: resultsOf([res("aaaaa2", "refuses an entry without a date", "passed")], treeDigest(r.repo)) });
     expect(passing).toMatchObject({ verdict: "pass", passing: 1, failing: [] });
   });
 
-  it("fails on a break of what passed before, and tells a commit of this slice from one that names another box", () => {
+  it("fails on a break of what passed before, and tells a commit of this slice from one that names another node", () => {
     const r = ledgerline();
     const { run } = building(r);
     record(r, [DATE_TEST], []);
@@ -578,7 +578,7 @@ describe("the session's own check of a slice", () => {
     expect(report.verdict).toBe("fail");
     expect(report.regressed).toEqual([LISTED]);
     expect(report.commits.map((c) => ({ names: c.names, mine: c.mine }))).toEqual([{ names: ["REQ-1.1.1"], mine: true }, { names: ["REQ-1.1.2"], mine: false }]);
-    expect(report.text).toContain("names REQ-1.1.2, no box of this slice");
+    expect(report.text).toContain("names REQ-1.1.2, no node of this slice");
     expect(report.text).toContain("Passed in the first run and fail now:");
   });
 });

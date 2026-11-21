@@ -76,19 +76,19 @@ describe("proposals [alpha contract 3.3]", () => {
     expect(loadCanon(canon).nodes["REQ-1.1.2"]).toBeDefined();
   });
 
-  it("an operation the canon refuses leaves its proposal open with the refusal, for the session to ask the person", () => {
+  it("an operation the canon refuses leaves its proposal open with the refusal, for the session to ask the user", () => {
     const { canon } = repo();
     const locked = join(canon, "REQ-1-books/REQ-1.1-entries/REQ-1.1.2-locked.md");
     writeFileSync(locked, readFileSync(locked, "utf8").replace("state: assumed", "state: stated"));
     const p = propose(canon, { op: "merge", from: "REQ-1.1.2", to: "REQ-1.2.1" }, "both say a closed month does not change", "refiner-REQ-1.2");
     const r = applyProposal(canon, p.id, "session");
     expect(r.ok).toBe(false);
-    expect(r.error).toContain("is the human's");
+    expect(r.error).toContain("is the user's");
     expect(r.proposal).toMatchObject({ status: "open", result: r.error });
     expect(listProposals(canon, "open")).toEqual([r.proposal]);
     expect(loadCanon(canon).nodes["REQ-1.1.2"]).toBeDefined();
-    // once the person has decided, the same proposal can still be closed either way
-    expect(rejectProposal(canon, p.id, "the person keeps both")).toMatchObject({ status: "rejected", result: "the person keeps both" });
+    // once the user has decided, the same proposal can still be closed either way
+    expect(rejectProposal(canon, p.id, "the user keeps both")).toMatchObject({ status: "rejected", result: "the user keeps both" });
   });
 
   it("a name that carries a border is held to it when it applies a proposal", () => {
@@ -98,18 +98,18 @@ describe("proposals [alpha contract 3.3]", () => {
     expect(loadCanon(canon).nodes["REQ-1.1.2"]).toBeDefined();
   });
 
-  it("an open proposal follows the boxes it names through a move and a merge applied after it was recorded", () => {
+  it("an open proposal follows the nodes it names through a move and a merge applied after it was recorded", () => {
     const { canon } = repo();
     const link = propose(canon, { op: "link", from: "REQ-1.1.2", to: "REQ-1.2.1", kind: "requires", why: "a lock needs a closed month" }, "", refiner);
     const note = propose(canon, { op: "note", id: "REQ-1.1.1", text: "REQ-1.1.1 and REQ-1.1.2 share the date field" }, "seen from closing", "refiner-REQ-1.2");
     const moved = propose(canon, move, "locking is a rule of closing", refiner);
     tick();
     expect(applyProposal(canon, moved.id, "session")).toMatchObject({ ok: true, proposal: { result: "REQ-1.2.2" } });
-    // REQ-1.1.2 is REQ-1.2.2 now; the link proposed on the old id lands on the box it meant
+    // REQ-1.1.2 is REQ-1.2.2 now; the link proposed on the old id lands on the node it meant
     const r = applyProposal(canon, link.id, "session");
     expect(r).toMatchObject({ ok: true, proposal: { status: "applied", op: { op: "link", from: "REQ-1.2.2", to: "REQ-1.2.1", kind: "requires" } } });
     expect(loadCanon(canon).nodes["REQ-1.2.2"]?.requires).toEqual(["REQ-1.2.1"]);
-    // a merge takes the id away: what named it names the box that absorbed it, in the prose too
+    // a merge takes the id away: what named it names the node that absorbed it, in the prose too
     tick();
     expect(applyOp(canon, { op: "unlink", from: "REQ-1.2.2", to: "REQ-1.2.1", kind: "requires" }, { by: "session" }).ok).toBe(true);
     expect(applyOp(canon, { op: "merge", from: "REQ-1.2.2", to: "REQ-1.2.1" }, { by: "session" }).ok).toBe(true);
@@ -197,14 +197,14 @@ describe("HC propose and HC proposals [alpha contract 3.3]", () => {
     expect(empty.outText()).toBe("No open proposals.\n");
     const p1 = propose(canon, move, "locking is a rule of closing", refiner);
     const p2 = propose(canon, { op: "merge", from: "REQ-1.1.1", to: "REQ-1.2.1" }, "x", "refiner-REQ-1.2");
-    const p3 = propose(canon, { op: "note", id: "REQ-9", text: "x" }, "a box that is not there");
+    const p3 = propose(canon, { op: "note", id: "REQ-9", text: "x" }, "a node that is not there");
 
     const list = ctx(canon);
     expect(await proposalsCli("proposals", [], list)).toBe(0);
     expect(list.outText()).toBe([
       `${p1.id}  open  ${refiner}  move REQ-1.1.2 under REQ-1.2  why: locking is a rule of closing`,
       `${p2.id}  open  refiner-REQ-1.2  merge REQ-1.1.1 into REQ-1.2.1  why: x`,
-      `${p3.id}  open  -  note REQ-9  why: a box that is not there`, "",
+      `${p3.id}  open  -  note REQ-9  why: a node that is not there`, "",
     ].join("\n"));
 
     const applied = ctx(canon, { by: "session" });
@@ -232,7 +232,7 @@ describe("HC propose and HC proposals [alpha contract 3.3]", () => {
     // what is still open says why it waits; --json gives the records themselves
     const open = ctx(canon);
     expect(await proposalsCli("proposals", ["--open"], open)).toBe(0);
-    expect(open.outText()).toBe(`${p3.id}  open  -  note REQ-9  why: a box that is not there  refused: REQ-9 is not in the canon\n`);
+    expect(open.outText()).toBe(`${p3.id}  open  -  note REQ-9  why: a node that is not there  refused: REQ-9 is not in the canon\n`);
     const all = ctx(canon, { json: true });
     expect(await proposalsCli("proposals", [], all)).toBe(0);
     expect((JSON.parse(all.outText()) as Array<{ id: string; status: string }>).map((p) => `${p.id}:${p.status}`)).toEqual([`${p1.id}:applied`, `${p2.id}:rejected`, `${p3.id}:open`]);

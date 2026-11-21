@@ -34,6 +34,6 @@ TypeError: entry.amount is not a number</error>
     </testcase>
   </testsuite>
   <testsuite name="plain">
-    <testcase name="a case that names no box" classname="plain" />
+    <testcase name="a case that names no node" classname="plain" />
   </testsuite>
 </testsuite>

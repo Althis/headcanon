@@ -4,8 +4,8 @@ import { dirname } from "node:path";
 
 /**
  * The state the viewer keeps for a Claude Code session working through the page (REQ-12.1.7):
- * questions the session asked and the human has not answered, the node the session wants on
- * screen, and a feed of what the human did in the page that the session has not read yet.
+ * questions the session asked and the user has not answered, the node the session wants on
+ * screen, and a feed of what the user did in the page that the session has not read yet.
  * One instance lives in the HTTP server process; the MCP process reaches it over HTTP.
  */
 
@@ -22,7 +22,7 @@ export interface TermGuess {
 /**
  * An issue is an explicit request for help. A question; a contradiction to settle; the three other kinds the glossary
  * names (a disambiguation: a word that does not read one way; an apocrypha: wording that fails the quality tests; an
- * undefined: nothing in the evidence decides it); or a box an implementation agent could not make pass (impossible).
+ * undefined: nothing in the evidence decides it); or a node an implementation agent could not make pass (impossible).
  */
 export type IssueKind = "question" | "contradiction" | "disambiguation" | "apocrypha" | "undefined" | "impossible";
 
@@ -37,7 +37,7 @@ export interface AskRequest {
   kind?: IssueKind;
   /** Who files it, by the name it works under (`implementer-REQ-2.1`); none is the session itself. */
   by?: string;
-  /** True when the box cannot be built until the human settles this. */
+  /** True when the node cannot be built until the user settles this. */
   blocks?: boolean;
   /** Why it matters, in one or two sentences, shown as the issue's summary. */
   why?: string;
@@ -46,7 +46,7 @@ export interface AskRequest {
   multiSelect?: boolean;
   nodeId?: string;
   terms?: TermGuess[];
-  /** Something the human must know that is not part of the draft, shown apart from the question. */
+  /** Something the user must know that is not part of the draft, shown apart from the question. */
   notice?: string;
 }
 
@@ -133,15 +133,15 @@ export type FeedKind =
 
 /** The kinds the session itself puts in the feed: its says, the terminal mirror of its words, the questions it withdrew. */
 export const SESSION_MADE_KINDS: ReadonlySet<FeedKind> = new Set<FeedKind>(["say", "terminal", "question-superseded"]);
-/** True for an entry the human made on the page: the only kind that should wake a waiting session. */
-export const isHumanEntry = (e: FeedEntry): boolean => !SESSION_MADE_KINDS.has(e.kind);
+/** True for an entry the user made on the page: the only kind that should wake a waiting session. */
+export const isUserEntry = (e: FeedEntry): boolean => !SESSION_MADE_KINDS.has(e.kind);
 
 export interface FeedEntry {
   /** A say meant for the onboarding card rather than the chat. */
   intro?: boolean | undefined;
-  /** A say that needs the human now, to act or to answer: the only say the page chimes for. */
+  /** A say that needs the user now, to act or to answer: the only say the page chimes for. */
   attention?: boolean | undefined;
-  /** Who spoke, on a `terminal` entry: human or session. */
+  /** Who spoke, on a `terminal` entry: user or session. */
   role?: string | undefined;
   /** The onboarding's choices, on an `onboarding` entry. */
   mode?: string | undefined;
@@ -152,11 +152,11 @@ export interface FeedEntry {
   id?: string;
   text?: string;
   path?: string;
-  /** On a message: the passage the human highlighted in a node's card before writing. */
+  /** On a message: the passage the user highlighted in a node's card before writing. */
   quote?: string;
-  /** On a say: "human" when the line asks something of them; otherwise it is a report for the history. */
+  /** On a say: "user" when the line asks something of them; otherwise it is a report for the history. */
   to?: string;
-  /** On an answer: who filed the issue, and whether it held its box back from being built. */
+  /** On an answer: who filed the issue, and whether it held its node back from being built. */
   by?: string;
   blocks?: boolean;
 }
@@ -197,7 +197,7 @@ export class SessionState {
   private storeSeen = 0;
 
   /**
-   * Another process may rewrite the store: an operation that moves or merges boxes renames the node ids of their
+   * Another process may rewrite the store: an operation that moves or merges nodes renames the node ids of their
    * questions (`headcanon op`). The queue follows the file when it changed since this process last wrote it; every
    * method that reads or writes the queue refreshes first, so a stale queue never overwrites what an operation wrote.
    */
@@ -229,7 +229,7 @@ export class SessionState {
       why: req.why,
       question: req.question,
       header: req.header ?? HEADERS[kind],
-      // a contradiction's choices are the node's statements, read by the page; the default pair is for drafts; a box
+      // a contradiction's choices are the node's statements, read by the page; the default pair is for drafts; a node
       // that could not be built has only the choices its agent names
       options: kind === "question" ? (req.options && req.options.length ? req.options : DEFAULT_OPTIONS) : req.options ?? [],
       multiSelect: req.multiSelect ?? false,
@@ -239,15 +239,15 @@ export class SessionState {
       ...(by ? { by } : {}),
       ...(req.blocks === true ? { blocks: true } : {}),
     };
-    // one question per box and author: a newer one replaces the one its own author left pending, never another's
-    if (q.nodeId) this.supersede(q.nodeId, "a newer question on the same box", (x) => x.by === q.by);
+    // one question per node and author: a newer one replaces the one its own author left pending, never another's
+    if (q.nodeId) this.supersede(q.nodeId, "a newer question on the same node", (x) => x.by === q.by);
     this.queue.push(q);
     this.save();
     return q;
   }
 
   /**
-   * Withdraw the pending questions on a box: the human rewrote or deleted it, or a newer question replaced it.
+   * Withdraw the pending questions on a node: the user rewrote or deleted it, or a newer question replaced it.
    * `only` narrows it to some of them, such as one author's.
    */
   supersede(nodeId: string, reason: string, only: (q: PendingQuestion) => boolean = () => true): number {
@@ -287,7 +287,7 @@ export class SessionState {
     return this.queue.find((q) => q.id === id);
   }
 
-  /** Record the human's answer; resolves every waiter on that question. */
+  /** Record the user's answer; resolves every waiter on that question. */
   answer(partial: Omit<AskAnswer, "answeredAt">): boolean {
     this.refresh();
     const i = this.queue.findIndex((q) => q.id === partial.questionId);
@@ -335,7 +335,7 @@ export class SessionState {
   doing: { items: string[]; at: string } | undefined = undefined;
   /**
    * Where each worker is right now (DEC-025): the session signals the branches it holds, and every refiner signals the
-   * one box it is on, so the page shows live positions, never a guess from file times. A worker's new signal replaces
+   * one node it is on, so the page shows live positions, never a guess from file times. A worker's new signal replaces
    * its last; the session's own signals are a set, since it holds several domains at once.
    */
   private working = new Map<string, { at: number; by: string }>();
@@ -352,7 +352,7 @@ export class SessionState {
    */
   private fresh(w: { at: number; by: string }): boolean { return Date.now() - w.at <= (w.by === "session" ? 30 : 4) * 60_000; }
   workingIds(): string[] { return [...this.working].filter(([, w]) => this.fresh(w)).map(([id]) => id).sort(); }
-  /** The workers and the boxes each holds, the session first. */
+  /** The workers and the nodes each holds, the session first. */
   workers(): Array<{ by: string; ids: string[]; at: string }> {
     const by = new Map<string, { ids: string[]; at: number }>();
     for (const [id, w] of this.working) { if (!this.fresh(w)) continue; const e = by.get(w.by) ?? by.set(w.by, { ids: [], at: 0 }).get(w.by)!; e.ids.push(id); e.at = Math.max(e.at, w.at); }
@@ -393,7 +393,7 @@ export class SessionState {
 
   /**
    * The same, but waits up to `ms` for a first entry that `wakes`, so the session can attend the page without polling.
-   * A session waiting for the human passes `isHumanEntry`: its own says and the terminal mirror of its own words never
+   * A session waiting for the user passes `isUserEntry`: its own says and the terminal mirror of its own words never
    * wake it (they did, and the session woke on its own echo every few seconds). What it gets back is still every entry
    * since the cursor, so nothing is lost; only the wake-up is selective.
    */

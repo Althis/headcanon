@@ -7,7 +7,7 @@ import { loadCanon } from "../src/load.js";
 
 /**
  * Three branches. Import and Reporting both read src/parse.ts and src/store.ts, both require Storage, both say
- * "statement" and both title a box "... parsing"; inside Import, REQ-1.2 and REQ-1.3 share everything a pair can
+ * "statement" and both title a node "... parsing"; inside Import, REQ-1.2 and REQ-1.3 share everything a pair can
  * share (the term and title word "ledger", src/ledger.ts, a requires on REQ-1.1) and must never cluster alone.
  */
 function canon(): string {

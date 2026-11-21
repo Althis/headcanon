@@ -12,15 +12,15 @@ import type { Canon } from "./types.js";
 
 /**
  * The stop gate of an implementation agent. The agent is free in how it builds; what holds it is here: it may stop
- * when the tests of the boxes it owes pass and its work is committed in the intent format, or when every box still
- * failing waits on the person behind an issue. `stopDecision` is the rule, a pure function; `sliceFacts` gathers
+ * when the tests of the nodes it owes pass and its work is committed in the intent format, or when every node still
+ * failing waits on the user behind an issue. `stopDecision` is the rule, a pure function; `sliceFacts` gathers
  * what it weighs from the stored test result, git and the question store; `gateCli` is the SubagentStop hook, which
  * answers for implementation agents of an active run and stays silent for everyone else.
  */
 
-export interface GateDecision { decision: "allow" | "block"; reason: string; fileIssues?: Array<{ box: string; text: string }> }
+export interface GateDecision { decision: "allow" | "block"; reason: string; fileIssues?: Array<{ node: string; text: string }> }
 
-export interface StopInput { run: Run; slice: Slice; results: TestResults | undefined; tree: string; dirty: boolean; badCommits: string[]; openIssuesByBox: Record<string, number>; regressed: string[] }
+export interface StopInput { run: Run; slice: Slice; results: TestResults | undefined; tree: string; dirty: boolean; badCommits: string[]; openIssuesByNode: Record<string, number>; regressed: string[] }
 
 export const OUTCOME_WORDS: Record<Outcome, string> = {
   passed: "passed",
@@ -29,7 +29,7 @@ export const OUTCOME_WORDS: Record<Outcome, string> = {
   skipped: "was skipped",
   missing: "its file is gone",
   changed: "its file was changed after it was accepted",
-  stale: "its box was reworded after the test was written, so it was not run",
+  stale: "its node was reworded after the test was written, so it was not run",
   "not-run": "was not run",
 };
 /** What a builder can break: a test that ran and did not pass, or whose file it removed or changed. */
@@ -39,15 +39,15 @@ const uniq = <T>(xs: T[]): T[] => [...new Set(xs)];
 const oneLine = (s: string, max: number): string => { const t = s.replace(/\s+/g, " ").trim(); return t.length > max ? `${t.slice(0, max)}…` : t; };
 const sameSet = (a: string[], b: string[]): boolean => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");
 const testLine = (r: Pick<TestResult, "title" | "file" | "outcome" | "message">): string => `- ${r.title} (${r.file}): ${OUTCOME_WORDS[r.outcome] ?? r.outcome}${r.message ? `: ${oneLine(r.message, 300)}` : ""}`;
-export const agentNameOf = (slice: Slice): string => slice.agentName ?? `implementer-${slice.box}`;
+export const agentNameOf = (slice: Slice): string => slice.agentName ?? `implementer-${slice.node}`;
 
 /** The results of the tests a slice owes that did not pass. Only a pass counts: a test skipped, stale or not run proves nothing. */
 export function failingOf(slice: Slice, results: TestResults | undefined): TestResult[] {
   const owed = new Set(slice.owes);
-  return (results?.results ?? []).filter((r) => owed.has(r.box) && r.outcome !== "passed");
+  return (results?.results ?? []).filter((r) => owed.has(r.node) && r.outcome !== "passed");
 }
 
-/** The tree a result was measured on: one kept from an earlier run of other boxes carries its own. */
+/** The tree a result was measured on: one kept from an earlier run of other nodes carries its own. */
 const treeOf = (r: TestResult, results: TestResults): string => (r as { tree?: string }).tree ?? results.tree;
 
 /** The stored result speaks for the files as they are now: it was measured on this tree, every owed test with it. */
@@ -55,10 +55,10 @@ export function isFresh(input: Pick<StopInput, "slice" | "results" | "tree">): b
   const { slice, results, tree } = input;
   if (!results || results.tree !== tree) return false;
   const owed = new Set(slice.owes);
-  return results.results.every((r) => !owed.has(r.box) || treeOf(r, results) === tree);
+  return results.results.every((r) => !owed.has(r.node) || treeOf(r, results) === tree);
 }
 
-/** Titles that passed in the run's first run and are broken now, whoever's box they test; a result measured on an earlier tree says nothing. */
+/** Titles that passed in the run's first run and are broken now, whoever's node they test; a result measured on an earlier tree says nothing. */
 export function regressedOf(run: Run, results: TestResults | undefined): string[] {
   if (!results) return [];
   const before = new Set(run.firstRun?.passing ?? []);
@@ -72,46 +72,46 @@ export function failingSet(input: Pick<StopInput, "slice" | "results" | "regress
 
 /** The decision, and whether this stop counts as an attempt: the agent was sent back with tests to make pass. */
 function decide(input: StopInput): GateDecision & { counts: boolean } {
-  const { run, slice, results, dirty, badCommits, openIssuesByBox, regressed } = input;
+  const { run, slice, results, dirty, badCommits, openIssuesByNode, regressed } = input;
   const testCommand = `HC tests run --run ${run.id}`;
   const block = (reason: string, counts = false) => ({ decision: "block" as const, reason, counts });
   const allow = (reason: string, fileIssues?: GateDecision["fileIssues"]) => ({ decision: "allow" as const, reason, counts: false, ...(fileIssues?.length ? { fileIssues } : {}) });
 
   if (!results || !isFresh(input))
-    return block(`Run the tests first: \`${testCommand}\`. No test result is stored for the files as they are now, so nothing shows whether your boxes pass.`);
+    return block(`Run the tests first: \`${testCommand}\`. No test result is stored for the files as they are now, so nothing shows whether your nodes pass.`);
   if (badCommits.length)
-    return block(`These commits are not in the intent format:\n${badCommits.map((c) => `- ${c}`).join("\n")}\nRewrite each message: a Conventional Commits header, then a last paragraph with the line \`Intent: ${slice.box}\`. Then stop again.`);
+    return block(`These commits are not in the intent format:\n${badCommits.map((c) => `- ${c}`).join("\n")}\nRewrite each message: a Conventional Commits header, then a last paragraph with the line \`Intent: ${slice.node}\`. Then stop again.`);
 
   const failing = failingOf(slice, results);
   const set = failingSet(input);
-  // the same tests failing again after the budget of retries: the agent is let go and the person decides
+  // the same tests failing again after the budget of retries: the agent is let go and the user decides
   const spent = set.length > 0 && sameSet(set, slice.lastFailing) && slice.attempts >= RETRY_BUDGET;
   if (regressed.length && !spent)
     return block(`These tests passed before you started and fail now:\n${regressed.map((t) => { const r = results.results.find((x) => x.title === t); return r ? testLine(r) : `- ${t}`; }).join("\n")}\nMake them pass again without breaking your own, run \`${testCommand}\`, then stop again.`, true);
   if (!failing.length && !regressed.length) {
-    if (!dirty) return allow("every test of its boxes passes and the tree is clean");
-    return block("Commit your work: the tests pass but the tree is not clean (`git status` lists what is left). One commit per box, in the intent format, naming the box; remove what should not stay. Then stop again.");
+    if (!dirty) return allow("every test of its nodes passes and the tree is clean");
+    return block("Commit your work: the tests pass but the tree is not clean (`git status` lists what is left). One commit per node, in the intent format, naming the node; remove what should not stay. Then stop again.");
   }
   if (dirty)
-    return block("Commit your work: the tree is not clean (`git status` lists what is left). Commit what you want kept, one commit per box, in the intent format, naming the box, and remove the rest. Then stop again.");
+    return block("Commit your work: the tree is not clean (`git status` lists what is left). Commit what you want kept, one commit per node, in the intent format, naming the node, and remove the rest. Then stop again.");
 
-  const failingBoxes = uniq(failing.map((r) => r.box));
-  const unasked = failingBoxes.filter((b) => !((openIssuesByBox[b] ?? 0) > 0));
-  if (!regressed.length && !unasked.length) return allow("every box still failing has an issue waiting on the person");
+  const failingNodes = uniq(failing.map((r) => r.node));
+  const unasked = failingNodes.filter((b) => !((openIssuesByNode[b] ?? 0) > 0));
+  if (!regressed.length && !unasked.length) return allow("every node still failing has an issue waiting on the user");
   if (spent) {
     const stops = slice.attempts + 1;
-    const issues = unasked.map((box) => ({ box, text: `The implementation agent could not make this box pass: the same tests failed at ${stops} stops in a row.\nStill failing:\n${failing.filter((r) => r.box === box).map(testLine).join("\n")}` }));
-    if (regressed.length) issues.push({ box: slice.uid, text: `Building this box broke tests that passed before, and the implementation agent could not make them pass again in ${stops} stops in a row.\nBroken:\n${regressed.map((t) => `- ${t}`).join("\n")}` });
-    return allow(`the same tests failed at ${stops} stops in a row: filed for the person as impossible`, issues);
+    const issues = unasked.map((node) => ({ node, text: `The implementation agent could not make this node pass: the same tests failed at ${stops} stops in a row.\nStill failing:\n${failing.filter((r) => r.node === node).map(testLine).join("\n")}` }));
+    if (regressed.length) issues.push({ node: slice.uid, text: `Building this node broke tests that passed before, and the implementation agent could not make them pass again in ${stops} stops in a row.\nBroken:\n${regressed.map((t) => `- ${t}`).join("\n")}` });
+    return allow(`the same tests failed at ${stops} stops in a row: filed for the user as impossible`, issues);
   }
   const name = agentNameOf(slice);
   return block([
-    "These tests of your boxes do not pass yet:",
+    "These tests of your nodes do not pass yet:",
     ...failing.map(testLine),
     "There are two ways out.",
     `One: make them pass, run \`${testCommand}\` again, commit, then stop.`,
-    `Two: for each box you cannot make pass, file an issue that blocks it and says what you tried and what stands in the way, then stop. The issue goes through \`HC ask -\` with \`nodeId\` the box, \`by\` "${name}", \`blocks\` true, and \`kind\` "impossible" when you tried and could not.`,
-    ...(unasked.length < failingBoxes.length ? ["Boxes that already have your issue need no second one."] : []),
+    `Two: for each node you cannot make pass, file an issue that blocks it and says what you tried and what stands in the way, then stop. The issue goes through \`HC ask -\` with \`nodeId\` the node, \`by\` "${name}", \`blocks\` true, and \`kind\` "impossible" when you tried and could not.`,
+    ...(unasked.length < failingNodes.length ? ["Nodes that already have your issue need no second one."] : []),
   ].join("\n"), true);
 }
 
@@ -148,7 +148,7 @@ export function dirtyFiles(repo: string, canonDir: string): string[] {
     .filter((p) => !inCanon(p));
 }
 
-export interface SliceCommit { sha: string; subject: string; ok: boolean; errors: string[]; /** The boxes its Intent trailer names. */ names: string[]; /** It names a box this slice owes. */ mine: boolean }
+export interface SliceCommit { sha: string; subject: string; ok: boolean; errors: string[]; /** The nodes its Intent trailer names. */ names: string[]; /** It names a node this slice owes. */ mine: boolean }
 
 function intentIds(repo: string, sha: string): string[] {
   if (!/^[0-9a-f]{4,64}$/i.test(sha)) return [];
@@ -156,45 +156,45 @@ function intentIds(repo: string, sha: string): string[] {
   catch { return []; }
 }
 
-/** The commits since the slice began, without those another slice already holds, each with the boxes it names. */
+/** The commits since the slice began, without those another slice already holds, each with the nodes it names. */
 function commitsOf(repo: string, canon: Canon, run: Run, slice: Slice): SliceCommit[] {
-  const others = new Set(run.slices.filter((s) => s.box !== slice.box).flatMap((s) => s.commits));
+  const others = new Set(run.slices.filter((s) => s.node !== slice.node).flatMap((s) => s.commits));
   const owes = new Set(slice.owes);
-  const owedIds = new Set([slice.box, ...Object.values(canon.nodes).filter((n) => n.uid !== undefined && owes.has(n.uid)).map((n) => n.id)]);
+  const owedIds = new Set([slice.node, ...Object.values(canon.nodes).filter((n) => n.uid !== undefined && owes.has(n.uid)).map((n) => n.id)]);
   return sliceCommits(repo, slice.baseSha ?? run.base).filter((c) => !others.has(c.sha)).map((c) => {
     const names = intentIds(repo, c.sha);
     return { ...c, names, mine: names.some((id) => owedIds.has(id)) };
   });
 }
 
-/** An accepted test of an owed box with no result in the store was not run: the stored result must speak for every one. */
+/** An accepted test of an owed node with no result in the store was not run: the stored result must speak for every one. */
 function withOwed(results: TestResults | undefined, manifest: TestManifest, slice: Slice): TestResults | undefined {
   if (!results) return undefined;
   const owed = new Set(slice.owes);
-  const have = new Set(results.results.map((r) => `${r.box}\n${r.title}`));
-  const missing = manifest.tests.filter((t) => t.status === "accepted" && owed.has(t.box) && !have.has(`${t.box}\n${t.title}`))
-    .map((t): TestResult => ({ box: t.box, title: t.title, file: t.file, runner: t.runner, outcome: "not-run" }));
+  const have = new Set(results.results.map((r) => `${r.node}\n${r.title}`));
+  const missing = manifest.tests.filter((t) => t.status === "accepted" && owed.has(t.node) && !have.has(`${t.node}\n${t.title}`))
+    .map((t): TestResult => ({ node: t.node, title: t.title, file: t.file, runner: t.runner, outcome: "not-run" }));
   return missing.length ? { ...results, results: [...results.results, ...missing] } : results;
 }
 
 const questionStore = (gitDir: string): string => join(gitDir, "headcanon", "questions.json");
 
-/** The slice's own open issues that block a box it owes, counted by the box's stable id. */
-function openIssues(gitDir: string, canon: Canon, slice: Slice): { byBox: Record<string, number>; ids: string[] } {
-  const byBox: Record<string, number> = {};
+/** The slice's own open issues that block a node it owes, counted by the node's stable id. */
+function openIssues(gitDir: string, canon: Canon, slice: Slice): { byNode: Record<string, number>; ids: string[] } {
+  const byNode: Record<string, number> = {};
   const ids: string[] = [];
   const store = questionStore(gitDir);
-  if (!existsSync(store)) return { byBox, ids };
+  if (!existsSync(store)) return { byNode, ids };
   const name = agentNameOf(slice);
   const owed = new Set(slice.owes);
   for (const q of new SessionState(store).queuedFull()) {
     if (q.by !== name || q.blocks !== true || !q.nodeId) continue;
-    const uid = canon.nodes[q.nodeId]?.uid ?? (q.nodeId === slice.box ? slice.uid : undefined);
+    const uid = canon.nodes[q.nodeId]?.uid ?? (q.nodeId === slice.node ? slice.uid : undefined);
     if (!uid || !owed.has(uid)) continue;
-    byBox[uid] = (byBox[uid] ?? 0) + 1;
+    byNode[uid] = (byNode[uid] ?? 0) + 1;
     ids.push(q.id);
   }
-  return { byBox, ids };
+  return { byNode, ids };
 }
 
 export interface SliceFacts extends StopInput { dirtyFiles: string[]; commits: SliceCommit[]; issues: string[]; canon: Canon }
@@ -216,39 +216,39 @@ export function sliceFacts(at: { canonDir: string; repo: string; gitDir: string;
     dirtyFiles: dirty,
     badCommits: commits.filter((c) => !c.ok).map((c) => `${c.sha.slice(0, 7)} ${c.subject}: ${c.errors.join("; ")}`),
     commits,
-    openIssuesByBox: issues.byBox,
+    openIssuesByNode: issues.byNode,
     issues: issues.ids,
     regressed: regressedOf(at.run, results),
     canon,
   };
 }
 
-export interface SliceReport { box: string; verdict: "pass" | "blocked" | "fail"; passing: number; failing: Array<Pick<TestResult, "box" | "title" | "file" | "outcome" | "message">>; regressed: string[]; commits: SliceCommit[]; dirty: string[]; issues: string[]; text: string }
+export interface SliceReport { node: string; verdict: "pass" | "blocked" | "fail"; passing: number; failing: Array<Pick<TestResult, "node" | "title" | "file" | "outcome" | "message">>; regressed: string[]; commits: SliceCommit[]; dirty: string[]; issues: string[]; text: string }
 
 /**
  * The session's own measure of a slice after its agent returned, from a result it just ran: pass when every owed
  * test passes, nothing that passed before is broken, every commit is in the format and the tree is clean; blocked
- * when what fails waits on the person behind the slice's issues; fail otherwise, with what fails.
+ * when what fails waits on the user behind the slice's issues; fail otherwise, with what fails.
  */
 export function checkSlice(at: { canonDir: string; repo: string; gitDir: string; run: Run; slice: Slice; results: TestResults }): SliceReport {
   const f = sliceFacts(at);
   const failing = failingOf(at.slice, f.results);
   const owed = new Set(at.slice.owes);
-  const passing = (f.results?.results ?? []).filter((r) => owed.has(r.box) && r.outcome === "passed").length;
+  const passing = (f.results?.results ?? []).filter((r) => owed.has(r.node) && r.outcome === "passed").length;
   const sound = !f.badCommits.length && !f.regressed.length && !f.dirty;
-  const asked = failing.length > 0 && uniq(failing.map((r) => r.box)).every((b) => (f.openIssuesByBox[b] ?? 0) > 0);
+  const asked = failing.length > 0 && uniq(failing.map((r) => r.node)).every((b) => (f.openIssuesByNode[b] ?? 0) > 0);
   const verdict: SliceReport["verdict"] = sound && !failing.length ? "pass" : sound && asked ? "blocked" : "fail";
   const lines = [
-    `${at.slice.box} ${at.slice.title}: ${verdict === "pass" ? "pass" : verdict === "blocked" ? "blocked: what fails waits on the person" : "fail"}`,
+    `${at.slice.node} ${at.slice.title}: ${verdict === "pass" ? "pass" : verdict === "blocked" ? "blocked: what fails waits on the user" : "fail"}`,
     `Tests: ${passing} passing, ${failing.length} not passing.`,
     ...failing.map(testLine),
     ...(f.regressed.length ? ["Passed in the first run and fail now:", ...f.regressed.map((t) => `- ${t}`)] : []),
     f.commits.length ? "Commits since the slice began:" : "Commits since the slice began: none.",
-    ...f.commits.map((c) => `- ${c.sha.slice(0, 7)} ${c.subject}: ${c.ok ? "in the intent format" : `not in the intent format (${c.errors.join("; ")})`}${c.mine ? "" : c.names.length ? `; names ${c.names.join(", ")}, no box of this slice` : "; names no box"}`),
+    ...f.commits.map((c) => `- ${c.sha.slice(0, 7)} ${c.subject}: ${c.ok ? "in the intent format" : `not in the intent format (${c.errors.join("; ")})`}${c.mine ? "" : c.names.length ? `; names ${c.names.join(", ")}, no node of this slice` : "; names no node"}`),
     f.dirty ? `Tree: not clean (${f.dirtyFiles.slice(0, 12).join(", ")}${f.dirtyFiles.length > 12 ? ", …" : ""}).` : "Tree: clean.",
-    `Issues of this slice waiting on the person: ${f.issues.length}.`,
+    `Issues of this slice waiting on the user: ${f.issues.length}.`,
   ];
-  return { box: at.slice.box, verdict, passing, failing: failing.map(({ box, title, file, outcome, message }) => ({ box, title, file, outcome, ...(message ? { message } : {}) })), regressed: f.regressed, commits: f.commits, dirty: f.dirtyFiles, issues: f.issues, text: lines.join("\n") + "\n" };
+  return { node: at.slice.node, verdict, passing, failing: failing.map(({ node, title, file, outcome, message }) => ({ node, title, file, outcome, ...(message ? { message } : {}) })), regressed: f.regressed, commits: f.commits, dirty: f.dirtyFiles, issues: f.issues, text: lines.join("\n") + "\n" };
 }
 
 const samePath = (a: string, b: string): boolean => { const x = real(a), y = real(b); return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y; };
@@ -280,25 +280,25 @@ async function fileIssue(port: number | undefined, gitDir: string, req: AskReque
   return new SessionState(questionStore(gitDir)).ask(req).id;
 }
 
-function impossibleRequest(canon: Canon, slice: Slice, issue: { box: string; text: string }): AskRequest {
-  const node = Object.values(canon.nodes).find((n) => n.uid === issue.box) ?? canon.nodes[slice.box];
+function impossibleRequest(canon: Canon, slice: Slice, issue: { node: string; text: string }): AskRequest {
+  const node = Object.values(canon.nodes).find((n) => n.uid === issue.node) ?? canon.nodes[slice.node];
   const title = node?.title ?? slice.title;
   return {
     kind: "impossible",
     question: `"${title}" could not be built. How do you want to handle it?`,
     why: issue.text,
-    nodeId: node?.id ?? slice.box,
+    nodeId: node?.id ?? slice.node,
     by: agentNameOf(slice),
     blocks: true,
     options: [
-      { label: "Try again", description: "A fresh implementation agent starts on this box." },
-      { label: "Change the requirement", description: "You rewrite the box, then it is built." },
-      { label: "Leave it for now", description: "The box stays as it is and the rest goes on." },
+      { label: "Try again", description: "A fresh implementation agent starts on this node." },
+      { label: "Change the requirement", description: "You rewrite the node, then it is built." },
+      { label: "Leave it for now", description: "The node stays as it is and the rest goes on." },
     ],
   };
 }
 
-/** A slice in one of these owes nothing more: its agent was already let go, or the person decided. */
+/** A slice in one of these owes nothing more: its agent was already let go, or the user decided. */
 const SETTLED: ReadonlySet<SliceStatus> = new Set<SliceStatus>(["review", "approved", "discarded", "stopped"]);
 
 interface HookInput { agent_id?: unknown; agent_type?: unknown; agent_transcript_path?: unknown; cwd?: unknown }
@@ -335,7 +335,7 @@ async function subagentStop(ctx: CliCtx): Promise<void> {
     patch.issues = uniq([...facts.issues, ...filed]);
     patch.status = failingOf(slice, facts.results).length || facts.regressed.length ? "blocked" : "passed";
   }
-  updateSlice(gitDir, run.id, slice.box, patch);
+  updateSlice(gitDir, run.id, slice.node, patch);
   if (decision.decision === "block") ctx.out(JSON.stringify({ decision: "block", reason: decision.reason }) + "\n");
 }
 

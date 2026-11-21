@@ -1,13 +1,13 @@
 ---
 id: REQ-11.6.1
 parent: REQ-11.6
-title: "Selecting an item in a multi-select is approval, and the human is told so before adoption begins"
+title: "Selecting an item in a multi-select is approval, and the user is told so before adoption begins"
 state: stated
 source: "Claude Code session, 2026-10-11"
 files: [skills/adopt/SKILL.md]
 ---
 
-# Selecting an item in a multi-select is approval, and the human is told so before adoption begins
+# Selecting an item in a multi-select is approval, and the user is told so before adoption begins
 
 ## Stated
 
@@ -31,8 +31,8 @@ Source: Claude Code session, 2026-10-11, during the fifth adopt run.
 
 ## Intent [assumed]
 
-A draft the human selects in a multi-select, or approves from its card on the canvas, becomes resolved: the agent's wording is the Intent, and the selection or the click, with its date, is the Resolution. Items left unselected are asked about one at a time. The first question of an adopt run is a briefing written for someone who has never used HeadCanon, with a single option that starts the process: first what is happening (writing down what the project is for, re-read every session), then the five layers as a short bullet list (premise, principles, domains, capabilities, requirements, and the leftovers), then the three choices on every draft as a bullet list, then what ticking means in a list, then that nothing is saved before approval. The first draft, the premise, is the question after it. The exact text lives in the skill and is pasted verbatim. The question that closes a layer offers Nothing missing and Remind me later in review; the latter records the layer as open on the root README, where the review skill picks it up.
+A draft the user selects in a multi-select, or approves from its card on the canvas, becomes resolved: the agent's wording is the Intent, and the selection or the click, with its date, is the Resolution. Items left unselected are asked about one at a time. The first question of an adopt run is a briefing written for someone who has never used HeadCanon, with a single option that starts the process: first what is happening (writing down what the project is for, re-read every session), then the five layers as a short bullet list (premise, principles, domains, capabilities, requirements, and the leftovers), then the three choices on every draft as a bullet list, then what ticking means in a list, then that nothing is saved before approval. The first draft, the premise, is the question after it. The exact text lives in the skill and is pasted verbatim. The question that closes a layer offers Nothing missing and Remind me later in review; the latter records the layer as open on the root README, where the review skill picks it up.
 
 ## Assumptions
 
-- The briefing is a question with one option rather than a message, because a message between tool calls is skipped and because the human's answer is the agreement to proceed. (model assumption)
+- The briefing is a question with one option rather than a message, because a message between tool calls is skipped and because the user's answer is the agreement to proceed. (model assumption)

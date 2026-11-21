@@ -25,7 +25,7 @@ TypeError: entry.amount is not a number
  ❯ test/closing.test.js:10:11
             </failure>
         </testcase>
-        <testcase classname="test/closing.test.js" name="a test that names no box" time="0.0001087">
+        <testcase classname="test/closing.test.js" name="a test that names no node" time="0.0001087">
         </testcase>
     </testsuite>
     <testsuite name="test/statement.test.js" timestamp="2026-11-18T14:54:32.248Z" hostname="ledgerline-dev" tests="1" failures="1" errors="0" skipped="0" time="0">

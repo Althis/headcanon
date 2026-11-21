@@ -17,7 +17,7 @@ export interface Family {
   phrases: string[];
   /** Where the list comes from, with the precision the literature measured where it did. */
   sources: string;
-  /** Only boxes of these layers are scanned; every layer when absent. */
+  /** Only nodes of these layers are scanned; every layer when absent. */
   layers?: Array<"domain" | "capability" | "requirement">;
 }
 
@@ -109,7 +109,7 @@ export const FAMILIES: Family[] = [
   {
     code: "design-term",
     level: "info",
-    why: "a mechanism in a box that names what, not how",
+    why: "a mechanism in a node that names what, not how",
     phrases: ["button", "screen", "variable", "signal", "database", "table", "column", "api", "endpoint", "thread", "cache", "queue", "buffer", "framework", "library", "module", "class", "function"],
     sources: "Femmer 2017 T10; Genova 2013; Zave and Jackson machine-state pre-filter",
     layers: ["domain", "capability"],

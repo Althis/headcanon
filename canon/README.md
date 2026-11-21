@@ -29,7 +29,7 @@ Source: Claude Code session, 2026-10-11
 - `journeys/` holds user journeys, `decisions/` holds decision records.
 - Every node's front-matter has `id`, `title`, `state` and `source`. `parent`, `kind`, `steps`, `files` and `baseline` appear when they apply.
 - A node's `state` describes the node as a whole. A body section whose certainty differs carries a bracketed marker on its heading, for example `## Intent [assumed]` under a stated node.
-- A `## Stated` section is always a verbatim quote with its source. `## Proposed in brief` quotes a proposal from the brief that the human has not confirmed. `## Resolution` quotes the human's words of agreement.
+- A `## Stated` section is always a verbatim quote with its source. `## Proposed in brief` quotes a proposal from the brief that the user has not confirmed. `## Resolution` quotes the user's words of agreement.
 - Seeding rule: brief rows marked Decided became `stated`, Proposed became `assumed`, Open became `open`. Proposals made and explicitly agreed in the session became `resolved`.
 
 ## Not this
@@ -50,7 +50,7 @@ Source: conversation, 2026-10-11
 
 ## Glossary [assumed]
 
-Terms as the agent understands them from the brief and the session. Each is assumed until the human confirms it (REQ-5.3.4). A definition says what the term is and covers one concept (REQ-5.1.1).
+Terms as the agent understands them from the brief and the session. Each is assumed until the user confirms it (REQ-5.3.4). A definition says what the term is and covers one concept (REQ-5.1.1).
 
 **canon** (`TERM-canon`): The whole body of recorded intent for a project: the requirement tree, journeys, glossary and decisions, stored as files under `canon/`.
 
@@ -58,7 +58,7 @@ Terms as the agent understands them from the brief and the session. Each is assu
 
 **Writ** (`TERM-writ`): The verification tool that runs in CI on every commit, PR or release and checks the change against the canon. Passing it is the permission to proceed.
 
-**intent** (`TERM-intent`): What the human is trying to achieve, at any level of abstraction. Recorded as requirements and journeys.
+**intent** (`TERM-intent`): What the user is trying to achieve, at any level of abstraction. Recorded as requirements and journeys.
 
 **requirement** (`TERM-requirement`): One node of the intent tree. Broad near the root, binary at the leaves.
 
@@ -70,17 +70,17 @@ Terms as the agent understands them from the brief and the session. Each is assu
 
 **certainty state** (`TERM-certainty-state`): One of stated, assumed, open, contested or resolved, carried by every requirement node and journey step.
 
-**stated** (`TERM-stated`): The human's own words, quoted verbatim.
+**stated** (`TERM-stated`): The user's own words, quoted verbatim.
 
-**assumed** (`TERM-assumed`): The agent's interpretation, awaiting the human's confirmation.
+**assumed** (`TERM-assumed`): The agent's interpretation, awaiting the user's confirmation.
 
 **open** (`TERM-open`): A known unknown that either side has recorded.
 
-**contested** (`TERM-contested`): Human and agent disagree, and the disagreement is recorded.
+**contested** (`TERM-contested`): User and agent disagree, and the disagreement is recorded.
 
-**resolved** (`TERM-resolved`): Settled on the human's explicit agreement, with the resolution recorded. Tacit approval never counts.
+**resolved** (`TERM-resolved`): Settled on the user's explicit agreement, with the resolution recorded. Tacit approval never counts.
 
-**change request** (`TERM-change-request`): A set of create, update and delete operations on canon objects, proposed by the agent and approved by the human. The only way the agent changes the canon.
+**change request** (`TERM-change-request`): A set of create, update and delete operations on canon objects, proposed by the agent and approved by the user. The only way the agent changes the canon.
 
 **retire** (`TERM-retire`): What a delete operation does: it marks a node retired with a reason instead of erasing it.
 
@@ -101,20 +101,20 @@ Terms as the agent understands them from the brief and the session. Each is assu
 **preservation** (`TERM-preservation`): Writ's third stage: rerunning every test from earlier approved packages to catch erosion.
 
 **Test Bay** (`TERM-test-bay`): The user's local folder for projects in development.
-**premise** (`TERM-premise`) [assumed]: The root of the canon: what the project is, for whom, what it is not, and its principles; approved by the human before anything is drafted under it.
-**evidence** (`TERM-evidence`) [assumed]: An artifact line, a chat message or a human edit that a node, edge or requirement rests on; related to the node as owns, relates or supports.
+**premise** (`TERM-premise`) [assumed]: The root of the canon: what the project is, for whom, what it is not, and its principles; approved by the user before anything is drafted under it.
+**evidence** (`TERM-evidence`) [assumed]: An artifact line, a chat message or a user edit that a node, edge or requirement rests on; related to the node as owns, relates or supports.
 **refine** (`TERM-refine`) [assumed]: To branch a node into its children; to redefine is to do it again after a change.
 **draft** (`TERM-draft`) [assumed]: The state of a node whose definition waits on an issue; it has a name and a place, not yet a settled Intent.
-**impact** (`TERM-impact`) [assumed]: The rank of a box on the human's list: 1 plus the boxes below it, plus the rungs still to materialise below it, plus the boxes waiting on it; red boxes rank anywhere and win ties.
-**issue** (`TERM-issue`) [assumed]: A request for the human's help filed by the session or by an implementation agent: a contradiction, a disambiguation, an apocrypha, an undefined or an impossible; transient, while the node's state in the file is the record.
-**contradiction** (`TERM-contradiction`) [assumed]: An issue in which two human-checkable sources cannot both hold; code against an approved node is a failure, not a contradiction.
-**disambiguation** (`TERM-disambiguation`) [assumed]: An issue in which a word the human used does not pass the clarity tests; settled by a glossary term or a rewrite.
-**apocrypha** (`TERM-apocrypha`) [assumed]: An issue in which the human's own wording fails the quality rubric; the agent helps them reach a wording that passes.
+**impact** (`TERM-impact`) [assumed]: The rank of a node on the user's list: 1 plus the nodes below it, plus the rungs still to materialise below it, plus the nodes waiting on it; red nodes rank anywhere and win ties.
+**issue** (`TERM-issue`) [assumed]: A request for the user's help filed by the session or by an implementation agent: a contradiction, a disambiguation, an apocrypha, an undefined or an impossible; transient, while the node's state in the file is the record.
+**contradiction** (`TERM-contradiction`) [assumed]: An issue in which two user-checkable sources cannot both hold; code against an approved node is a failure, not a contradiction.
+**disambiguation** (`TERM-disambiguation`) [assumed]: An issue in which a word the user used does not pass the clarity tests; settled by a glossary term or a rewrite.
+**apocrypha** (`TERM-apocrypha`) [assumed]: An issue in which the user's own wording fails the quality rubric; the agent helps them reach a wording that passes.
 **undefined** (`TERM-undefined`) [assumed]: An issue in which no evidence, practice or common sense points one way; options when any exist, free text always.
-**impossible** (`TERM-impossible`) [assumed]: An issue in which repeated attempts to make a box's tests pass have failed; it asks the human how to deal with the problem.
+**impossible** (`TERM-impossible`) [assumed]: An issue in which repeated attempts to make a node's tests pass have failed; it asks the user how to deal with the problem.
 **guided mode** (`TERM-guided-mode`) [assumed]: Operation one level below the last approved node at a time, each level gated on approval; slower and cheaper.
 **full-auto mode** (`TERM-full-auto-mode`) [assumed]: Operation breadth first to the leaves with no gate after the premise; faster and costlier, with an optional cap on agents or spend.
-**out of sync** (`TERM-out-of-sync`) [assumed]: The mark of a box whose code and Intent disagree: code is bound to it as contradicting it, or it is built and one of its accepted tests fails, was changed or is missing; drawn as a red dashed ring a little outside the box.
+**out of sync** (`TERM-out-of-sync`) [assumed]: The mark of a node whose code and Intent disagree: code is bound to it as contradicting it, or it is built and one of its accepted tests fails, was changed or is missing; drawn as a red dashed ring a little outside the node.
 **builder test** (`TERM-builder-test`) [assumed]: The tester's first pass over a capability, from the canon's text alone: each test case written in plain words as given, when, then, and a list of every gap, what it had to assume, a gap being costly when a wrong guess would break other people's work.
-**implementation agent** (`TERM-implementation-agent`) [assumed]: The agent that builds one slice, on the model the human is using and free in how it builds; held at its stop until the tests of its boxes pass or each box still failing has an issue, and at its commits, which carry the intent format.
-**slice** (`TERM-slice`) [assumed]: One box of a build round together with the boxes below it: what one implementation agent is given, whose tests it owes, and what the human approves, sends back or discards.
+**implementation agent** (`TERM-implementation-agent`) [assumed]: The agent that builds one slice, on the model the user is using and free in how it builds; held at its stop until the tests of its nodes pass or each node still failing has an issue, and at its commits, which carry the intent format.
+**slice** (`TERM-slice`) [assumed]: One node of a build round together with the nodes below it: what one implementation agent is given, whose tests it owes, and what the user approves, sends back or discards.

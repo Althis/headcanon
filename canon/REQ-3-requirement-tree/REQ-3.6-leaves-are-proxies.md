@@ -16,5 +16,5 @@ Source: docs/design-brief-v0.md:135
 
 ## Intent
 
-Each parent keeps its original wording so a human can judge whether its leaves still capture it.
+Each parent keeps its original wording so a user can judge whether its leaves still capture it.
 

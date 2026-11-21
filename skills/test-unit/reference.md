@@ -6,8 +6,8 @@ The sources behind the Quality list of the unit test skill, the names the field 
 
 1. Sources, and the checks each supports
 2. Stand-ins, by their usual names
-3. Worked example: from a box to its tests and their descriptions
-4. A test of the same box that fails the list
+3. Worked example: from a node to its tests and their descriptions
+4. A test of the same node that fails the list
 
 ## 1. Sources, and the checks each supports
 
@@ -34,12 +34,12 @@ Known, not opened on that day:
 | Gerard Meszaros, xUnit Test Patterns: Refactoring Test Code, Addison-Wesley, 2007, the test smells. Its site, xunitpatterns.com, reset the connection on each of four tries. | reads-cold (Obscure Test, Mystery Guest, General Fixture); straight-line (Conditional Test Logic); failure-says-why and one-behaviour (Assertion Roulette, Eager Test); deterministic and isolated (Erratic Test); survives-rewrite and promised-only (Fragile Test, Overspecified Software, Sensitive Equality); quick (Slow Tests); the names in section 2 |
 | Glenford Myers, The Art of Software Testing, Wiley, 1979: equivalence classes and boundary values. | step 2 of the method; would-fail (each bound, on it and beside it); cases-cover (each class once) |
 | DeMillo, Lipton and Sayward, "Hints on Test Data Selection: Help for the Practicing Programmer", IEEE Computer 11(4), 1978: mutation. | would-fail (tests are judged by whether they tell the program from its nearly right variants) |
-| Barr, Harman, McMinn, Shahbaz and Yoo, "The Oracle Problem in Software Testing: A Survey", IEEE Transactions on Software Engineering 41(5), 2015. | expected-from-box and same-property (the expected result must come from a statement of what is wanted, apart from the program under test) |
-| Michael Feathers, Working Effectively with Legacy Code, Prentice Hall, 2004: characterization tests. | expected-from-box (a value read off the code records what the code does, never whether that is what is wanted) |
+| Barr, Harman, McMinn, Shahbaz and Yoo, "The Oracle Problem in Software Testing: A Survey", IEEE Transactions on Software Engineering 41(5), 2015. | expected-from-node and same-property (the expected result must come from a statement of what is wanted, apart from the program under test) |
+| Michael Feathers, Working Effectively with Legacy Code, Prentice Hall, 2004: characterization tests. | expected-from-node (a value read off the code records what the code does, never whether that is what is wanted) |
 
 Tried and not read, so not cited as support: Beck's essay on Medium (the server answered 403), and three posts of the Google Testing Blog (the pages came without the article text).
 
-Two checks rest on HeadCanon's own rules as well as on the literature: expected-from-box (every expected value comes from the box) and the second half of isolated (a test leaves the repository as it found it).
+Two checks rest on HeadCanon's own rules as well as on the literature: expected-from-node (every expected value comes from the node) and the second half of isolated (a test leaves the repository as it found it).
 
 ## 2. Stand-ins, by their usual names
 
@@ -53,11 +53,11 @@ The field calls a stand-in a test double. Meszaros's names, as Fowler gives them
 
 A test that looks at the result afterwards verifies state; one that looks at the calls made verifies behaviour. The skill asks for the first and allows the second only where the call is the promise.
 
-## 3. Worked example: from a box to its tests and their descriptions
+## 3. Worked example: from a node to its tests and their descriptions
 
 Ledgerline keeps books: entries, months, closing a month, statements. The glossary says an **entry** is a dated record of debits and credits with a number; an entry **balances** when its debits and its credits total the same; a **closed** month takes no new entry and no change.
 
-The box, as the tester receives it:
+The node, as the tester receives it:
 
 ```markdown
 ---
@@ -83,7 +83,7 @@ When closing is requested for a month that holds an entry with debits of 100.00 
 
 **1 The rule.** Given a month with an entry dated in it that does not balance, when closing is requested, the request is refused, the refusal names each such entry, and the month stays open; given none, the month closes.
 
-**2 The cases, from the box's words.** The condition has two sides. "Dated in that month" has two bounds, the first day and the last. "Does not balance" has two classes, debits above credits and credits above debits. "Every such entry" is the case of more than one.
+**2 The cases, from the node's words.** The condition has two sides. "Dated in that month" has two bounds, the first day and the last. "Does not balance" has two classes, debits above credits and credits above debits. "Every such entry" is the case of more than one.
 
 **3 The expected values, written before any code is read.**
 
@@ -98,7 +98,7 @@ When closing is requested for a month that holds an entry with debits of 100.00 
 | G, more than one | 1: 100.00 against 100.00. 2: 100.00 against 99.99. 3: 50.00 against 20.00, all 10 March 2026 | March 2026 | refused, names entries 2 and 3 only, March open |
 | H, credits above debits | 1: 10 March 2026, 99.99 against 100.00 | March 2026 | refused, names entry 1, March open |
 
-Gaps, reported and not tested: the box does not say whether a month with no entry closes, and no case here needs it. How the refusal names an entry is not said either; the tests compare which entries are named, never the words of the message.
+Gaps, reported and not tested: the node does not say whether a month with no entry closes, and no case here needs it. How the refusal names an entry is not said either; the tests compare which entries are named, never the words of the message.
 
 **4 The entry.** Reading the code shows that the closing screen and the command both close a month through one call, which takes a ledger and a month and gives back the closed month or a refusal carrying entries. The tests call that. They do not call the inner function that totals one entry.
 
@@ -126,7 +126,7 @@ test "[hc:k7m2qx] an unbalanced entry dated the day after the month does not sto
 
 The other six follow the table in the same shape, one test each.
 
-**8 See it fail.** Closing is built in Ledgerline. Case A passes at first run; with "entry 2" changed to "entry 1" it fails with "the refusal names the unbalanced entry and no other: expected entry 1, found entry 2", and the right value goes back. Case H fails: the month closes. Its arrangement and entry are those of case A, which passes, so the test stands: the code refuses only when debits are the larger side, and the box says "does not balance". The expected value stays, the finding is reported, and the box shows as out of sync until the code is aligned.
+**8 See it fail.** Closing is built in Ledgerline. Case A passes at first run; with "entry 2" changed to "entry 1" it fails with "the refusal names the unbalanced entry and no other: expected entry 1, found entry 2", and the right value goes back. Case H fails: the month closes. Its arrangement and entry are those of case A, which passes, so the test stands: the code refuses only when debits are the larger side, and the node says "does not balance". The expected value stays, the finding is reported, and the node shows as out of sync until the code is aligned.
 
 **9 The descriptions on the card.**
 
@@ -136,10 +136,10 @@ The other six follow the table in the same shape, one test each.
 Each test is then recorded as the test skill says, the description in its own field:
 
 ```json
-{"box":"k7m2qx","runner":"<the runner's recorded name>","kind":"unit","file":"<the test file>","title":"[hc:k7m2qx] closing a month is refused while one of its entries does not balance","description":"Checks that a month is not closed while one of its entries does not balance. It sets up March 2026 with two entries dated 10 March, one of 100.00 against 100.00 and one of 100.00 against 99.99, and asks to close the month. It expects a refusal that names only the second entry, with March still open. The closing rule is tried directly; nothing else of Ledgerline runs."}
+{"node":"k7m2qx","runner":"<the runner's recorded name>","kind":"unit","file":"<the test file>","title":"[hc:k7m2qx] closing a month is refused while one of its entries does not balance","description":"Checks that a month is not closed while one of its entries does not balance. It sets up March 2026 with two entries dated 10 March, one of 100.00 against 100.00 and one of 100.00 against 99.99, and asks to close the month. It expects a refusal that names only the second entry, with March still open. The closing rule is tried directly; nothing else of Ledgerline runs."}
 ```
 
-## 4. A test of the same box that fails the list
+## 4. A test of the same node that fails the list
 
 ```text
 test "closing works"
@@ -152,11 +152,11 @@ description: "Asserts the closing function returns the unbalanced fixtures."
 
 The reviewer's findings, by check:
 
-- expected-from-box, fatal: the expected entries are computed in the test with the rule's own comparison. What would pass: the entries written out, as in the table of section 3.
+- expected-from-node, fatal: the expected entries are computed in the test with the rule's own comparison. What would pass: the entries written out, as in the table of section 3.
 - survives-rewrite, fatal: the count of calls to an internal part is asserted. What would pass: the refusal and the month's state only.
 - reads-cold: the values that decide the result sit in a shared sample.
 - straight-line and one-behaviour: a loop over months holds every case in one test.
 - named-for-behaviour: "closing works" names neither a condition nor a result.
-- The description uses code words and gives no value and no result, so the question every kind shares, whether a person who cannot read code learns what is checked and how, is also a no.
+- The description uses code words and gives no value and no result, so the question every kind shares, whether a user who cannot read code learns what is checked and how, is also a no.
 
 Verdict: fail.

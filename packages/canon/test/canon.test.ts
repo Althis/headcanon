@@ -98,10 +98,10 @@ describe("what is being cut, from the disk [DEC-024]", () => {
   it("names a node whose file was just written, with the seconds since, and not one written long ago", () => {
     const dir = join(mkdtempSync(join(tmpdir(), "headcanon-activity-")), "canon");
     mkdirSync(dir, { recursive: true });
-    const box = (id: string) => `---\nid: ${id}\ntitle: "${id}"\nstate: assumed\n---\n\n# ${id}\n\n## Intent\n\nA box.\n`;
+    const node = (id: string) => `---\nid: ${id}\ntitle: "${id}"\nstate: assumed\n---\n\n# ${id}\n\n## Intent\n\nA node.\n`;
     writeFileSync(join(dir, "README.md"), '---\nid: ROOT\ntitle: "Activity canon"\nstate: assumed\n---\n\n# Activity canon\n');
-    writeFileSync(join(dir, "REQ-1-fresh.md"), box("REQ-1"));
-    writeFileSync(join(dir, "REQ-2-old.md"), box("REQ-2"));
+    writeFileSync(join(dir, "REQ-1-fresh.md"), node("REQ-1"));
+    writeFileSync(join(dir, "REQ-2-old.md"), node("REQ-2"));
     const tenMinutesAgo = Date.now() / 1000 - 600;
     utimesSync(join(dir, "REQ-2-old.md"), tenMinutesAgo, tenMinutesAgo);
     const snap = buildSnapshot(dir);
@@ -153,7 +153,7 @@ describe("check [REQ-2.6]", () => {
 });
 
 describe("term candidates [REQ-12.1.6]", () => {
-  it("scans the human's Stated words as well as Intent and Check", () => {
+  it("scans the user's Stated words as well as Intent and Check", () => {
     const dir = join(mkdtempSync(join(tmpdir(), "headcanon-stated-")), "canon");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: resolved\n---\n\n# T canon\n");
@@ -175,7 +175,7 @@ describe("summary [REQ-6.2]", () => {
   });
 });
 
-describe("open boxes", () => {
+describe("open nodes", () => {
   it("warns when a title is a question", () => {
     const dir = join(mkdtempSync(join(tmpdir(), "headcanon-title-")), "canon");
     mkdirSync(dir, { recursive: true });

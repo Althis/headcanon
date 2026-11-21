@@ -12,7 +12,7 @@ export interface ContextOptions {
 
 /**
  * The context HeadCanon injects at session start: rules, state of the canon, what waits on the
- * human, the glossary, and as much of the tree as fits. Everything but the tree is fixed; the
+ * user, the glossary, and as much of the tree as fits. Everything but the tree is fixed; the
  * tree degrades from full, to two levels, to one, to a summary, so the rules never get dropped.
  */
 export function sessionContext(snap: Snapshot | undefined, canonDir: string, opts: ContextOptions = {}): string {
@@ -24,7 +24,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
       "",
       `This project has no canon yet (expected at ${canonDir}).`,
       "",
-      "Before doing any implementation work, run `/headcanon:adopt`. It reads the repository silently, drafts the premise, the principles and the domains as guesses, opens the canvas, and keeps cutting the layers below while the human approves, rewrites or deletes boxes there; their time goes to the premise, the principles and every red box. Nothing from existing documents enters the canon as stated; documents the agent did not watch the human write are assumed until the human confirms each item.",
+      "Before doing any implementation work, run `/headcanon:adopt`. It reads the repository silently, drafts the premise, the principles and the domains as guesses, opens the canvas, and keeps cutting the layers below while the user approves, rewrites or deletes nodes there; their time goes to the premise, the principles and every red node. Nothing from existing documents enters the canon as stated; documents the agent did not watch the user write are assumed until the user confirms each item.",
       "",
       RULES,
     ].join("\n");
@@ -52,15 +52,15 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   const fit = new Set(snap.findings.filter((f) => FIT_CODES.has(f.code)).map((f) => f.id ?? f.file)).size;
   if (fit) waiting.push(`${fit} entr(ies) that do not fit the format; the start sequence (headcanon format) brings them in`);
   if (c.assumed) waiting.push(`${c.assumed} assumed requirement(s); \`/headcanon:review\` walks them`);
-  head.push("## Waiting on the human", "", waiting.length ? waiting.map((w) => `- ${w}`).join("\n") : "- nothing", "");
+  head.push("## Waiting on the user", "", waiting.length ? waiting.map((w) => `- ${w}`).join("\n") : "- nothing", "");
   // A canon written under an older format is brought up first, by the start sequence; a newer one stops canon work.
   const written = canonFormatVersion(canon);
   if (written > FORMAT_VERSION) head.push("## Format", "", `This canon was written under format ${written}; this HeadCanon knows ${FORMAT_VERSION}. Update HeadCanon before touching the canon.`, "");
   else if (written < FORMAT_VERSION) head.push("## Format", "", `Written under format ${written}; the current is ${FORMAT_VERSION}. Before other canon work, run the start sequence (\`headcanon format\` prints it): ${changesSince(written).flatMap((x) => x.broughtUp).join(" ")}`, "");
   // The next node to refine, so the agent follows the dependency order without computing it (REQ-3.15).
-  // In Guided the order holds back every box the human has not approved, and the line that says so is kept.
+  // In Guided the order holds back every node the user has not approved, and the line that says so is kept.
   const order = refinementOrder(canon, undefined, { guided: readSettings(canonDir).mode === "guided" });
-  const nextLines = describeNext(order, canon).split("\n").filter((l) => /^(Cycle|Next to refine|Deadlock|Guided|For the human)/.test(l));
+  const nextLines = describeNext(order, canon).split("\n").filter((l) => /^(Cycle|Next to refine|Deadlock|Guided|For the user)/.test(l));
   if (nextLines.length) head.push(nextLines.join(" "), "");
 
   if (canon.principles.length) {

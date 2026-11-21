@@ -11,7 +11,7 @@ function finding(level: Level, code: string, message: string, extra: Partial<Fin
   return { level, code, message, id: undefined, file: undefined, branch: undefined, ...extra };
 }
 
-/** Deterministic checks: structure, links, files, and certainty states that need a human. */
+/** Deterministic checks: structure, links, files, and certainty states that need a user. */
 /** The sections a requirement node may carry, from the format. */
 const KNOWN_SECTIONS = new Set([...FORMAT.node.needsOneOf, ...FORMAT.node.sections].map((x) => x.toLowerCase()));
 
@@ -92,26 +92,26 @@ export function checkCanon(canon: Canon): Finding[] {
     // A title names a thing: a question belongs in the open node's Intent, in bold, not in its title.
     if (/\?\s*$/.test(n.title))
       out.push(finding("warn", "title-question", `${n.id} is titled as a question; a draft takes a provisional feature title, and the question is an issue`, at));
-    // A node is content: an Intent, or the human's Stated words, it cannot do without; a draft keeps one line of what is known.
+    // A node is content: an Intent, or the user's Stated words, it cannot do without; a draft keeps one line of what is known.
     if (!sectionText(n.body, "Intent") && !n.sections.some((x) => /^Stated$/i.test(x.heading)))
       out.push(finding("warn", "intent-missing", `${n.id} has no Intent; a draft keeps one line of what is known, and its question is an issue`, at));
     // The format's sections only; a stray one holds content that belongs elsewhere, or in an issue.
     for (const x of n.sections)
       if (!KNOWN_SECTIONS.has(x.heading.trim().toLowerCase()))
         out.push(finding("warn", "section-unknown", `${n.id} has a section the format does not define, "${x.heading}"; its content belongs under Intent, Deferred, Check, Contested, Assumptions or Open, or in an issue`, at));
-    // Words the glossary does not define, in the entry's own text, Intent, Check and the human's Stated words alike:
+    // Words the glossary does not define, in the entry's own text, Intent, Check and the user's Stated words alike:
     // candidates for a term, for the reviewer and the orchestrator's vocabulary pass; a heuristic, so a note, never a block.
     const candidates = detectTerms(`${sectionText(n.body, "Intent")} ${sectionText(n.body, "Check")} ${sectionText(n.body, "Stated")}`, canon.terms, { ignore: canon.root ? nameWords(canon.root.title) : [] });
     if (candidates.length)
       out.push(finding("info", "term-candidate", `${n.id} uses ${candidates.length} word(s) the glossary does not define: ${candidates.slice(0, 5).join(", ")}${candidates.length > 5 ? ", …" : ""}`, at));
     // The language checks of the quality list (docs/research/2026-11-15-requirement-quality.md, section 8): the
-    // session's own words, Intent and Check, at the family's level; the human's Stated words as notes only, since
+    // session's own words, Intent and Check, at the family's level; the user's Stated words as notes only, since
     // they are theirs to change and a hit there is an issue for them, never an edit.
     const intent = sectionText(n.body, "Intent"), check = sectionText(n.body, "Check"), stated = sectionText(n.body, "Stated");
     for (const h of scanText(`${intent}\n${check}`, canon.terms, n.layer))
       out.push(finding(h.level, h.code, `${n.id}: ${h.why}: "${h.words.join('", "')}"`, at));
     for (const h of scanText(stated, canon.terms, n.layer))
-      out.push(finding("info", h.code, `${n.id}: ${h.why}: "${h.words.join('", "')}", in the human's Stated words; an issue for them, never an edit`, at));
+      out.push(finding("info", h.code, `${n.id}: ${h.why}: "${h.words.join('", "')}", in the user's Stated words; an issue for them, never an edit`, at));
     const pronoun = pronounStart(`${intent}\n${check}`);
     if (pronoun) out.push(finding("info", "pronoun-start", `${n.id}: a sentence starts with "${pronoun}", naming nothing; name the thing`, at));
     if (sentenceCount(intent) > 2) out.push(finding("info", "intent-long", `${n.id}: the Intent runs to ${sentenceCount(intent)} sentences; an entry is one or two`, at));
@@ -129,7 +129,7 @@ export function checkCanon(canon: Canon): Finding[] {
   const inferred = Object.values(canon.nodes).filter((n) => !n.layerExplicit).length;
   if (inferred > 0)
     out.push(finding("info", "layer-inferred", `${inferred} node(s) have no layer field; their layer is inferred from depth (domain, capability, requirement)`));
-  // Refinement order (REQ-3.15): a cycle in requires can never be refined; a deadlock needs a human.
+  // Refinement order (REQ-3.15): a cycle in requires can never be refined; a deadlock needs a user.
   // The version the canon was written under: older is brought up by the start sequence, newer needs a newer HeadCanon.
   if (canon.root) {
     const written = canonFormatVersion(canon);
@@ -137,14 +137,14 @@ export function checkCanon(canon: Canon): Finding[] {
     else if (written < FORMAT_VERSION) out.push(finding("warn", "format-version", `the canon was written under format ${written}${canon.root.format === undefined ? " (none recorded)" : ""}; the current is ${FORMAT_VERSION}, ${changesSince(written).length} version(s) on: the start sequence brings it up, then writes format: ${FORMAT_VERSION} on the root`, { id: "ROOT", file: canon.root.file }));
   }
   // Terms are approved one by one in the Glossary tab; after the root's approval a heading without a marker would
-  // hand every unmarked term the human's own state.
+  // hand every unmarked term the user's own state.
   // A definition says what a term is, never what must be done; an obligation in the glossary belongs in a node.
   for (const t of canon.terms)
     if (/(?<![A-Za-z])(?:shall|must|should)(?![A-Za-z])/i.test(t.definition))
       out.push(finding("info", "glossary-prescriptive", `${t.id}: the definition of "${t.term}" carries an obligation; a definition is declarative, the obligation is a node`, { id: t.id, file: canon.root?.file }));
   if (canon.root && (canon.root.state === "stated" || canon.root.state === "resolved") && /^##[ \t]+Glossary[ \t]*$/m.test(canon.root.body)) {
     const unmarked = canon.root.body.split(/\r?\n/).filter((l) => /^\*\*[^*]+\*\*\s*\(`TERM-/.test(l) && !/\[(stated|assumed|draft|open|contested|resolved)\]/.test(l));
-    if (unmarked.length) out.push(finding("warn", "glossary-inherited", `${unmarked.length} glossary term(s) carry no marker under an unmarked heading, so they read as the human's own; mark the heading [assumed], or each term`, { id: "ROOT", file: canon.root.file }));
+    if (unmarked.length) out.push(finding("warn", "glossary-inherited", `${unmarked.length} glossary term(s) carry no marker under an unmarked heading, so they read as the user's own; mark the heading [assumed], or each term`, { id: "ROOT", file: canon.root.file }));
   }
   const refine = refinementOrder(canon);
   for (const c of refine.cycles)
@@ -179,7 +179,7 @@ export function checkCanon(canon: Canon): Finding[] {
       out.push(finding("warn", "origin-unknown", `${d.id} has origin "${d.origin}"; expected misread, obstacle or side-effect`, at));
   }
 
-  // Branch-level: a branch where unconfirmed outweighs confirmed needs the human's eyes.
+  // Branch-level: a branch where unconfirmed outweighs confirmed needs the user's eyes.
   // Branches of one or two nodes are still being written; flagging them is noise.
   for (const r of canon.roots) {
     const ids = [r, ...descendants(canon, r)];

@@ -11,7 +11,7 @@ A capable colleague who has done the reading and respects your time. Calm, direc
 1. **Say what is true now, then what happens next.** "The premise is ready. Approve it or say it in your words." Not "Great news! I've finished drafting..."
 2. **Second person for the reader, "the session" for the machine.** Never "I" in the page. In the chat the session may say "I" for what it is doing, in one short sentence.
 3. **One idea per sentence, about fifteen words.** One or two sentences per card paragraph. A card has at most three paragraphs before its buttons.
-4. **Plain words.** A term the glossary defines is used after it has been introduced on the page, never before. No "orchestrator", "refiner", "parcel", "bind" in front of the reader. Say "the session", "a box", "the evidence", "where it is built".
+4. **Plain words.** A term the glossary defines is used after it has been introduced on the page, never before. No "orchestrator", "refiner", "parcel", "bind" in front of the reader. Say "the session", "a node", "the evidence", "where it is built".
 5. **Buttons are verbs.** Begin. Approve. Rewrite. Remove. Full-Auto and Guided are the two exceptions, and each carries a one-line description beside it.
 6. **Numbers only when measured.** A bar shows a count the server counted, or it shows motion with no number. Never "about 30%" from a guess.
 7. **No exclamation marks, no emoji in copy, no "please", no "just", no "simply".** No apology for waiting; say what the wait is for.

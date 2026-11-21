@@ -14,7 +14,7 @@ const ran = vi.hoisted(() => ({ runTests: vi.fn() }));
 vi.mock("../src/testing.js", async (original) => ({ ...(await original<typeof import("../src/testing.js")>()), runTests: ran.runTests }));
 
 import { loadCanon } from "../src/load.js";
-import { BRIEF_MARKER, activeRun, afterFirstRun, boxesInScope, createRun, flagsOf, latestRun, loadRun, markerOf, runCli, runsDir, saveRun, setStep, sliceOfAgent, updateSlice, type CliCtx, type Run } from "../src/runs.js";
+import { BRIEF_MARKER, activeRun, afterFirstRun, nodesInScope, createRun, flagsOf, latestRun, loadRun, markerOf, runCli, runsDir, saveRun, setStep, sliceOfAgent, updateSlice, type CliCtx, type Run } from "../src/runs.js";
 import { treeDigest, type TestEntry, type TestResult } from "../src/testing.js";
 
 const roots: string[] = [];
@@ -54,8 +54,8 @@ function ledgerline(): Repo {
 }
 
 const title = (uid: string, words: string) => `${words} [hc:${uid}]`;
-const entry = (uid: string, words: string, file: string): TestEntry => ({ box: uid, id: "", runner: "unit", kind: "unit", file, title: title(uid, words), description: `${words}.`, pin: "pin", status: "accepted", at: "2026-11-18T00:00:00Z" });
-const result = (uid: string, words: string, file: string, outcome: TestResult["outcome"], message?: string): TestResult => ({ box: uid, title: title(uid, words), file, runner: "unit", outcome, ...(message ? { message } : {}) });
+const entry = (uid: string, words: string, file: string): TestEntry => ({ node: uid, id: "", runner: "unit", kind: "unit", file, title: title(uid, words), description: `${words}.`, pin: "pin", status: "accepted", at: "2026-11-18T00:00:00Z" });
+const result = (uid: string, words: string, file: string, outcome: TestResult["outcome"], message?: string): TestResult => ({ node: uid, title: title(uid, words), file, runner: "unit", outcome, ...(message ? { message } : {}) });
 function record(r: Repo, tests: TestEntry[], results: TestResult[]): void {
   writeFileSync(join(r.canonDir, "tests.json"), JSON.stringify({ runners: {}, tests }));
   mkdirSync(join(r.gitDir, "headcanon"), { recursive: true });
@@ -67,7 +67,7 @@ function ctxOf(r: Repo, stdin = ""): { ctx: CliCtx; out: string[]; err: string[]
   return { ctx: { canonDir: r.canonDir, repo: r.repo, gitDir: r.gitDir, port: 4317, by: undefined, json: false, out: (s) => out.push(s), err: (s) => err.push(s), stdin: () => stdin }, out, err };
 }
 
-const boxes = (run: Run) => run.slices.map((s) => s.box);
+const nodes = (run: Run) => run.slices.map((s) => s.node);
 const stepOf = (run: Run, name: string) => run.steps.find((s) => s.name === name)!;
 /** Every step before the build done, the way a session reports them. */
 function prepared(r: Repo, run: Run): Run {
@@ -83,11 +83,11 @@ beforeEach(() => {
 });
 
 describe("a run and its slices", () => {
-  it("gives one slice to each box with a kind that is not red and is not built, in the order the requires links give", () => {
+  it("gives one slice to each node with a kind that is not red and is not built, in the order the requires links give", () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), [], false, "headcanon/build", "main");
-    // REQ-1.1.2 requires REQ-2.1.1, so it waits for it; REQ-2.1.1 waits for its own box below
-    expect(boxes(run)).toEqual(["REQ-1.1.1", "REQ-2.1.1.1", "REQ-2.1.1", "REQ-1.1.2"]);
+    // REQ-1.1.2 requires REQ-2.1.1, so it waits for it; REQ-2.1.1 waits for its own node below
+    expect(nodes(run)).toEqual(["REQ-1.1.1", "REQ-2.1.1.1", "REQ-2.1.1", "REQ-1.1.2"]);
     expect(run.slices.every((s) => s.status === "queued" && s.attempts === 0 && s.lastFailing.length === 0 && s.commits.length === 0 && s.issues.length === 0)).toBe(true);
     expect(run.status).toBe("running");
     expect(run.steps.map((s) => `${s.name}:${s.status}`)).toEqual(["prepare:waiting", "readiness:waiting", "tests:waiting", "first-run:waiting", "build:waiting", "review:waiting"]);
@@ -95,36 +95,36 @@ describe("a run and its slices", () => {
     expect(run.id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
   });
 
-  it("records what each slice owes by stable id: its own box and the boxes below it, the red ones left out", () => {
+  it("records what each slice owes by stable id: its own node and the nodes below it, the red ones left out", () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), [], false, "headcanon/build", "main");
-    const slice = (box: string) => run.slices.find((s) => s.box === box)!;
+    const slice = (node: string) => run.slices.find((s) => s.node === node)!;
     expect(slice("REQ-1.1.1")).toMatchObject({ uid: "aaaaa2", title: "An entry carries a date and an amount", owes: ["aaaaa2"] });
     expect(slice("REQ-2.1.1").owes).toEqual(["eeeee2", "fffff2"]);
   });
 
-  it("leaves out a red box, a built box with nothing failing, and a box without a kind", () => {
+  it("leaves out a red node, a built node with nothing failing, and a node without a kind", () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), [], false, "headcanon/build", "main");
-    for (const left of ["REQ-1.1.3", "REQ-2.1.1.2", "REQ-2.1.2", "REQ-1.1.4", "REQ-1.1", "REQ-2"]) expect(boxes(run)).not.toContain(left);
+    for (const left of ["REQ-1.1.3", "REQ-2.1.1.2", "REQ-2.1.2", "REQ-1.1.4", "REQ-1.1", "REQ-2"]) expect(nodes(run)).not.toContain(left);
   });
 
-  it("keeps to the scope: the boxes named and what is under them; ROOT or nothing is everything", () => {
+  it("keeps to the scope: the nodes named and what is under them; ROOT or nothing is everything", () => {
     const r = ledgerline();
     const canon = loadCanon(r.canonDir);
-    expect(boxes(createRun(r.gitDir, canon, ["REQ-1"], false, "b", "m"))).toEqual(["REQ-1.1.1", "REQ-1.1.2"]);
-    expect(boxes(createRun(r.gitDir, canon, ["REQ-2.1.1.1"], true, "b", "m"))).toEqual(["REQ-2.1.1.1"]);
-    expect(boxes(createRun(r.gitDir, canon, ["ROOT"], false, "b", "m"))).toHaveLength(4);
-    expect(boxesInScope(canon, ["REQ-2.1.1"])).toEqual(["REQ-2.1.1", "REQ-2.1.1.1", "REQ-2.1.1.2"]);
-    expect(boxesInScope(canon, ["REQ-9"])).toEqual([]);
+    expect(nodes(createRun(r.gitDir, canon, ["REQ-1"], false, "b", "m"))).toEqual(["REQ-1.1.1", "REQ-1.1.2"]);
+    expect(nodes(createRun(r.gitDir, canon, ["REQ-2.1.1.1"], true, "b", "m"))).toEqual(["REQ-2.1.1.1"]);
+    expect(nodes(createRun(r.gitDir, canon, ["ROOT"], false, "b", "m"))).toHaveLength(4);
+    expect(nodesInScope(canon, ["REQ-2.1.1"])).toEqual(["REQ-2.1.1", "REQ-2.1.1.1", "REQ-2.1.1.2"]);
+    expect(nodesInScope(canon, ["REQ-9"])).toEqual([]);
   });
 
-  it("takes out of sync from the stored results: a built box with a failing accepted test gets a slice, a not built box whose test passes gets none", () => {
+  it("takes out of sync from the stored results: a built node with a failing accepted test gets a slice, a not built node whose test passes gets none", () => {
     const r = ledgerline();
     record(r, [entry("ddddd2", "lists the oldest entry first", "tests/list.test.js"), entry("aaaaa2", "refuses an entry without a date", "tests/entry.test.js")],
       [result("ddddd2", "lists the oldest entry first", "tests/list.test.js", "failed", "expected 1 March before 2 March"), result("aaaaa2", "refuses an entry without a date", "tests/entry.test.js", "passed")]);
     const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1"], false, "b", "m");
-    expect(boxes(run)).toEqual(["REQ-1.1.2", "REQ-1.1.4"]);
+    expect(nodes(run)).toEqual(["REQ-1.1.2", "REQ-1.1.4"]);
   });
 
   it("stores the run under the git directory and reads it back; the active run is the newest not done or stopped", () => {
@@ -173,7 +173,7 @@ describe("steps, slices and what the run's status follows", () => {
     expect(setStep(r.gitDir, run.id, "tests", "running").status).toBe("running");
   });
 
-  it("changes a slice by box id or stable id, with its start and end times", () => {
+  it("changes a slice by node id or stable id, with its start and end times", () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1"], false, "b", "m");
     const building = updateSlice(r.gitDir, run.id, "REQ-1.1.1", { status: "building", agent: "agent-7" });
@@ -209,7 +209,7 @@ describe("steps, slices and what the run's status follows", () => {
     expect(activeRun(r.gitDir)).toBeUndefined();
   });
 
-  it("waits on the person when what is left is blocked behind issues, and runs again when a slice is sent back", () => {
+  it("waits on the user when what is left is blocked behind issues, and runs again when a slice is sent back", () => {
     const r = ledgerline();
     const run = prepared(r, createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1"], false, "b", "m"));
     updateSlice(r.gitDir, run.id, "REQ-1.1.1", { status: "approved" });
@@ -219,7 +219,7 @@ describe("steps, slices and what the run's status follows", () => {
     now = updateSlice(r.gitDir, run.id, "REQ-1.1.2", { status: "sent-back", note: "use the month's last day" });
     expect(now.status).toBe("running");
     expect(stepOf(now, "build").status).toBe("running");
-    expect(now.slices.find((s) => s.box === "REQ-1.1.2")).toMatchObject({ note: "use the month's last day" });
+    expect(now.slices.find((s) => s.node === "REQ-1.1.2")).toMatchObject({ note: "use the month's last day" });
   });
 
   it("follows the slices even when the session skipped a step report", () => {
@@ -252,7 +252,7 @@ describe("steps, slices and what the run's status follows", () => {
   it("after the first run keeps the titles that pass and makes the slices follow the marks", () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1"], false, "b", "m");
-    expect(boxes(run)).toEqual(["REQ-1.1.1", "REQ-1.1.2"]);
+    expect(nodes(run)).toEqual(["REQ-1.1.1", "REQ-1.1.2"]);
     updateSlice(r.gitDir, run.id, "REQ-1.1.2", { status: "building" });
     record(r, [entry("ddddd2", "lists the oldest entry first", "tests/list.test.js"), entry("aaaaa2", "refuses an entry without a date", "tests/entry.test.js")],
       [result("ddddd2", "lists the oldest entry first", "tests/list.test.js", "failed"), result("aaaaa2", "refuses an entry without a date", "tests/entry.test.js", "passed")]);
@@ -260,7 +260,7 @@ describe("steps, slices and what the run's status follows", () => {
     expect(after.firstRun).toEqual({ passing: [title("aaaaa2", "refuses an entry without a date")] });
     // REQ-1.1.1 passes although it said not built: its queued slice goes; REQ-1.1.4 turned out of sync: it gets one;
     // REQ-1.1.2 is no longer queued, so it stays whatever the marks say
-    expect(boxes(after).sort()).toEqual(["REQ-1.1.2", "REQ-1.1.4"]);
+    expect(nodes(after).sort()).toEqual(["REQ-1.1.2", "REQ-1.1.4"]);
     expect(loadRun(r.gitDir, run.id)).toEqual(after);
   });
 });
@@ -277,8 +277,8 @@ describe("finding the slice an agent builds", () => {
 
   it("reads the marker line", () => {
     expect(BRIEF_MARKER).toBe("headcanon-run:");
-    expect(markerOf("headcanon-run: 20261118T100000-ab12 slice: REQ-1.1.1\n\n# Ledgerline\n")).toEqual({ run: "20261118T100000-ab12", box: "REQ-1.1.1" });
-    expect(markerOf("\n\n  headcanon-run: r1 slice: REQ-2\r\nmore")).toEqual({ run: "r1", box: "REQ-2" });
+    expect(markerOf("headcanon-run: 20261118T100000-ab12 slice: REQ-1.1.1\n\n# Ledgerline\n")).toEqual({ run: "20261118T100000-ab12", node: "REQ-1.1.1" });
+    expect(markerOf("\n\n  headcanon-run: r1 slice: REQ-2\r\nmore")).toEqual({ run: "r1", node: "REQ-2" });
     expect(markerOf("# Ledgerline\nheadcanon-run: r1 slice: REQ-2\n")).toBeUndefined();
     expect(markerOf("headcanon-run: r1")).toBeUndefined();
     expect(markerOf("")).toBeUndefined();
@@ -290,17 +290,17 @@ describe("finding the slice an agent builds", () => {
     const brief = `headcanon-run: ${run.id} slice: REQ-1.1.2\n\n# Ledgerline\n\nWhat the product is.\n`;
     const asString = sliceOfAgent(r.gitDir, "unknown-agent", transcript(r, "string", [first(brief), answer]));
     expect(asString?.run.id).toBe(run.id);
-    expect(asString?.slice.box).toBe("REQ-1.1.2");
+    expect(asString?.slice.node).toBe("REQ-1.1.2");
     const asBlocks = sliceOfAgent(r.gitDir, undefined, transcript(r, "blocks", [first([{ type: "text", text: brief }]), answer]));
-    expect(asBlocks?.slice.box).toBe("REQ-1.1.2");
+    expect(asBlocks?.slice.node).toBe("REQ-1.1.2");
   });
 
   it("finds it by agent id in the active run, before any transcript is read", () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1"], false, "b", "m");
     updateSlice(r.gitDir, run.id, "REQ-1.1.1", { status: "building", agent: "agent-7" });
-    expect(sliceOfAgent(r.gitDir, "agent-7", undefined)?.slice.box).toBe("REQ-1.1.1");
-    expect(sliceOfAgent(r.gitDir, "agent-7", join(r.repo, "no-such-file.jsonl"))?.slice.box).toBe("REQ-1.1.1");
+    expect(sliceOfAgent(r.gitDir, "agent-7", undefined)?.slice.node).toBe("REQ-1.1.1");
+    expect(sliceOfAgent(r.gitDir, "agent-7", join(r.repo, "no-such-file.jsonl"))?.slice.node).toBe("REQ-1.1.1");
     expect(sliceOfAgent(r.gitDir, "agent-8", undefined)).toBeUndefined();
   });
 
@@ -315,7 +315,7 @@ describe("finding the slice an agent builds", () => {
     expect(sliceOfAgent(r.gitDir, undefined, transcript(r, "quoted", [first(`Check this brief:\n${marker}\n`), answer]))).toBeUndefined();
     expect(sliceOfAgent(r.gitDir, undefined, transcript(r, "later", [first("Summarise the run."), answer, first(marker)]))).toBeUndefined();
     expect(sliceOfAgent(r.gitDir, undefined, transcript(r, "other-run", [first("headcanon-run: no-such-run slice: REQ-1.1.2\n")]))).toBeUndefined();
-    expect(sliceOfAgent(r.gitDir, undefined, transcript(r, "other-box", [first(`headcanon-run: ${run.id} slice: REQ-2.1.1\n`)]))).toBeUndefined();
+    expect(sliceOfAgent(r.gitDir, undefined, transcript(r, "other-node", [first(`headcanon-run: ${run.id} slice: REQ-2.1.1\n`)]))).toBeUndefined();
     writeFileSync(join(r.repo, "garbage.jsonl"), "not json at all\n{ torn\n");
     expect(sliceOfAgent(r.gitDir, undefined, join(r.repo, "garbage.jsonl"))).toBeUndefined();
   });
@@ -339,8 +339,8 @@ describe("headcanon run", () => {
     const said = out.join("");
     expect(said).toContain(`Run ${run.id}: running. Branch headcanon/build.`);
     expect(said).toContain("REQ-2.1.1 A closed month keeps its totals: queued");
-    // eight boxes carry a check, three of them red; of the five left only REQ-1.1.4 is built
-    expect(said).toContain("In scope: 5 box(es) with a check. To test: 5. To build: 4. To align: 0. Left out because they need the person: 3.");
+    // eight nodes carry a check, three of them red; of the five left only REQ-1.1.4 is built
+    expect(said).toContain("In scope: 5 node(s) with a check. To test: 5. To build: 4. To align: 0. Left out because they need the user: 3.");
   });
 
   it("start --single --json answers the run and the counts as JSON", async () => {
@@ -349,17 +349,17 @@ describe("headcanon run", () => {
     expect(await runCli(["start", "REQ-1.1.1", "--single", "--json"], ctx)).toBe(0);
     const answer = JSON.parse(out.join("")) as { run: Run; counts: Record<string, number> };
     expect(answer.run.single).toBe(true);
-    expect(boxes(answer.run)).toEqual(["REQ-1.1.1"]);
+    expect(nodes(answer.run)).toEqual(["REQ-1.1.1"]);
     expect(answer.counts).toEqual({ measurable: 1, toTest: 1, toBuild: 1, toAlign: 0, leftOut: 0 });
   });
 
-  it("start refuses an unknown box, a scope with nothing to build, a second run, and a branch that could not be prepared", async () => {
+  it("start refuses an unknown node, a scope with nothing to build, a second run, and a branch that could not be prepared", async () => {
     const r = ledgerline();
     const { ctx, err } = ctxOf(r);
     expect(await runCli(["start", "REQ-7"], ctx)).toBe(1);
-    expect(err.join("")).toContain("no box REQ-7");
+    expect(err.join("")).toContain("no node REQ-7");
     expect(await runCli(["start", "REQ-2.1.2"], ctx)).toBe(1);
-    expect(err.join("")).toContain("1 box(es) wait on the person");
+    expect(err.join("")).toContain("1 node(s) wait on the user");
     expect(approve.prepareBuild).not.toHaveBeenCalled();
     approve.prepareBuild.mockImplementationOnce(() => ({ ok: false, branch: "headcanon/build", base: "", error: "the tree has changes that are not committed" }));
     expect(await runCli(["start", "REQ-1"], ctx)).toBe(1);
@@ -409,10 +409,10 @@ describe("headcanon run", () => {
     expect(await runCli(["step", "first-run", "done"], ctx)).toBe(0);
     const after = loadRun(r.gitDir, run.id)!;
     expect(after.firstRun).toEqual({ passing: [] });
-    expect(boxes(after)).toContain("REQ-1.1.4");
+    expect(nodes(after)).toContain("REQ-1.1.4");
   });
 
-  it("step first-run done gives a box the first run showed out of sync its slice before the run can end", async () => {
+  it("step first-run done gives a node the first run showed out of sync its slice before the run can end", async () => {
     const r = ledgerline();
     const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1.1.4"], true, "b", "m");
     expect(run.slices).toEqual([]);
@@ -422,7 +422,7 @@ describe("headcanon run", () => {
     expect(await runCli(["step", "first-run", "done"], ctx)).toBe(0);
     const after = loadRun(r.gitDir, run.id)!;
     expect(after.status).toBe("running");
-    expect(after.slices.map((s) => `${s.box}:${s.status}`)).toEqual(["REQ-1.1.4:queued"]);
+    expect(after.slices.map((s) => `${s.node}:${s.status}`)).toEqual(["REQ-1.1.4:queued"]);
     expect(stepOf(after, "first-run").status).toBe("done");
     expect(stepOf(after, "build").status).toBe("waiting");
   });
@@ -460,7 +460,7 @@ describe("headcanon run", () => {
     expect(await runCli(["stop"], ctx)).toBe(1);
   });
 
-  it("check reruns what the slice owes and what passed before, lists the commits, and marks a passing slice as passed, for the session to put before the person with its summary", async () => {
+  it("check reruns what the slice owes and what passed before, lists the commits, and marks a passing slice as passed, for the session to put before the user with its summary", async () => {
     const r = ledgerline();
     record(r, [entry("aaaaa2", "refuses an entry without a date", "tests/entry.test.js"), entry("ddddd2", "lists the oldest entry first", "tests/list.test.js")], []);
     const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1.1.1"], true, "headcanon/build", "main");
@@ -470,7 +470,7 @@ describe("headcanon run", () => {
     approve.sliceCommits.mockImplementation(() => [{ sha: "c0ffee1234567", subject: "feat(entries): an entry needs a date", ok: true, errors: [] }]);
     const { ctx, out } = ctxOf(r);
     expect(await runCli(["check", "REQ-1.1.1"], ctx)).toBe(0);
-    expect(ran.runTests).toHaveBeenCalledWith(r.canonDir, { boxes: ["aaaaa2", "ddddd2"] });
+    expect(ran.runTests).toHaveBeenCalledWith(r.canonDir, { nodes: ["aaaaa2", "ddddd2"] });
     expect(approve.sliceCommits).toHaveBeenCalledWith(r.repo, "base000");
     const said = out.join("");
     expect(said).toContain("REQ-1.1.1 An entry carries a date and an amount: pass");

@@ -36,9 +36,9 @@ The candidates for a node's children are the answers to the four prompts of REQ-
 
 The axis is read off the set: the question most top rungs answer about the node, when, which part, which case, who, what it acts on or how well, is recorded on the node as its partition. Rungs that answer a second question become one facet child that branches from there. A lone rung is deferred under the child it is an aspect of, linked to the children it cuts across, or lifted to the node's parent when it cuts across the node's siblings too.
 
-The set is closed by two checks: if every child holds, the node holds; and everything the node's text acts on, produces or forbids appears in some child. Each gap becomes a child, pre-filled from the project where it speaks to it and otherwise asked as a question, and an open node when the human leaves it undecided. The children are named by their rungs in plain words or glossary terms, judged against the principles, ordered along the axis, and approved as one set together with the axis.
+The set is closed by two checks: if every child holds, the node holds; and everything the node's text acts on, produces or forbids appears in some child. Each gap becomes a child, pre-filled from the project where it speaks to it and otherwise asked as a question, and an open node when the user leaves it undecided. The children are named by their rungs in plain words or glossary terms, judged against the principles, ordered along the axis, and approved as one set together with the axis.
 
 ## Not this
 
-- Choosing the dimension before the children, or proposing alternative child sets for the human to compare.
+- Choosing the dimension before the children, or proposing alternative child sets for the user to compare.
 - An artifact's statement as a child in its own words.

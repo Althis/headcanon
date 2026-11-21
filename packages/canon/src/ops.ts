@@ -19,22 +19,22 @@ import { isLayer, type Canon, type Layer, type ReqNode } from "./types.js";
  * write and a review verdict all leave the same trace, and `headcanon op --stats` reads the retries per check.
  *
  * The operations: `link`, `unlink` and `move-edge` on the typed edges; `create`, `move`, `merge` and `delete` on the
- * shape of the tree; `contest`, `reword`, `draft` and `note` on one box's text and state; `bind` and `unbind` on its
+ * shape of the tree; `contest`, `reword`, `draft` and `note` on one node's text and state; `bind` and `unbind` on its
  * evidence; `term` on the glossary; `journey` on a guessed journey's file; and three that write nothing and only leave
- * their trace: `review`, the verdict counted against the retry budget, and `dispatch` and `returned`, which boxes a
+ * their trace: `review`, the verdict counted against the retry budget, and `dispatch` and `returned`, which nodes a
  * running agent holds, so a session that compacts reads them back.
  *
  * An operation is applied as a plan of file writes and removals; the canon is reloaded and checked afterwards,
  * and a plan that introduces a structural error is rolled back and refused with the errors as its reason.
  *
  * The name an operation arrives under (`by`) is its border: a refiner and a tester write inside their capability, an
- * implementation agent adds guessed boxes and nothing else (`scopeOp`). What falls outside is refused here and
+ * implementation agent adds guessed nodes and nothing else (`scopeOp`). What falls outside is refused here and
  * recorded as a proposal (`proposals.ts`) for the session to apply.
  */
 
 export type LinkKind = "relates" | "requires" | "conflicts";
 
-/** One step of a journey as an operation carries it: what the person does, the boxes it exercises, and what is given, done and seen. */
+/** One step of a journey as an operation carries it: what the user does, the nodes it exercises, and what is given, done and seen. */
 export interface JourneyStepInput { label: string; requirements: string[]; given?: string; does?: string; sees?: string }
 
 export type Op =
@@ -56,13 +56,13 @@ export type Op =
   | { op: "delete"; id: string; subtree?: boolean; why?: string }
   /** A guess the review could not get right becomes a draft: `state: open`, the diagnosis under Open; its question is filed apart. */
   | { op: "draft"; id: string; why: string }
-  /** A dated observation under Open on a guess, its state unchanged; an approved box's drift is an issue, never a note. */
+  /** A dated observation under Open on a guess, its state unchanged; an approved node's drift is an issue, never a note. */
   | { op: "note"; id: string; text: string; why?: string }
   /** A guessed journey: a new `journeys/JRN-n-<slug>.md`, or with `id` the steps of an assumed one rewritten; an approved journey is never rewritten. */
   | { op: "journey"; id?: string; title: string; steps: JourneyStepInput[]; source?: string; state?: "assumed"; why?: string }
   /** Record only: a review verdict on a node, so retries are counted and the budget is enforced. */
   | { op: "review"; id: string; verdict: "pass" | "fail"; findings?: Array<{ check: string; text: string }>; why?: string }
-  /** Record only: a box handed to a running agent, and its return, so a session that compacts reads back what is held. */
+  /** Record only: a node handed to a running agent, and its return, so a session that compacts reads back what is held. */
   | { op: "dispatch"; id: string; agent?: string; why?: string }
   | { op: "returned"; id: string; why?: string };
 
@@ -215,8 +215,8 @@ const cellText = (s: string | undefined) => (typeof s === "string" ? s : "").rep
 /** A journey's steps in the two forms its file holds: the Mermaid graph, and the table the loader reads (`parseStepTable`). */
 function journeySteps(steps: JourneyStepInput[]): { graph: string; table: string } {
   const labels = steps.map((s) => cellText(s.label));
-  const box = (i: number) => `S${i + 1}["${labels[i]!.replace(/"/g, "'")}"]`;
-  const edges = steps.length > 1 ? steps.slice(1).map((_s, i) => `    ${i === 0 ? box(0) : `S${i + 1}`} --> ${box(i + 1)}`) : [`    ${box(0)}`];
+  const node = (i: number) => `S${i + 1}["${labels[i]!.replace(/"/g, "'")}"]`;
+  const edges = steps.length > 1 ? steps.slice(1).map((_s, i) => `    ${i === 0 ? node(0) : `S${i + 1}`} --> ${node(i + 1)}`) : [`    ${node(0)}`];
   const detail = steps.some((s) => cellText(s.given) || cellText(s.does) || cellText(s.sees));
   const head = ["Step", "State", "Linked requirements", ...(detail ? ["Given", "Does", "Sees"] : [])];
   const rows = steps.map((s, i) => [`S${i + 1} ${labels[i]}`, "assumed", uniq(s.requirements.map((r) => r.trim())).join(", "), ...(detail ? [cellText(s.given), cellText(s.does), cellText(s.sees)] : [])]);
@@ -298,7 +298,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       if (op.layer && !isLayer(op.layer)) return { error: `unknown layer ${String(op.layer)}` };
       const parent = parentId ? node(parentId) : undefined;
       const id = nextChildId(canon, parentId);
-      // the layer follows what the box is and where it hangs, never its depth: a box with a kind is a requirement, and a
+      // the layer follows what the node is and where it hangs, never its depth: a node with a kind is a requirement, and a
       // project with no domain layer has capabilities at the top whose children are requirements all the same
       const below: Record<Layer, Layer> = { domain: "capability", capability: "requirement", requirement: "requirement" };
       const layer: Layer = op.layer ?? (op.kind ? "requirement" : parent ? below[parent.layer] : "domain");
@@ -313,7 +313,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       if (parentId && !node(parentId)) return { error: `${op.under} is not in the canon` };
       if (op.layer && !isLayer(op.layer)) return { error: `unknown layer ${String(op.layer)}` };
       const n = node(op.id)!;
-      if (parentId === op.id || (parentId && descendants(canon, op.id).includes(parentId))) return { error: `${op.under} is under ${op.id}; a box cannot move into itself` };
+      if (parentId === op.id || (parentId && descendants(canon, op.id).includes(parentId))) return { error: `${op.under} is under ${op.id}; a node cannot move into itself` };
       if ((n.parent ?? undefined) === parentId) return { plan, result: { id: op.id } };
       const parent = parentId ? node(parentId) : undefined;
       const layer = op.layer ?? (n.layerExplicit ? n.layer : undefined);
@@ -355,7 +355,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       if (op.from === op.to) return { error: `${op.from} cannot absorb itself` };
       const from = node(op.from)!, to = node(op.to)!;
       if (from.children.length) return { error: `${op.from} has children; move or merge them first` };
-      if (approvedState(from)) return { error: `${op.from} is the human's; a merge of an approved box is asked, never applied` };
+      if (approvedState(from)) return { error: `${op.from} is the user's; a merge of an approved node is asked, never applied` };
       const idMap = new Map([[op.from, op.to]]);
       let text = current(to);
       for (const kind of ["relates", "requires", "conflicts"] as const) {
@@ -369,7 +369,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const deferred = bulletsOf(from.body, "Deferred"), toDeferred = bulletsOf(to.body, "Deferred");
       if (deferred.some((b) => !toDeferred.includes(b))) text = upsertSection(text, "Deferred", uniq([...toDeferred, ...deferred]).map((b) => `- ${b}`).join("\n"));
       if (from.source && from.source !== to.source) text = setField(text, "source", quoted([to.source, from.source].filter(Boolean).join("; ")));
-      // the absorbing box's own prose, and the bullets it just took, name the gone id too
+      // the absorbing node's own prose, and the bullets it just took, name the gone id too
       write(to, rewriteIds(text, idMap));
       const fromAbs = resolve(canon.dir, from.file);
       for (const f of walkMd(canon.dir)) {
@@ -399,7 +399,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
     case "contest": {
       const err = must(op.id) ?? (op.other ? must(op.other) : undefined);
       if (err) return { error: err };
-      if (op.other === op.id) return { error: `${op.id} cannot be contested against itself; name the other box, or leave other out when both readings are its own` };
+      if (op.other === op.id) return { error: `${op.id} cannot be contested against itself; name the other node, or leave other out when both readings are its own` };
       if (!op.summary?.trim() || !Array.isArray(op.statements) || op.statements.length < 2) return { error: "a contest needs a summary and at least two statements with their sources" };
       const summary = op.summary.trim().replace(/\s+/g, " ");
       const statements = op.statements.map((s) => `${s.text.trim()} (${s.source.trim()})`);
@@ -421,7 +421,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       if (!op.term?.trim() || !op.definition?.trim()) return { error: "a term needs the word and its definition" };
       const term = op.term.trim(), def = op.definition.trim().replace(/\s+/g, " ");
       const existing = parseGlossary(canon.root.body).find((t) => t.term.toLowerCase() === term.toLowerCase() || t.id === termId(term));
-      if (existing && (existing.state === "stated" || existing.state === "resolved")) return { error: `${existing.term} is the human's term; a change to it is asked, never applied` };
+      if (existing && (existing.state === "stated" || existing.state === "resolved")) return { error: `${existing.term} is the user's term; a change to it is asked, never applied` };
       const abs = resolve(canon.dir, canon.root.file);
       const text = plan.writes.get(abs) ?? readFileSync(abs, "utf8");
       const line = `**${existing?.term ?? term}** (\`${existing?.id ?? termId(term)}\`) [assumed]: ${def}`;
@@ -447,7 +447,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const err = must(op.id);
       if (err) return { error: err };
       const n = node(op.id)!;
-      if (approvedState(n)) return { error: `${op.id} is the human's words; a rewording is asked, never applied` };
+      if (approvedState(n)) return { error: `${op.id} is the user's words; a rewording is asked, never applied` };
       if (!op.from?.trim() || typeof op.to !== "string") return { error: "a reword needs the phrase to replace and its replacement" };
       const re = new RegExp(`(?<![A-Za-z0-9])${escapeRe(op.from.trim())}(?![A-Za-z0-9])`, "g");
       const text = current(n);
@@ -467,7 +467,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const n = node(op.id)!;
       if (n.children.length && !op.subtree) return { error: `${op.id} has children; pass subtree: true to remove them too` };
       const gone = new Set([op.id, ...descendants(canon, op.id)]);
-      if ([...gone].some((x) => approvedState(node(x)))) return { error: `${op.id} or a box under it is the human's; a deletion of an approved box is asked, never applied` };
+      if ([...gone].some((x) => approvedState(node(x)))) return { error: `${op.id} or a node under it is the user's; a deletion of an approved node is asked, never applied` };
       const abs = resolve(canon.dir, n.file);
       for (const f of basename(abs) === "README.md" ? walkMd(dirname(abs)) : [abs]) plan.removes.add(f);
       for (const other of Object.values(canon.nodes)) {
@@ -510,7 +510,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const err = must(op.id);
       if (err) return { error: err };
       const n = node(op.id)!;
-      if (approvedState(n)) return { error: `${op.id} is the human's; it is never made a draft, its problem is an issue` };
+      if (approvedState(n)) return { error: `${op.id} is the user's; it is never made a draft, its problem is an issue` };
       if (!op.why?.trim()) return { error: "a draft needs the diagnosis: why the guess could not be made right" };
       let text = setField(current(n), "state", "draft");
       text = upsertSection(text, "Open", [...bulletsOf(n.body, "Open"), `${today()}: made a draft by review: ${op.why.trim()}`].map((b) => `- ${b}`).join("\n"));
@@ -521,18 +521,18 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       const err = must(op.id);
       if (err) return { error: err };
       const n = node(op.id)!;
-      if (approvedState(n)) return { error: `${op.id} is the human's; its drift is an issue, never a note` };
+      if (approvedState(n)) return { error: `${op.id} is the user's; its drift is an issue, never a note` };
       if (!op.text?.trim()) return { error: "a note needs its text: what was seen, in a line" };
       write(n, upsertSection(current(n), "Open", [...bulletsOf(n.body, "Open"), `${today()}: ${op.text.trim()}`].map((b) => `- ${b}`).join("\n")));
       return { plan, result: { id: op.id } };
     }
     case "journey": {
       if (typeof op.title !== "string" || !op.title.trim()) return { error: "a journey needs a title: who does what, to what end" };
-      if (!Array.isArray(op.steps) || !op.steps.length) return { error: "a journey needs its steps, each with a label and the boxes it exercises" };
-      if (op.state && op.state !== "assumed") return { error: "a journey written by an operation is assumed; the human approves it on the page" };
+      if (!Array.isArray(op.steps) || !op.steps.length) return { error: "a journey needs its steps, each with a label and the nodes it exercises" };
+      if (op.state && op.state !== "assumed") return { error: "a journey written by an operation is assumed; the user approves it on the page" };
       for (const [i, s] of op.steps.entries()) {
-        if (typeof s?.label !== "string" || !cellText(s.label)) return { error: `step ${i + 1} needs a label: what the person does, in a few words` };
-        if (!Array.isArray(s.requirements) || !s.requirements.length || s.requirements.some((r) => typeof r !== "string")) return { error: `step ${i + 1} cites no box: name the requirements it exercises` };
+        if (typeof s?.label !== "string" || !cellText(s.label)) return { error: `step ${i + 1} needs a label: what the user does, in a few words` };
+        if (!Array.isArray(s.requirements) || !s.requirements.length || s.requirements.some((r) => typeof r !== "string")) return { error: `step ${i + 1} cites no node: name the requirements it exercises` };
         const missing = s.requirements.find((r) => !node(r.trim()));
         if (missing) return { error: `step ${i + 1} cites ${missing}, which is not in the canon` };
       }
@@ -547,7 +547,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       }
       const j = canon.journeys.find((x) => x.id === op.id);
       if (!j) return { error: `${op.id} is not in the canon` };
-      if (approvedState(j)) return { error: `${op.id} is the human's; a change to an approved journey is asked, never applied` };
+      if (approvedState(j)) return { error: `${op.id} is the user's; a change to an approved journey is asked, never applied` };
       if (j.state !== "assumed") return { error: `${op.id} is ${j.state}; only an assumed journey is rewritten` };
       const abs = resolve(canon.dir, j.file);
       let text = readFileSync(abs, "utf8").replace(/\r\n/g, "\n");
@@ -561,7 +561,7 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       return { plan, result: { id: j.id } };
     }
     case "review": {
-      // ROOT names the set of top-level boxes, the premise's children: it is reviewed like any other set
+      // ROOT names the set of top-level nodes, the premise's children: it is reviewed like any other set
       const err = op.id === "ROOT" ? undefined : must(op.id);
       if (err) return { error: err };
       if (op.verdict !== "pass" && op.verdict !== "fail") return { error: "a review's verdict is pass or fail" };
@@ -647,12 +647,12 @@ export function gitDirOf(canonDir: string): string | undefined {
   return gitDirs.get(canonDir);
 }
 
-/** An id is below a box when it is that box or sits under it: ids mirror paths. */
+/** An id is below a node when it is that node or sits under it: ids mirror paths. */
 const below = (id: unknown, top: string) => typeof id === "string" && (id === top || id.startsWith(`${top}.`));
 
 /**
  * The border a name carries: `refiner-<capability id>` and `tester-<capability id>` write inside that capability,
- * `implementer-<box id>` adds guessed boxes and nothing else; every other name, and none, writes anywhere. Returns the
+ * `implementer-<node id>` adds guessed nodes and nothing else; every other name, and none, writes anywhere. Returns the
  * operation to apply, a tester's or an implementation agent's `create` made a guess, or the reason it is refused.
  * Ids alone decide, so a move or a merge with one end outside the capability is refused whichever end it is.
  */
@@ -664,7 +664,7 @@ export function scopeOp(op: Op, by: string | undefined): { op: Op } | { error: s
   const outside = { error: `outside ${by!.trim()}'s capability (${top}): record it with HC propose` };
   if (role === "implementer") {
     if (op.op !== "create") return { error: "an implementation agent adds assumptions and issues only" };
-    if (op.under === "ROOT") return { error: "an implementation agent adds an assumption under a box, never at the top level" };
+    if (op.under === "ROOT") return { error: "an implementation agent adds an assumption under a node, never at the top level" };
     const given = op.source?.trim();
     const source = given && /^builder\b/i.test(given) ? given : `builder ${by!.trim()}${given ? `: ${given}` : ""}`;
     return { op: { ...op, state: "assumed", source } };
@@ -680,7 +680,7 @@ export function scopeOp(op: Op, by: string | undefined): { op: Op } | { error: s
       case "term": case "review": case "dispatch": case "returned": return true;
       case "create": return below(op.under, top);
       case "bind": case "unbind": case "reword": case "note": case "draft": case "delete": return below(op.id, top);
-      // a contest writes both boxes
+      // a contest writes both nodes
       case "contest": return below(op.id, top) && (!op.other || below(op.other, top));
       case "move": return below(op.id, top) && below(op.under, top);
       case "merge": return below(op.from, top) && below(op.to, top);
@@ -719,14 +719,14 @@ export function applyOp(canonDir: string, request: Op, opts: ApplyOptions = {}):
   };
   if ("error" in scoped) return record({ ok: false, changes: [], error: scoped.error });
   const canon = loadCanon(dir);
-  // Guided (DEC-025): `top` and a refiner draft nothing under a box the human has not approved. A draft is a question
+  // Guided (DEC-025): `top` and a refiner draft nothing under a node the user has not approved. A draft is a question
   // and stands anywhere; a tester's and an implementation agent's guesses are not the drafting. The mode is read here
   // from the file the page writes, since the settings module reads its folder through this one; no file is Full-Auto.
   if (op.op === "create" && op.state !== "draft" && /^(top|refiner-.+)$/.test(opts.by?.trim() ?? "") && git) {
     let guided = false;
     try { guided = (JSON.parse(readFileSync(join(git, "headcanon", "settings.json"), "utf8")) as { mode?: string }).mode === "guided"; } catch { /* no settings: Full-Auto */ }
     const under = op.under === "ROOT" ? canon.root : canon.nodes[op.under];
-    if (guided && under && !approvedState(under)) return record({ ok: false, changes: [], error: `Guided: ${op.under} waits for the human's approval and nothing is drafted under it before that; name it in your report` });
+    if (guided && under && !approvedState(under)) return record({ ok: false, changes: [], error: `Guided: ${op.under} waits for the user's approval and nothing is drafted under it before that; name it in your report` });
   }
   if (op.op === "review") {
     const prior = logPath ? readOps(logPath).filter((e) => e.request.op === "review" && e.request.id === op.id) : [];

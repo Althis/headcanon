@@ -9,7 +9,7 @@ The premise file as `top` writes it, and what an entry must not contain. The for
 
 ## 1. The premise file (`canon/README.md`)
 
-`HC init` wrote a skeleton. The premise replaces everything in it except the `format` line, which stays as it is. Everything here is a guess until the human approves it on the page.
+`HC init` wrote a skeleton. The premise replaces everything in it except the `format` line, which stays as it is. Everything here is a guess until the user approves it on the page.
 
 ```markdown
 ---
@@ -41,9 +41,9 @@ Source: <path:lines>
 **<term>** (`TERM-<slug>`) [assumed]: <what the term is, as a dictionary says it>
 ```
 
-- A principle carries its marker on its title line: `[assumed]` while it is a guess. The page writes `[resolved]` when the human approves it, and no marker when they rewrite it: a line without a marker is the human's own.
+- A principle carries its marker on its title line: `[assumed]` while it is a guess. The page writes `[resolved]` when the user approves it, and no marker when they rewrite it: a line without a marker is the user's own.
 - A term carries its marker after its id. The slug is the term in lower case, every run of other characters turned into one hyphen. The heading's `[assumed]` covers the terms that carry no marker of their own; it is removed only when every term is approved.
-- No `## Implemented by` on the premise, and no `## Stated`: the page writes the human's words when they type them.
+- No `## Implemented by` on the premise, and no `## Stated`: the page writes the user's words when they type them.
 - A term is a word the product gives a meaning of its own. A common word in its common sense is not one; a definition says what the term is, never what must be done.
 
 ## 2. Entry quality: what not to write
@@ -57,7 +57,7 @@ Right: "Entry: one line of the books, with a date, an amount and an account."
 
 **The reason given for a correction, written as content.**
 Wrong: "Account: the heading an entry is counted under in a statement. This is a bookkeeping rule, and asking for an exception does not change it."
-Why: the second sentence is the human's explanation of why an earlier draft was wrong. It argues with a draft the reader never saw.
+Why: the second sentence is the user's explanation of why an earlier draft was wrong. It argues with a draft the reader never saw.
 Right: "Account: the heading an entry is counted under in a statement."
 
 **A "not" clause.**

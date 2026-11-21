@@ -8,36 +8,36 @@ import { coverageFindings } from "../src/parcel.js";
 import type { Canon } from "../src/types.js";
 import type { Outcome, TestEntry, TestManifest, TestResults } from "../src/testing.js";
 
-// Where a box is built and the marks drawn from it. The examples are Ledgerline's: entries, months, closing a month, statements.
+// Where a node is built and the marks drawn from it. The examples are Ledgerline's: entries, months, closing a month, statements.
 const dirs: string[] = [];
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }); });
 
-interface Box { parent?: string; state?: string; kind?: string; uid?: string; binds?: string[]; sections?: string }
-const box = (id: string, o: Box = {}) =>
+interface NodeSpec { parent?: string; state?: string; kind?: string; uid?: string; binds?: string[]; sections?: string }
+const node = (id: string, o: NodeSpec = {}) =>
   `---\nid: ${id}\n${o.parent ? `parent: ${o.parent}\n` : ""}title: "${id}"\nstate: ${o.state ?? "assumed"}\n${o.kind ? `kind: ${o.kind}\n` : ""}${o.uid ? `uid: ${o.uid}\n` : ""}${o.binds ? `binds: [${o.binds.map((b) => `"${b}"`).join(", ")}]\n` : ""}---\n\n# ${id}\n\n## Intent\n\nA closed month takes no new entry.\n${o.kind ? "\n## Check\n\nAn entry dated in a closed month is refused.\n" : ""}${o.sections ? `\n${o.sections}\n` : ""}`;
 
-function canonDirOf(boxes: Record<string, Box>): string {
+function canonDirOf(nodes: Record<string, NodeSpec>): string {
   const dir = join(mkdtempSync(join(tmpdir(), "headcanon-built-")), "canon");
   dirs.push(dirname(dir));
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "README.md"), '---\nid: ROOT\ntitle: "Ledgerline"\nstate: assumed\nformat: 4\n---\n\n# Ledgerline\n\n## Intent\n\nBooks a person can close.\n');
-  for (const [id, o] of Object.entries(boxes)) writeFileSync(join(dir, `${id}.md`), box(id, o));
+  writeFileSync(join(dir, "README.md"), '---\nid: ROOT\ntitle: "Ledgerline"\nstate: assumed\nformat: 4\n---\n\n# Ledgerline\n\n## Intent\n\nBooks a user can close.\n');
+  for (const [id, o] of Object.entries(nodes)) writeFileSync(join(dir, `${id}.md`), node(id, o));
   return dir;
 }
-const canonOf = (boxes: Record<string, Box>): Canon => loadCanon(canonDirOf(boxes));
-const one = (o: Box) => builtOf(canonOf({ "REQ-1": o }).nodes["REQ-1"]!);
+const canonOf = (nodes: Record<string, NodeSpec>): Canon => loadCanon(canonDirOf(nodes));
+const one = (o: NodeSpec) => builtOf(canonOf({ "REQ-1": o }).nodes["REQ-1"]!);
 
 const CLOSE = "implements src/ledger.ts#closeMonth";
 const NOT_BUILT = "## Implemented by\n\n- not built: months are closed by hand in the statement";
 
 const title = (uid: string, n = 1) => `refuses an entry in a closed month ${n} [hc:${uid}]`;
 const entry = (uid: string, n = 1, status: TestEntry["status"] = "accepted"): TestEntry =>
-  ({ box: uid, id: "", runner: "unit", kind: "unit", file: `test/${uid}.test.ts`, title: title(uid, n), description: "Closes a month, adds an entry dated inside it and expects a refusal.", pin: "p", status, at: "2026-11-18T00:00:00.000Z" });
+  ({ node: uid, id: "", runner: "unit", kind: "unit", file: `test/${uid}.test.ts`, title: title(uid, n), description: "Closes a month, adds an entry dated inside it and expects a refusal.", pin: "p", status, at: "2026-11-18T00:00:00.000Z" });
 const manifestOf = (...tests: TestEntry[]): TestManifest => ({ runners: {}, tests });
 const resultsOf = (...rs: Array<[uid: string, outcome: Outcome, n?: number]>): TestResults =>
-  ({ at: "2026-11-18T00:00:00.000Z", tree: "t", runs: [], results: rs.map(([uid, outcome, n]) => ({ box: uid, title: title(uid, n ?? 1), file: `test/${uid}.test.ts`, runner: "unit", outcome })) });
+  ({ at: "2026-11-18T00:00:00.000Z", tree: "t", runs: [], results: rs.map(([uid, outcome, n]) => ({ node: uid, title: title(uid, n ?? 1), file: `test/${uid}.test.ts`, runner: "unit", outcome })) });
 
-describe("builtOf: where a box says it is built", () => {
+describe("builtOf: where a node says it is built", () => {
   it("tells a code unit from a claim", () => {
     expect(isCodeUnit("src/ledger.ts#closeMonth")).toBe(true);
     expect(isCodeUnit("c1-12")).toBe(true);
@@ -88,7 +88,7 @@ describe("builtOf: where a box says it is built", () => {
   });
 });
 
-describe("marksOf: the marks of a box with a kind", () => {
+describe("marksOf: the marks of a node with a kind", () => {
   const canon = canonOf({
     "REQ-1": {},
     "REQ-1.1": { parent: "REQ-1", kind: "binary", uid: "built", binds: [CLOSE] },
@@ -107,7 +107,7 @@ describe("marksOf: the marks of a box with a kind", () => {
     expect(m["REQ-1.2"]).toEqual({ mark: "not-built", built: "not-built", tested: "untested", failing: 0, tests: 0 });
     expect(m["REQ-1.3"]).toEqual({ mark: undefined, built: "unstated", tested: "untested", failing: 0, tests: 0 });
     expect(m["REQ-1.4"]!.mark).toBe("out-of-sync");
-    expect(m["REQ-1.6"]!.mark).toBeUndefined(); // a claim against the box is a matter for the documents, not for the code
+    expect(m["REQ-1.6"]!.mark).toBeUndefined(); // a claim against the node is a matter for the documents, not for the code
   });
 
   it("built and passing has no mark; built and failing is out of sync", () => {
@@ -115,7 +115,7 @@ describe("marksOf: the marks of a box with a kind", () => {
     expect(marksOf(canon, resultsOf(["built", "failed"]), all)["REQ-1.1"]).toEqual({ mark: "out-of-sync", built: "built", tested: "failing", failing: 1, tests: 1 });
   });
 
-  it.each(["errored", "changed", "missing"] as const)("a built box whose accepted test is %s is out of sync", (outcome) => {
+  it.each(["errored", "changed", "missing"] as const)("a built node whose accepted test is %s is out of sync", (outcome) => {
     expect(marksOf(canon, resultsOf(["built", outcome]), all)["REQ-1.1"]).toMatchObject({ mark: "out-of-sync", tested: "failing", failing: 1 });
   });
 
@@ -124,7 +124,7 @@ describe("marksOf: the marks of a box with a kind", () => {
     expect(m["REQ-1.1"]).toEqual({ mark: "out-of-sync", built: "built", tested: "failing", failing: 1, tests: 2 });
   });
 
-  it("a test whose box text changed is stale: it neither passes nor puts the box out of sync", () => {
+  it("a test whose node text changed is stale: it neither passes nor puts the node out of sync", () => {
     expect(marksOf(canon, resultsOf(["built", "stale"]), all)["REQ-1.1"]).toEqual({ mark: undefined, built: "built", tested: "stale", failing: 0, tests: 1 });
     expect(marksOf(canon, resultsOf(["absent", "stale"]), all)["REQ-1.2"]!.mark).toBe("not-built");
   });
@@ -134,11 +134,11 @@ describe("marksOf: the marks of a box with a kind", () => {
     expect(marksOf(canon, resultsOf(["absent", "passed"]), all)["REQ-1.2"]).toEqual({ mark: undefined, built: "not-built", tested: "passing", failing: 0, tests: 1 });
   });
 
-  it("an unstated box is not measured, whatever its tests say", () => {
+  it("an unstated node is not measured, whatever its tests say", () => {
     expect(marksOf(canon, resultsOf(["silent", "failed"]), all)["REQ-1.3"]).toMatchObject({ mark: undefined, built: "unstated", tested: "failing" });
   });
 
-  it("code that contradicts the box is out of sync whatever the tests say", () => {
+  it("code that contradicts the node is out of sync whatever the tests say", () => {
     expect(marksOf(canon, resultsOf(["against", "passed"]), all)["REQ-1.4"]).toMatchObject({ mark: "out-of-sync", tested: "passing" });
   });
 
@@ -161,10 +161,10 @@ describe("marksOf: the marks of a box with a kind", () => {
   });
 });
 
-describe("marksOf: a box with children", () => {
+describe("marksOf: a node with children", () => {
   const canon = canonOf({
     "REQ-1": {},
-    // every requirement below is not built; the draft and the box with no kind do not count
+    // every requirement below is not built; the draft and the node with no kind do not count
     "REQ-1.1": { parent: "REQ-1" },
     "REQ-1.1.1": { parent: "REQ-1.1", kind: "binary", uid: "a", sections: NOT_BUILT },
     "REQ-1.1.2": { parent: "REQ-1.1", kind: "numeric", uid: "b", sections: NOT_BUILT },
@@ -189,7 +189,7 @@ describe("marksOf: a box with children", () => {
     "REQ-1.7.1": { parent: "REQ-1.7", kind: "binary", uid: "k", sections: NOT_BUILT },
   });
 
-  it("is not built when every box below that carries a kind is, and there is one", () => {
+  it("is not built when every node below that carries a kind is, and there is one", () => {
     const m = marksOf(canon);
     expect(m["REQ-1.1"]!.mark).toBe("not-built");
     expect(m["REQ-1.2"]!.mark).toBeUndefined();
@@ -197,7 +197,7 @@ describe("marksOf: a box with children", () => {
     expect(m["REQ-1"]!.mark).toBeUndefined();
   });
 
-  it("is out of sync when any box below is, at every depth above it", () => {
+  it("is out of sync when any node below is, at every depth above it", () => {
     const m = marksOf(canon, resultsOf(["c", "failed"]), manifestOf(entry("c")));
     expect(m["REQ-1.2.1"]!.mark).toBe("out-of-sync");
     expect(m["REQ-1.2"]!.mark).toBe("out-of-sync");
@@ -215,7 +215,7 @@ describe("marksOf: a box with children", () => {
     expect(failing["REQ-1.5"]!.mark).toBe("out-of-sync");
   });
 
-  it("a draft parent gets no mark, and the boxes below it keep theirs", () => {
+  it("a draft parent gets no mark, and the nodes below it keep theirs", () => {
     const m = marksOf(canon);
     expect(m["REQ-1.7"]!.mark).toBeUndefined();
     expect(m["REQ-1.7.1"]!.mark).toBe("not-built");
@@ -277,6 +277,6 @@ describe("the snapshot carries the marks", () => {
     expect(snap.marks["REQ-1.1"]).toEqual({ mark: undefined, built: "built", tested: "untested", failing: 0, tests: 0 });
     expect(snap.marks["REQ-1.2"]!.mark).toBe("not-built");
     expect(snap.marks["REQ-1.3"]).toMatchObject({ mark: undefined, built: "unstated" });
-    expect(snap.coverage).toEqual([]); // the unstated box is the gate's finding, not a parent with evidence left unbound
+    expect(snap.coverage).toEqual([]); // the unstated node is the gate's finding, not a parent with evidence left unbound
   });
 });

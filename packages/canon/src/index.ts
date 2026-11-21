@@ -17,14 +17,14 @@ export { initCanon, rootReadme, type InitOptions, type InitResult } from "./init
 export { sessionContext } from "./context.js";
 export { RULES } from "./rules.js";
 export { buildSnapshot, type Snapshot } from "./snapshot.js";
-export { refinementOrder, requiresCycles, describeNext, describePath, pathToValidate, isRefined, isUnrefined, adoptionFinished, type RefinementOrder, type NextPick, type Blocked, type HumanPick, type ListGate } from "./next.js";
+export { refinementOrder, requiresCycles, describeNext, describePath, pathToValidate, isRefined, isUnrefined, adoptionFinished, type RefinementOrder, type NextPick, type Blocked, type UserPick, type ListGate } from "./next.js";
 export { applyOp, readOps, opStats, rewriteIds, setListField, gitDirOf, RETRY_BUDGET, type Op, type OpResult, type OpRecord, type OpStats } from "./ops.js";
 export { coherenceClusters, describeCoherence, type Cluster, type Coherence } from "./coherence.js";
 export { FAMILIES, scanText, sentenceCount, pronounStart, bareNumber, type Family, type Hit } from "./lexicon.js";
 export { serveUi } from "./ui/server.js";
 export { FORMAT, FORMAT_VERSION, HISTORY, START_SEQUENCE, FIT_CODES, QUALITY, canonFormatVersion, changesSince, describeFormat, type TypeRule, type FormatChange, type QualityCheck } from "./format.js";
-export { builtOf, isCodeUnit, marksOf, type Built, type BuiltInfo, type BoxMark, type Mark, type Tested } from "./built.js";
-export { contextText, findBoxes, findUnits, documentParts } from "./lookup.js";
+export { builtOf, isCodeUnit, marksOf, type Built, type BuiltInfo, type NodeMark, type Mark, type Tested } from "./built.js";
+export { contextText, findNodes, findUnits, documentParts } from "./lookup.js";
 export { propose, listProposals, applyProposal, rejectProposal, type Proposal } from "./proposals.js";
 export { loadManifest, saveManifest, addTests, reviewTests, setRunner, runTests, loadResults, parseResults, treeDigest, pinOf, testsOf, type TestEntry, type TestManifest, type TestResults, type TestResult, type TestKind, type Runner, type RunnerFormat, type Outcome } from "./testing.js";
 export { createRun, loadRun, activeRun, latestRun, saveRun, setStep, updateSlice, sliceOfAgent, type Run, type Slice, type RunStep, type SliceStatus } from "./runs.js";

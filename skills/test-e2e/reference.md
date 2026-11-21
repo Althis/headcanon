@@ -1,6 +1,6 @@
 # End-to-end tests: sources and a worked example
 
-Read with `SKILL.md` beside it. Part 1 says where each line of the Quality list comes from. Part 2 says where the sources disagree and what the skill takes. Part 3 is one example, from a box to the test and its card description.
+Read with `SKILL.md` beside it. Part 1 says where each line of the Quality list comes from. Part 2 says where the sources disagree and what the skill takes. Part 3 is one example, from a node to the test and its card description.
 
 ## 1. Sources
 
@@ -84,7 +84,7 @@ Each was opened and read on 2026-11-18 unless marked otherwise. The names after 
 
 Ledgerline is an invented bookkeeping tool: entries, months, closing a month, statements. The web app is the platform shown; the same journey on other platforms follows.
 
-### The box
+### The node
 
 ```
 REQ-3.2.1  A closed month refuses new entries          uid: k3f9a2   kind: binary
@@ -94,13 +94,13 @@ Check:  When a month is closed and an entry dated within it is added, Ledgerline
         the same total as before the attempt.
 ```
 
-Why e2e: the Check names what an actor does (adds an entry) and sees (a refusal, a statement) across three capabilities: entries, closing, statements. The rule "is this date inside a closed month" is decided from inputs and has its own unit test on another box; this test does not repeat its variations.
+Why e2e: the Check names what an actor does (adds an entry) and sees (a refusal, a statement) across three capabilities: entries, closing, statements. The rule "is this date inside a closed month" is decided from inputs and has its own unit test on another node; this test does not repeat its variations.
 
 The case from the tester's first pass, with values: given March 2025 with the entries "Office rent" 1,200.00 EUR and "Paper" 50.00 EUR; when the bookkeeper closes March 2025 and adds "Late invoice" 40.00 EUR dated 14 March 2025; then the entry is refused with "March 2025 is closed" and the March statement shows 1,250.00 EUR.
 
 ### The journey, recorded first
 
-No journey passed through the box, so the tester records one. It names no button and no page.
+No journey passed through the node, so the tester records one. It names no button and no page.
 
 ```json
 { "op": "journey",
@@ -179,8 +179,8 @@ test("[hc:k3f9a2] a closed month refuses a late entry and its statement keeps it
 
 What came from where:
 
-- The message and the total come from the box and its case. They are the expected values.
-- The names of the controls ("Close month", "Add entry") were read from the product, to learn how to call things. They are not expected values: were a name to change, the test would be updated and the box would not.
+- The message and the total come from the node and its case. They are the expected values.
+- The names of the controls ("Close month", "Add entry") were read from the product, to learn how to call things. They are not expected values: were a name to change, the test would be updated and the node would not.
 - The absence of "Late invoice" is asserted after the total is visible, so the statement has loaded before the test looks for what must not be there.
 - `freshBooks` starts Ledgerline on books in a temporary folder outside the repository and returns their address. It asserts nothing.
 
@@ -199,7 +199,7 @@ The journey does not change. Only the surface does.
 ### The record and the card
 
 ```json
-{ "box": "k3f9a2", "runner": "e2e-web", "kind": "e2e", "journey": "JRN-3",
+{ "node": "k3f9a2", "runner": "e2e-web", "kind": "e2e", "journey": "JRN-3",
   "file": "tests/e2e/closed-month-refuses-entry.spec.ts",
   "title": "[hc:k3f9a2] a closed month refuses a late entry and its statement keeps its total",
   "description": "Played in a real browser on a running Ledgerline with fresh books. March 2025 holds two entries that total 1,250.00 EUR. The bookkeeper closes the month, then tries to add an entry dated 14 March 2025. The test passes when Ledgerline refuses the entry with the words 'March 2025 is closed' and the March statement still shows 1,250.00 EUR." }
@@ -214,12 +214,12 @@ The description says how it is played, the starting state, what the bookkeeper d
 | right-kind | yes | an actor's action and what they see across entries, closing and statements; the date rule's variations are left to its unit test |
 | from-journey | yes | names JRN-3; steps S1 to S4 in order, nothing added |
 | real-surface | yes | every "does" and "sees" is in the browser on the running product; only the "given" is imported |
-| asserts-the-check | yes | ends on the refusal message and the unchanged total, both from the box |
-| can-fail | yes | no condition around any assertion; with the box not built, S3 fails because the entry is saved |
+| asserts-the-check | yes | ends on the refusal message and the unchanged total, both from the node |
+| can-fail | yes | no condition around any assertion; with the node not built, S3 fails because the entry is saved |
 | same-result | yes | its own books in its own folder; nothing shared with another test |
 | waits-on-outcome | yes | every look is an assertion that retries until a limit; no pause |
 | leaves-nothing | yes | the books live in a temporary folder outside the repository |
-| short-setup | yes | the two entries arrive by import; entering entries is another box's check |
+| short-setup | yes | the two entries arrive by import; entering entries is another node's check |
 | set-by-the-test | yes | today's date is given to `freshBooks`; the entries carry fixed dates |
 | owned-only | yes | Ledgerline alone; no outside system is called |
 | as-the-actor-finds-it | yes | role and name, label, visible text throughout |

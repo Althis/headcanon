@@ -8,7 +8,7 @@ import { parseFrontMatter, str } from "./parse.js";
 /**
  * The semantic review of a canon change (REQ-8.5.4) and the uptake of child changes by their
  * parents (REQ-8.5.5). A model, the reviewer agent, reads the staged canon diff and reports
- * contradictions, reiterations, drift and uptake; the human resolves each finding; the result is
+ * contradictions, reiterations, drift and uptake; the user resolves each finding; the result is
  * stored as a record pinned to the hash of the staged diff. The commit-msg check refuses a canon
  * commit whose diff has no resolved record, or whose record is silent about a parent the change
  * left untouched.
@@ -28,7 +28,7 @@ export interface ReviewFinding {
   nodes: string[];
   /** Both texts, quoted, and why they collide. */
   summary: string;
-  /** What the human decided, or for a record made from adoption's reviews, what was left as it is. Required before the commit. */
+  /** What the user decided, or for a record made from adoption's reviews, what was left as it is. Required before the commit. */
   resolution?: string;
 }
 
@@ -215,7 +215,7 @@ export function validateReviewRecord(rec: unknown, diff: Pick<IntentDiff, "hash"
       if (!(REVIEW_KINDS as readonly string[]).includes(String(f.kind))) errors.push(`${at}: kind must be one of ${REVIEW_KINDS.join(", ")}`);
       if (!Array.isArray(f.nodes) || f.nodes.length === 0) errors.push(`${at}: names no entries`);
       if (!f.summary || typeof f.summary !== "string") errors.push(`${at}: has no summary`);
-      if (!f.resolution || typeof f.resolution !== "string" || f.resolution.trim().length < 8) errors.push(`${at} (${f.kind} on ${(f.nodes ?? []).join(", ")}): has no resolution; the human decides every finding before the commit`);
+      if (!f.resolution || typeof f.resolution !== "string" || f.resolution.trim().length < 8) errors.push(`${at} (${f.kind} on ${(f.nodes ?? []).join(", ")}): has no resolution; the user decides every finding before the commit`);
     });
   }
   const parents = Array.isArray(r.parents) ? r.parents : [];
@@ -262,7 +262,7 @@ export interface SetReview {
 }
 
 const ROOT = "ROOT";
-/** The set a box belongs to is named by its parent; ids mirror the tree, and the top boxes are the premise's set. */
+/** The set a node belongs to is named by its parent; ids mirror the tree, and the top nodes are the premise's set. */
 const setOf = (id: string): string => (id.includes(".") ? id.slice(0, id.lastIndexOf(".")) : ROOT);
 
 /** The sets an operation wrote in, by the ids of its request. */
@@ -347,9 +347,9 @@ export function adoptionReviewFrom(diff: Pick<IntentDiff, "hash" | "affectedPare
     const list = r.findings.length ? r.findings : [{ test: "review", child: undefined, text: "the set failed its review and the verdict lists no finding" }];
     for (const f of list) findings.push({ kind: "quality", nodes: [...new Set([p, ...(f.child ? [f.child] : [])])], summary: `${f.test}: ${f.text}`.trim(), resolution: `${after}; ${LEFT}` });
   }
-  if (by.changed.length) findings.push({ kind: "unreviewed", nodes: by.changed, summary: "the children of these boxes passed their review, and operations changed them afterwards with no review following", resolution: LEFT });
-  if (by.unreviewed.length) findings.push({ kind: "unreviewed", nodes: by.unreviewed, summary: "the operations log holds no review verdict for the children of these boxes", resolution: LEFT });
-  if (outside.size) findings.push({ kind: "unreviewed", nodes: [...outside].sort(), summary: "a review judges the children of one box; these entries (the premise file, journeys, decisions) are in no such set", resolution: LEFT });
+  if (by.changed.length) findings.push({ kind: "unreviewed", nodes: by.changed, summary: "the children of these nodes passed their review, and operations changed them afterwards with no review following", resolution: LEFT });
+  if (by.unreviewed.length) findings.push({ kind: "unreviewed", nodes: by.unreviewed, summary: "the operations log holds no review verdict for the children of these nodes", resolution: LEFT });
+  if (outside.size) findings.push({ kind: "unreviewed", nodes: [...outside].sort(), summary: "a review judges the children of one node; these entries (the premise file, journeys, decisions) are in no such set", resolution: LEFT });
 
   const reason = (p: string): string => {
     const r = reviews.get(p);

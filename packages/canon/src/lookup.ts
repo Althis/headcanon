@@ -1,7 +1,7 @@
 /**
- * Lookups: what an agent asks the canon for instead of being handed a wide brief. `contextText` is one box with
- * what surrounds it, in a fixed order and within a budget of characters; `findBoxes` and `findUnits` answer a
- * few words with the boxes or the code units that carry them; `documentParts` splits the repository's documents
+ * Lookups: what an agent asks the canon for instead of being handed a wide brief. `contextText` is one node with
+ * what surrounds it, in a fixed order and within a budget of characters; `findNodes` and `findUnits` answer a
+ * few words with the nodes or the code units that carry them; `documentParts` splits the repository's documents
  * into groups of like size, one per reader. Everything here reads; nothing writes.
  */
 import { statSync } from "node:fs";
@@ -18,7 +18,7 @@ import type { Bind, Canon, ReqNode } from "./types.js";
 export interface CliCtx { canonDir: string; repo: string; gitDir: string | undefined; port: number; by: string | undefined; json: boolean; out: (s: string) => void; err: (s: string) => void; stdin: () => string }
 
 export type Where = "title" | "intent" | "check" | "journey" | "decision" | "term";
-export interface BoxHit { id: string; title: string; where: Where; line: string }
+export interface NodeHit { id: string; title: string; where: Where; line: string }
 export interface UnitHit { id: string; file?: string; lines?: [number, number]; text?: string }
 
 const DEFAULT_BUDGET = 12_000;
@@ -59,19 +59,19 @@ function withoutSection(body: string, heading: string): string {
   return [...lines.slice(0, start), ...(end < 0 ? [] : lines.slice(end))].join("\n").trim();
 }
 
-/** What an entry is for: its Intent, or the person's own words where no Intent was written yet. */
+/** What an entry is for: its Intent, or the user's own words where no Intent was written yet. */
 function intentOf(body: string): string {
   return unix(sectionText(body, "Intent")) || unix(sectionText(body, "Stated")).replace(/^>\s?/gm, "").trim() || "(no Intent written yet)";
 }
 
 interface Part {
   head: string;
-  /** The box as one block, an ancestor per block, or a line per entry of a list. */
+  /** The node as one block, an ancestor per block, or a line per entry of a list. */
   items: string[];
   sep: "\n" | "\n\n";
   /** What one item and several items are called when some are left out. */
   noun: [string, string];
-  /** Set on the box: it is cut at a line, and the cut names this file. */
+  /** Set on the node: it is cut at a line, and the cut names this file. */
   file?: string;
 }
 
@@ -94,13 +94,13 @@ function fit(parts: Part[], budget: number): string {
     if (used + gap + whole.length <= room) { take(whole); continue; }
     const free = room - used - gap - p.head.length - 2;
     if (p.file !== undefined) {
-      const note = `\n\n(cut here to stay within the budget; the whole box is in ${p.file})`;
+      const note = `\n\n(cut here to stay within the budget; the whole node is in ${p.file})`;
       const kept: string[] = [];
       let n = 0;
       for (const l of (p.items[0] ?? "").split("\n")) { if (n + l.length + 1 > free - note.length) break; kept.push(l); n += l.length + 1; }
       const text = kept.join("\n").trimEnd();
       if (text) take(`${p.head}\n\n${text}${note}`);
-      left.push(text ? "the rest of the box" : "the box");
+      left.push(text ? "the rest of the node" : "the node");
       continue;
     }
     const kept: string[] = [];
@@ -120,7 +120,7 @@ function fit(parts: Part[], budget: number): string {
   return text.length <= budget ? text : text.slice(0, Math.max(0, budget));
 }
 
-/** The evidence bound to a box, one line each: contradictions, then what implements it, then what contributes, code before claims; past the cap, the count and where the rest is. */
+/** The evidence bound to a node, one line each: contradictions, then what implements it, then what contributes, code before claims; past the cap, the count and where the rest is. */
 function bindLines(node: ReqNode, gitDir: string | undefined): string[] {
   if (!node.binds.length) return [];
   const rank: Record<Bind["relation"], number> = { contradicts: 0, implements: 1, contributes: 2 };
@@ -151,8 +151,8 @@ function bindLines(node: ReqNode, gitDir: string | undefined): string[] {
   return lines;
 }
 
-/** The box as its file has it: the fields of its front matter that say something, its sections, then what is bound to it. */
-function boxBlock(node: ReqNode, gitDir: string | undefined): string {
+/** The node as its file has it: the fields of its front matter that say something, its sections, then what is bound to it. */
+function nodeBlock(node: ReqNode, gitDir: string | undefined): string {
   const fields: Array<[string, string | undefined]> = [
     ["file", node.file], ["state", node.state], ["layer", node.layer], ["kind", node.kind], ["uid", node.uid], ["source", node.source],
     ["partition", node.partition], ["baseline", node.baseline], ["files", node.files.length ? node.files.join(", ") : undefined],
@@ -203,7 +203,7 @@ function termsUsed(canon: Canon, text: string): string[] {
   return out;
 }
 
-/** The journeys and decisions that name the box: a step's requirements, the box's own `steps`, a decision's intents, or the id in their text. */
+/** The journeys and decisions that name the node: a step's requirements, the node's own `steps`, a decision's intents, or the id in their text. */
 function citesOf(canon: Canon, id: string, ownSteps: string[]): string[] {
   const re = idPattern(id);
   const out: string[] = [];
@@ -217,10 +217,10 @@ function citesOf(canon: Canon, id: string, ownSteps: string[]): string[] {
 }
 
 /**
- * One box and what surrounds it, for an agent that has never seen the tree. In this order: the box whole, its
+ * One node and what surrounds it, for an agent that has never seen the tree. In this order: the node whole, its
  * path from the premise with each Intent, its siblings and children, its links in both directions, the journeys
  * and decisions that cite it, its relatives in other branches, and the glossary terms its text uses. `ROOT` is
- * the premise. The id may also be a box's `uid`. Undefined when no box answers to the id.
+ * the premise. The id may also be a node's `uid`. Undefined when no node answers to the id.
  */
 export function contextText(canon: Canon, id: string, opts: { budget?: number; gitDir?: string } = {}): string | undefined {
   const budget = opts.budget ?? DEFAULT_BUDGET;
@@ -234,7 +234,7 @@ export function contextText(canon: Canon, id: string, opts: { budget?: number; g
     const fields = [`file: ${root.file}`, `state: ${root.state}`, ...(root.partition ? [`partition: ${root.partition}`] : [])].join("\n");
     const note = canon.terms.length ? "\n\n(The glossary is left out here; the terms this text uses are under the last heading.)" : "";
     return fit([
-      { head: `# Box ROOT: ${root.title} (the premise)`, items: [`${fields}\n\n${body}${note}`], sep: "\n\n", noun: ["box", "boxes"], file: root.file },
+      { head: `# Node ROOT: ${root.title} (the premise)`, items: [`${fields}\n\n${body}${note}`], sep: "\n\n", noun: ["node", "nodes"], file: root.file },
       { head: "# Children", items: list(canon.roots), sep: "\n", noun: ["child", "children"] },
       { head: "# Journeys and decisions that cite it", items: citesOf(canon, "ROOT", []), sep: "\n", noun: ["journey or decision", "journeys and decisions"] },
       { head: "# Glossary terms its text uses", items: termsUsed(canon, `${root.title}\n${body}`), sep: "\n", noun: ["glossary term", "glossary terms"] },
@@ -268,7 +268,7 @@ export function contextText(canon: Canon, id: string, opts: { budget?: number; g
   const linked = new Set([...node.requires, ...node.relates, ...node.conflicts, ...incoming("requires"), ...incoming("relates"), ...incoming("conflicts")]);
 
   return fit([
-    { head: `# Box ${node.id}: ${node.title}`, items: [boxBlock(node, opts.gitDir)], sep: "\n\n", noun: ["box", "boxes"], file: node.file },
+    { head: `# Node ${node.id}: ${node.title}`, items: [nodeBlock(node, opts.gitDir)], sep: "\n\n", noun: ["node", "nodes"], file: node.file },
     { head: "# Path from the premise", items: path, sep: "\n\n", noun: ["ancestor", "ancestors"] },
     { head: "# Siblings", items: list(siblings), sep: "\n", noun: ["sibling", "siblings"] },
     { head: "# Children", items: list(node.children), sep: "\n", noun: ["child", "children"] },
@@ -320,14 +320,14 @@ function bestLine(text: string, query: string[]): string {
 const WHERE: Where[] = ["title", "intent", "check", "journey", "decision", "term"];
 
 /**
- * The boxes, journeys, decisions and glossary terms that carry the words, the ones carrying most of them first,
+ * The nodes, journeys, decisions and glossary terms that carry the words, the ones carrying most of them first,
  * a title before an Intent before a Check. One hit per object, with the line the words were found in. A word
- * that is an id or a box's uid finds that object first.
+ * that is an id or a node's uid finds that object first.
  */
-export function findBoxes(canon: Canon, words: string, limit = DEFAULT_LIMIT): BoxHit[] {
+export function findNodes(canon: Canon, words: string, limit = DEFAULT_LIMIT): NodeHit[] {
   const raw = words.trim().split(/\s+/).filter(Boolean);
   const nodes = Object.values(canon.nodes).sort((a, b) => compareIds(a.id, b.id));
-  const direct: BoxHit[] = [];
+  const direct: NodeHit[] = [];
   const rest: string[] = [];
   for (const w of raw) {
     const bare = w.replace(/^[("'`[]+|[)"'`\],.;:]+$/g, "");
@@ -343,7 +343,7 @@ export function findBoxes(canon: Canon, words: string, limit = DEFAULT_LIMIT): B
   }
   const query = rest.length ? queryOf(rest.join(" ")) : [];
   const taken = new Set(direct.map((h) => h.id));
-  const scored: Array<{ hit: BoxHit; total: number; own: number }> = [];
+  const scored: Array<{ hit: NodeHit; total: number; own: number }> = [];
   const add = (id: string, title: string, fields: Array<{ where: Where; text: string; line?: string }>) => {
     if (taken.has(id) || !query.length) return;
     const all = new Set<string>();
@@ -468,7 +468,7 @@ export async function lookupCli(cmd: "context" | "find" | "code-find" | "reading
     const budget = countOf(flags["budget"]);
     if (!id || (budget !== undefined && Number.isNaN(budget))) { ctx.err("usage: headcanon context <id> [--budget <characters>]\n"); return 2; }
     const text = contextText(loadCanon(ctx.canonDir), id, { ...(budget !== undefined ? { budget } : {}), ...(ctx.gitDir ? { gitDir: ctx.gitDir } : {}) });
-    if (text === undefined) { ctx.err(`no box ${id} in the canon at ${ctx.canonDir}; \`headcanon find "<words>"\` looks one up\n`); return 1; }
+    if (text === undefined) { ctx.err(`no node ${id} in the canon at ${ctx.canonDir}; \`headcanon find "<words>"\` looks one up\n`); return 1; }
     ctx.out(json ? JSON.stringify({ id, text }) + "\n" : text);
     return 0;
   }
@@ -476,7 +476,7 @@ export async function lookupCli(cmd: "context" | "find" | "code-find" | "reading
   if (cmd === "find") {
     const words = pos.join(" ").trim();
     if (!words) { ctx.err('usage: headcanon find "<words>" [--limit n] [--json]\n'); return 2; }
-    const hits = findBoxes(loadCanon(ctx.canonDir), words, limit ?? DEFAULT_LIMIT);
+    const hits = findNodes(loadCanon(ctx.canonDir), words, limit ?? DEFAULT_LIMIT);
     if (json) ctx.out(JSON.stringify(hits) + "\n");
     else ctx.out(hits.length ? hits.map((h) => `${h.id}  ${h.title}  [${h.where}]${h.line && h.line !== h.title ? `  ${h.line}` : ""}`).join("\n") + "\n" : `No hit for "${words}".\n`);
     return 0;

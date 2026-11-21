@@ -22,13 +22,13 @@ flowchart TD
     S5 --> S6
     S4 -- no --> S6[Refine the touched branch to binary leaves]
     S6 --> S7[Tests of the kind each check needs are written and reviewed, as in JRN-2]
-    S7 --> S8[An implementation agent builds each box against its tests, as in JRN-2]
+    S7 --> S8[An implementation agent builds each node against its tests, as in JRN-2]
     S8 --> S9{Obstacle?}
     S9 -- no --> S13
     S9 -- yes --> S10{Intent preserved by a workaround?}
     S10 -- yes --> S11[Record the workaround as a decision] --> S8
     S10 -- no --> S12[Negotiation: surface the obstacle and options] --> S6
-    S13[Stop gate: the agent stops when its tests pass, or each failing box has an issue] --> S14{The human approves what was built?}
+    S13[Stop gate: the agent stops when its tests pass, or each failing node has an issue] --> S14{The user approves what was built?}
     S14 -- no --> S8
     S14 -- yes --> S15[Commit in the intent format, with the changes to the canon]
 ```
@@ -48,5 +48,5 @@ flowchart TD
 | S11 Record workaround as a decision | assumed | REQ-7.3, REQ-8.2, REQ-1.3.1 |
 | S12 Negotiation | assumed | REQ-7.2, REQ-7.5 |
 | S13 Stop gate | assumed | REQ-11.1, REQ-11.1.1, REQ-11.1.2 |
-| S14 The human's decision | assumed | REQ-7.1, REQ-12.1.8 |
+| S14 The user's decision | assumed | REQ-7.1, REQ-12.1.8 |
 | S15 Commit in the intent format | assumed | REQ-8.3, REQ-8.5, REQ-8.5.1 |

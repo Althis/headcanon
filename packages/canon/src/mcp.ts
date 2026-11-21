@@ -90,7 +90,7 @@ const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSO
 export async function runMcp(opts: McpOptions): Promise<void> {
   const base = await attachViewer(opts.canonDir, opts.port);
   let opened = false;
-  // Where the human lands: an adoption in progress, no canon yet or no scope decision, is the Adopt
+  // Where the user lands: an adoption in progress, no canon yet or no scope decision, is the Adopt
   // view's business; a finished canon opens on the overview.
   const landing = () => {
     const decisions = join(opts.canonDir, "decisions");
@@ -103,7 +103,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     openBrowser(landing());
   };
 
-  // zero seconds files the question and returns at once: the drafting phase never waits on the human
+  // zero seconds files the question and returns at once: the drafting phase never waits on the user
   const waitFor = async (questionId: string, seconds: number) => {
     const deadline = Date.now() + Math.min(Math.max(seconds, 0), WAIT_MAX) * 1000;
     while (Date.now() < deadline) {
@@ -112,31 +112,31 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       if (r.answer) return { answered: true, answer: r.answer };
       if (r.unknown) return { answered: false, unknown: true, questionId };
     }
-    return { answered: false, pending: true, questionId, hint: "The human has not answered yet. Call headcanon_wait with this questionId to keep waiting." };
+    return { answered: false, pending: true, questionId, hint: "The user has not answered yet. Call headcanon_wait with this questionId to keep waiting." };
   };
 
   const server = new McpServer({ name: "headcanon", version: "0.1.0" });
 
   const questionShape = {
     question: z.string().describe("The full question text: layer label, the proposed text, footnotes and the Sources line."),
-    kind: z.enum(["question", "contradiction", "disambiguation", "apocrypha", "undefined", "impossible"]).optional().describe("What kind of issue this is. 'question' (default): a thing to decide, usually about a draft node; the options are your suggestions. 'contradiction': two statements at odds under the node's Contested section; the page shows them with their sources and settles the node with the human's choice; pass no options. 'disambiguation', 'apocrypha', 'undefined': a word does not read one way, the wording fails the quality tests, or nothing in the evidence decides it; the options are the readings or wordings you see. 'impossible': a box that could not be made to pass its tests after repeated tries; the question says what was tried and what stands in the way, and the options are the ways out you see."),
-    by: z.string().optional().describe("The name you work under, as an agent that is not the session (such as implementer-REQ-2.1). Questions of different authors on one box stay side by side; a newer question replaces only its own author's."),
-    blocks: z.boolean().optional().describe("True when the box in nodeId cannot be built until the human settles this."),
+    kind: z.enum(["question", "contradiction", "disambiguation", "apocrypha", "undefined", "impossible"]).optional().describe("What kind of issue this is. 'question' (default): a thing to decide, usually about a draft node; the options are your suggestions. 'contradiction': two statements at odds under the node's Contested section; the page shows them with their sources and settles the node with the user's choice; pass no options. 'disambiguation', 'apocrypha', 'undefined': a word does not read one way, the wording fails the quality tests, or nothing in the evidence decides it; the options are the readings or wordings you see. 'impossible': a node that could not be made to pass its tests after repeated tries; the question says what was tried and what stands in the way, and the options are the ways out you see."),
+    by: z.string().optional().describe("The name you work under, as an agent that is not the session (such as implementer-REQ-2.1). Questions of different authors on one node stay side by side; a newer question replaces only its own author's."),
+    blocks: z.boolean().optional().describe("True when the node in nodeId cannot be built until the user settles this."),
     why: z.string().optional().describe("Why it matters, in one or two sentences: what depends on the answer. Shown as the issue's summary."),
     header: z.string().optional().describe("A short label of the kind of question, e.g. 'Premise (1 of 5)' or 'Draft'; never a node id, which goes in nodeId. The page titles the card with the node's title, or with the proposed text's first sentence when the node is new."),
     options: z.array(z.object({ label: z.string(), description: z.string().optional() })).optional().describe("Defaults to Approve as written / Drop. For a list, one option per item: label is the ID and title, description is the item's one-line proposed text with its footnote."),
     multiSelect: z.boolean().optional().describe("True for a first pass over a list: ticked means approved as written."),
-    nodeId: z.string().optional().describe("The box the question is about: the draft node for a question, the contested node for a contradiction. The page lists the issue under it and opens it on the human's screen."),
+    nodeId: z.string().optional().describe("The node the question is about: the draft node for a question, the contested node for a contradiction. The page lists the issue under it and opens it on the user's screen."),
     terms: z.array(z.object({ term: z.string(), definition: z.string() })).optional().describe("Jargon in the proposed text with the agent's guessed definition, from `headcanon terms`."),
-    notice: z.string().optional().describe("One sentence the human must know that is not part of the proposed text, e.g. that the commit-msg hook is now installed; shown apart from the question."),
+    notice: z.string().optional().describe("One sentence the user must know that is not part of the proposed text, e.g. that the commit-msg hook is now installed; shown apart from the question."),
   };
 
   server.registerTool(
     "headcanon_ask",
     {
-      title: "Ask the human through the HeadCanon page",
+      title: "Ask the user through the HeadCanon page",
       description:
-        "Files an issue in the HeadCanon viewer's Issues panel, beside the canvas, and waits for the human's answer; the human opens it when they choose, so it never interrupts them. An issue is how you ask for help: a question about a thing you could not define, which stands in the tree as a draft node (state open, a provisional title, drawn dashed) named by nodeId, with why it matters and your suggestions as options; or a contradiction (kind contradiction) on a contested node, whose statements the page shows with their sources; or a box that could not be built (kind impossible), with what was tried and the ways out. An agent that is not the session passes `by`, and `blocks` when its box cannot be built until the answer. Use it instead of AskUserQuestion whenever the viewer is available. The question text holds the full proposed text as prose with footnote markers and a Sources line; the page turns the markers into tooltips. Options default to Approve as written and Drop; the human can always switch to typing in Other. Pass `terms` for every word in the draft that the glossary does not define, each with your guessed definition: the page marks them and the human keeps (enshrines in the glossary) or drops each one before answering. Pass `nodeId` to open that node on the human's screen. To ask several questions in one turn, as AskUserQuestion allows, pass `questions`: the page shows them one after another and the result holds every answer in order. Returns the answer(s), or pending question ids after waitSeconds; then call headcanon_wait for each.",
+        "Files an issue in the HeadCanon viewer's Issues panel, beside the canvas, and waits for the user's answer; the user opens it when they choose, so it never interrupts them. An issue is how you ask for help: a question about a thing you could not define, which stands in the tree as a draft node (state open, a provisional title, drawn dashed) named by nodeId, with why it matters and your suggestions as options; or a contradiction (kind contradiction) on a contested node, whose statements the page shows with their sources; or a node that could not be built (kind impossible), with what was tried and the ways out. An agent that is not the session passes `by`, and `blocks` when its node cannot be built until the answer. Use it instead of AskUserQuestion whenever the viewer is available. The question text holds the full proposed text as prose with footnote markers and a Sources line; the page turns the markers into tooltips. Options default to Approve as written and Drop; the user can always switch to typing in Other. Pass `terms` for every word in the draft that the glossary does not define, each with your guessed definition: the page marks them and the user keeps (enshrines in the glossary) or drops each one before answering. Pass `nodeId` to open that node on the user's screen. To ask several questions in one turn, as AskUserQuestion allows, pass `questions`: the page shows them one after another and the result holds every answer in order. Returns the answer(s), or pending question ids after waitSeconds; then call headcanon_wait for each.",
       inputSchema: {
         question: questionShape.question.optional(),
         kind: questionShape.kind,
@@ -161,7 +161,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
       const ids: string[] = [];
       for (const req of list) ids.push((await api<{ questionId: string }>(base, "/api/ask", { method: "POST", body: JSON.stringify(req) })).questionId);
       if (ids.length === 1) return text({ questionId: ids[0], url: landing(), base: `${base}/`, ...(await waitFor(ids[0]!, waitSeconds ?? WAIT_DEFAULT)) });
-      // Several: the human answers them in order, so wait for each in turn within one deadline.
+      // Several: the user answers them in order, so wait for each in turn within one deadline.
       const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? WAIT_DEFAULT, 0), WAIT_MAX) * 1000;
       const answers: unknown[] = [];
       const pending: string[] = [];
@@ -171,7 +171,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
         if (r.answered) answers.push({ questionId: id, answer: (r as { answer: unknown }).answer });
         else pending.push(id);
       }
-      return text({ questionIds: ids, url: landing(), base: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The human has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
+      return text({ questionIds: ids, url: landing(), base: `${base}/`, answers, ...(pending.length ? { pending: true, pendingIds: pending, hint: "The user has not answered these yet. Call headcanon_wait with each questionId in order." } : { answered: true }) });
     },
   );
 
@@ -188,9 +188,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   server.registerTool(
     "headcanon_focus",
     {
-      title: "Point at a node on the human's screen, or open it",
-      description: "Highlights a canon node on the human's screen so they see what you are talking about, and notes it in the chat. No card opens: the human opens cards.",
-      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("Ignored by the page since 2026-10-29: a card opens only when the human opens it. The focus highlights the box on the canvas and the chat notes it.") },
+      title: "Point at a node on the user's screen, or open it",
+      description: "Highlights a canon node on the user's screen so they see what you are talking about, and notes it in the chat. No card opens: the user opens cards.",
+      inputSchema: { id: z.string().describe("A node id such as REQ-1.4, or ROOT"), open: z.boolean().optional().describe("Ignored by the page since 2026-10-29: a card opens only when the user opens it. The focus highlights the node on the canvas and the chat notes it.") },
     },
     async ({ id, open }) => {
       ensureOpen();
@@ -203,26 +203,26 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   server.registerTool(
     "headcanon_say",
     {
-      title: "Say something to the human in the page's chat",
+      title: "Say something to the user in the page's chat",
       description:
-        "Posts a line from you into the HeadCanon viewer's chat, where the human reads it beside the canvas. Use it to explain a passage they asked about, to summarize what you changed after their edit, to say what is still red and where to start, and to end a working spell: the page shows a working indicator from the human's last action until your next say or question. One or two sentences; the chat is not a report.",
-      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it."), to: z.enum(["human", "history", "intro"]).optional().describe("'human' when the line asks something of the human or needs their eyes now (a key point); it lands in their chat. Otherwise it is a report of what you did and goes to the page's history."), attention: z.boolean().optional().describe("true only when the human must act or answer now: the page chimes for it. An update, a report, a status line is never attention; the human reads those when they look."), doing: z.array(z.string()).optional().describe("What is running right now, one entry per box being refined or verified, e.g. 'cutting REQ-3.7 Parsing', 'verifying REQ-8.5'; an empty list when nothing runs. The page shows it as your live status, so pass it on every say.") },
+        "Posts a line from you into the HeadCanon viewer's chat, where the user reads it beside the canvas. Use it to explain a passage they asked about, to summarize what you changed after their edit, to say what is still red and where to start, and to end a working spell: the page shows a working indicator from the user's last action until your next say or question. One or two sentences; the chat is not a report.",
+      inputSchema: { text: z.string().describe("What to say, in plain words."), nodeId: z.string().optional().describe("The node this is about, so the page can link it."), to: z.enum(["user", "history", "intro"]).optional().describe("'user' when the line asks something of the user or needs their eyes now (a key point); it lands in their chat. Otherwise it is a report of what you did and goes to the page's history."), attention: z.boolean().optional().describe("true only when the user must act or answer now: the page chimes for it. An update, a report, a status line is never attention; the user reads those when they look."), doing: z.array(z.string()).optional().describe("What is running right now, one entry per node being refined or verified, e.g. 'cutting REQ-3.7 Parsing', 'verifying REQ-8.5'; an empty list when nothing runs. The page shows it as your live status, so pass it on every say.") },
     },
     async ({ text: line, nodeId, to, doing, attention }) => {
       const r = await api<Record<string, unknown>>(base, "/api/say", { method: "POST", body: JSON.stringify({ text: line, nodeId, to, doing, attention }) });
       // a say never moves the cursor: the entries the session has not fetched are named, so none is skipped (DEC-025)
       let unseen = 0;
       try { unseen = (await api<{ cursor: number; entries: unknown[] }>(base, `/api/changes?since=${lastCursor}&timeout=0`)).entries.length; } catch { /* the page is gone */ }
-      return text({ ...r, since: lastCursor, unseen, ...(unseen ? { note: `${unseen} entries from the human since cursor ${lastCursor}: fetch them with headcanon_changes since ${lastCursor} before anything else` } : {}) });
+      return text({ ...r, since: lastCursor, unseen, ...(unseen ? { note: `${unseen} entries from the user since cursor ${lastCursor}: fetch them with headcanon_changes since ${lastCursor} before anything else` } : {}) });
     },
   );
 
   server.registerTool(
     "headcanon_working",
     {
-      title: "Say which boxes agents are working on now",
-      description: "Marks boxes as being worked on (on: true) or done (on: false), so the page shows a spinner on exactly those boxes. Call it when you dispatch a refiner for a set of boxes and when its report returns; it costs nothing and replaces the page's guess from disk activity.",
-      inputSchema: { ids: z.array(z.string()).describe("Box ids, such as REQ-2 or REQ-2.3; ROOT for the premise."), on: z.boolean().optional().describe("true (default) when work starts, false when it ends.") },
+      title: "Say which nodes agents are working on now",
+      description: "Marks nodes as being worked on (on: true) or done (on: false), so the page shows a spinner on exactly those nodes. Call it when you dispatch a refiner for a set of nodes and when its report returns; it costs nothing and replaces the page's guess from disk activity.",
+      inputSchema: { ids: z.array(z.string()).describe("Node ids, such as REQ-2 or REQ-2.3; ROOT for the premise."), on: z.boolean().optional().describe("true (default) when work starts, false when it ends.") },
     },
     async ({ ids, on }) => text(await api(base, "/api/working", { method: "POST", body: JSON.stringify({ ids, on: on !== false }) })),
   );
@@ -230,9 +230,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   server.registerTool(
     "headcanon_withdraw",
     {
-      title: "Withdraw your pending questions on a box",
-      description: "Withdraws every pending question you filed on a box: you decided it yourself by the Guessing rules, or it no longer applies. The page drops the issue and the history says so; nothing is asked of the human.",
-      inputSchema: { nodeId: z.string().describe("The box whose questions are withdrawn."), reason: z.string().optional().describe("Why, in a few words; shown in the history."), by: z.string().optional().describe("Withdraw only the questions filed under this name; omitted, every question on the box.") },
+      title: "Withdraw your pending questions on a node",
+      description: "Withdraws every pending question you filed on a node: you decided it yourself by the Guessing rules, or it no longer applies. The page drops the issue and the history says so; nothing is asked of the user.",
+      inputSchema: { nodeId: z.string().describe("The node whose questions are withdrawn."), reason: z.string().optional().describe("Why, in a few words; shown in the history."), by: z.string().optional().describe("Withdraw only the questions filed under this name; omitted, every question on the node.") },
     },
     async ({ nodeId, reason, by }) => text(await api(base, "/api/withdraw", { method: "POST", body: JSON.stringify({ nodeId, reason, by }) })),
   );
@@ -240,9 +240,9 @@ export async function runMcp(opts: McpOptions): Promise<void> {
   server.registerTool(
     "headcanon_changes",
     {
-      title: "What the human did in the page",
+      title: "What the user did in the page",
       description:
-        "Returns the feed of what the human did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages (with `quote` and `id` when the human highlighted a passage in a node's card first), edit-conflict entries when the session rewrote a box the human was writing in and they chose to keep theirs or take the session's, refine-request entries naming a branch to define next, a finish-request when they pressed Finish, what they asked of a build (implement-request, where `id` holds the box ids, none meaning every box, and `text` is single or all; run-stop; run-continue), and their decision on a built box (slice-approved and slice-discarded, both already done in git; slice-sent-back with their note in `text`). An answer to an issue carries `by` and `blocks` when its author passed them. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
+        "Returns the feed of what the user did in the HeadCanon viewer since a cursor: nodes they approved, edited, created or deleted (their wording is stated), glossary terms they enshrined or dropped, free-text messages (with `quote` and `id` when the user highlighted a passage in a node's card first), edit-conflict entries when the session rewrote a node the user was writing in and they chose to keep theirs or take the session's, refine-request entries naming a branch to define next, a finish-request when they pressed Finish, what they asked of a build (implement-request, where `id` holds the node ids, none meaning every node, and `text` is single or all; run-stop; run-continue), and their decision on a built node (slice-approved and slice-discarded, both already done in git; slice-sent-back with their note in `text`). An answer to an issue carries `by` and `blocks` when its author passed them. With `waitSeconds` the call waits for the next entry instead of returning at once, which is how a session attends the page. Pass the cursor from the previous call.",
       inputSchema: {
         since: z.number().optional().describe("The cursor returned last time; 0 or omitted for everything."),
         waitSeconds: z.number().optional().describe(`Wait this long for a first entry before returning empty (max ${WAIT_MAX}).`),
@@ -250,11 +250,11 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     },
     async ({ since, waitSeconds }) => {
       const deadline = Date.now() + Math.min(Math.max(waitSeconds ?? 0, 0), WAIT_MAX) * 1000;
-      // wake=human: the session's own says and the terminal mirror of its words do not end the wait
-      let r = await api<{ cursor: number; entries: unknown[] }>(base, `/api/changes?since=${since ?? 0}&timeout=${Math.min(25, Math.max(0, Math.ceil((deadline - Date.now()) / 1000)))}&wake=human`);
+      // wake=user: the session's own says and the terminal mirror of its words do not end the wait
+      let r = await api<{ cursor: number; entries: unknown[] }>(base, `/api/changes?since=${since ?? 0}&timeout=${Math.min(25, Math.max(0, Math.ceil((deadline - Date.now()) / 1000)))}&wake=user`);
       while (!r.entries.length && Date.now() < deadline) {
         const slice = Math.min(25, Math.ceil((deadline - Date.now()) / 1000));
-        r = await api(base, `/api/changes?since=${since ?? 0}&timeout=${slice}&wake=human`);
+        r = await api(base, `/api/changes?since=${since ?? 0}&timeout=${slice}&wake=user`);
       }
       lastCursor = r.cursor;
       return text(r);
@@ -265,7 +265,7 @@ export async function runMcp(opts: McpOptions): Promise<void> {
     "headcanon_open",
     {
       title: "Open the HeadCanon page in the browser",
-      description: "Opens the viewer in the human's default browser and returns its URL. `view` picks the page: `adopt` is the canvas for reviewing a drafted canon.",
+      description: "Opens the viewer in the user's default browser and returns its URL. `view` picks the page: `adopt` is the canvas for reviewing a drafted canon.",
       inputSchema: { view: z.string().optional().describe("adopt, tree, health, attention, journeys, decisions or glossary; omitted for the overview.") },
     },
     async ({ view }) => {

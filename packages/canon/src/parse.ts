@@ -101,7 +101,7 @@ export function parsePrinciples(body: string): Principle[] {
     if (!m) continue;
     const id = m[1] ?? "";
     const title = (m[2] ?? "").trim();
-    // a `[state]` marker after the title is the principle's own certainty; none means the human's (stated)
+    // a `[state]` marker after the title is the principle's own certainty; none means the user's (stated)
     let rest = (m[3] ?? "").trim();
     let state: State = "stated";
     const mk = /^\[([a-z]+)\]\s*/.exec(rest);

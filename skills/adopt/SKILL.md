@@ -1,12 +1,12 @@
 ---
 name: adopt
-description: "Reads a repository into evidence (the code tree with descriptions, the claims of its documents and content, the documents split among several readers), has the top agent draft the premise and principles from it, has the human approve both in the viewer, and hands over to attend. Adoption is reading and onboarding; everything after is regular operation (DEC-025)."
-when_to_use: "Called by start when a repository has code or documents and no approved premise; or the human asks to adopt a repository."
+description: "Reads a repository into evidence (the code tree with descriptions, the claims of its documents and content, the documents split among several readers), has the top agent draft the premise and principles from it, has the user approve both in the viewer, and hands over to attend. Adoption is reading and onboarding; everything after is regular operation (DEC-025)."
+when_to_use: "Called by start when a repository has code or documents and no approved premise; or the user asks to adopt a repository."
 ---
 
-# Adopt: read the repository, onboard the human, approve the premise, hand over
+# Adopt: read the repository, onboard the user, approve the premise, hand over
 
-`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. `headcanon_say` speaks in the viewer's chat; `headcanon_changes` returns what the human did since a cursor and waits up to `waitSeconds` for the next thing. Nothing is asked in the terminal. Nothing compute-intensive runs before the premise is approved.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. `headcanon_say` speaks in the viewer's chat; `headcanon_changes` returns what the user did since a cursor and waits up to `waitSeconds` for the next thing. Nothing is asked in the terminal. Nothing compute-intensive runs before the premise is approved.
 
 ## The order
 
@@ -19,8 +19,8 @@ when_to_use: "Called by start when a repository has code or documents and no app
    Readers write evidence, never intent; what is a claim and what is not is theirs to apply. The card's bar counts what they write to disk; say nothing for it. A launch that is refused waits for a reader to reply.
 3. **Let's go and the mode.** Wait with `headcanon_changes` until the feed carries `onboarding` (the mode, Guided or Full-Auto, and the cap). Store nothing yourself: the page saved them; `HC settings` prints them. Keep reading meanwhile; when the cap is lower than what runs, start nothing more until enough readers have replied.
 4. **The premise.** When every reader has replied, start `headcanon:top` in the background, named `top`, with `the premise`, the mode, its scratch folder, and the viewer's port when it is not the default. It reads the whole evidence once, in its context and not in yours, and writes `canon/README.md`: the Intent, what the project is and for whom; `## Not this`; `## Principles`; `## Glossary`; every part `assumed`. When it reports, `HC check | tail -n 1` must show 0 errors. `headcanon_say` that the premise is ready, and `headcanon_focus ROOT`: the page shows the premise as editable text with Approve. Keep the id of that agent.
-5. **Wait for the premise.** `headcanon_changes` until `node-approved` or `node-edited` for `ROOT`. An edit is the human's words, `stated`; refine nothing yet. Then the principles: the page shows them as a list the human approves, rewrites or removes one by one, or approves the rest at once; `principles-approved` arrives either way, as soon as the last one is settled, so never ask for a list approval. Apply `node-edited` and `node-deleted` for `PRN-` ids as they come. Nothing else runs while you wait: idle costs nothing, see attend's waiting rule.
-6. **Hand over.** `/headcanon:attend` with the mode and the id of `top`: attend resumes that agent, which still holds the evidence, for the map, and goes on to the leaves. Adoption is complete when every branch ends in a requirement with a check that says where it is built; attend says so. Red boxes wait on the human and hold nothing else back.
+5. **Wait for the premise.** `headcanon_changes` until `node-approved` or `node-edited` for `ROOT`. An edit is the user's words, `stated`; refine nothing yet. Then the principles: the page shows them as a list the user approves, rewrites or removes one by one, or approves the rest at once; `principles-approved` arrives either way, as soon as the last one is settled, so never ask for a list approval. Apply `node-edited` and `node-deleted` for `PRN-` ids as they come. Nothing else runs while you wait: idle costs nothing, see attend's waiting rule.
+6. **Hand over.** `/headcanon:attend` with the mode and the id of `top`: attend resumes that agent, which still holds the evidence, for the map, and goes on to the leaves. Adoption is complete when every branch ends in a requirement with a check that says where it is built; attend says so. Red nodes wait on the user and hold nothing else back.
 
 ## Rules
 

@@ -52,7 +52,7 @@ describe("node edits from the page [REQ-12.1.8]", () => {
     expect(e).toContain('title: "New title"');
     expect(e).toContain("# New title\n");
     expect(e).toContain("state: stated");
-    expect(e).toContain("## Stated\n\n> What it is now.\n\nSource: typed by the human in the viewer, 2026-10-17");
+    expect(e).toContain("## Stated\n\n> What it is now.\n\nSource: typed by the user in the viewer, 2026-10-17");
     expect(e).toContain("## Intent\n\nWhat it is now.");
     expect(e).toContain("## Deferred");
     expect(clearMarkers("## Not this [assumed]\n")).toBe("## Not this\n");
@@ -65,7 +65,7 @@ describe("node edits from the page [REQ-12.1.8]", () => {
     expect(setPrincipleState(readme, "PRN-2", "stated")).toContain("**PRN-2 Say it**: short.");
     const edited = editPrinciple(readme, "PRN-1", { title: "Keep everything", statement: "Nothing is thrown away." }, "2026-10-18");
     const p = parsePrinciples(edited)[0]!;
-    expect([p.title, p.state, p.statement, p.source]).toEqual(["Keep everything", "stated", "Nothing is thrown away.", "typed by the human in the viewer, 2026-10-18"]);
+    expect([p.title, p.state, p.statement, p.source]).toEqual(["Keep everything", "stated", "Nothing is thrown away.", "typed by the user in the viewer, 2026-10-18"]);
     const gone = deletePrinciple(readme, "PRN-1");
     expect(parsePrinciples(gone).map((x) => x.id)).toEqual(["PRN-2"]);
     expect(gone).toContain("## Principles\n\n**PRN-2");

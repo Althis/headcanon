@@ -1,12 +1,12 @@
 ---
 name: start
 description: "The one entry point: looks at the repository and the canon, brings an older canon up to the current format, opens the viewer once, and hands over to adopt for a repository whose premise is not approved yet or to attend for one that has a canon."
-when_to_use: "The human runs /headcanon:start, or asks to begin, set up, adopt, resume or continue HeadCanon on a repository."
+when_to_use: "The user runs /headcanon:start, or asks to begin, set up, adopt, resume or continue HeadCanon on a repository."
 ---
 
 # Start: find out where the repository stands, then hand over
 
-`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. Everything the human sees happens in the viewer; nothing is asked in the terminal.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. Everything the user sees happens in the viewer; nothing is asked in the terminal.
 
 1. **Where things stand.** Decided from the folder and nothing else, the first case that fits:
    - No `canon/README.md` and no files worth reading (only configuration, no code, no documents): starting from zero. That path is not designed yet: say so and stop.

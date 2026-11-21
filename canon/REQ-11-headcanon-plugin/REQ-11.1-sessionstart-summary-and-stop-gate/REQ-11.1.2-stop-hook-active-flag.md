@@ -16,5 +16,5 @@ Source: docs/design-brief-v0.md:485
 
 ## Intent
 
-The session's Stop hook checks the `stop_hook_active` flag. The gate on an implementation agent blocks while the tests of its boxes fail, and lets the agent go in two cases: each box still failing has an issue the agent filed, or a further attempt left the same tests failing with the retry budget spent, and the gate then files an issue of the kind impossible on each failing box (DEC-026).
+The session's Stop hook checks the `stop_hook_active` flag. The gate on an implementation agent blocks while the tests of its nodes fail, and lets the agent go in two cases: each node still failing has an issue the agent filed, or a further attempt left the same tests failing with the retry budget spent, and the gate then files an issue of the kind impossible on each failing node (DEC-026).
 

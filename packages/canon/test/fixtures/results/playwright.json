@@ -21,7 +21,7 @@
       "line": 0,
       "specs": [
         {
-          "title": "a person adds an entry and sees it on the month's statement [hc:j8v3ef]",
+          "title": "a user adds an entry and sees it on the month's statement [hc:j8v3ef]",
           "ok": true,
           "tags": [],
           "tests": [

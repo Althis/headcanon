@@ -31,6 +31,6 @@ Length follows the layer. Requirements and glossary entries are one or two sente
 
 ## Assumptions
 
-- Footnotes rather than no references: the human offered both, and footnotes keep the provenance visible without the cost the parentheses had. (model assumption)
+- Footnotes rather than no references: the user offered both, and footnotes keep the provenance visible without the cost the parentheses had. (model assumption)
 - The fourth run's shorter principles came from the one-line template in the reference file and from the entry rule's "concise", which did not distinguish layers; the template and the rule now do. (model assumption)
-- The selection of principles also worsened in the fourth run; the skill now says to draw on the human's premise answers first and the newest artifacts next, and to leave old milestones out. Whether that is enough is open until the next run. (model assumption)
+- The selection of principles also worsened in the fourth run; the skill now says to draw on the user's premise answers first and the newest artifacts next, and to leave old milestones out. Whether that is enough is open until the next run. (model assumption)

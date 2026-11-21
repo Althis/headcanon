@@ -97,12 +97,12 @@ function historyView() {
   return `<h1>History</h1><p class="lede">Every change to the canon, by the session or by you. Reverting restores the files to how they were before that change; the revert is itself a change you can undo.</p><div id="history-list" class="history-list"><p class="muted">Loading…</p></div>`;
 }
 async function wireHistory() {
-  const box = document.getElementById("history-list"); if (!box) return;
+  const holder = document.getElementById("history-list"); if (!holder) return;
   let entries = [];
-  try { entries = (await fetch("/api/history", { cache: "no-store" }).then((r) => r.json())).entries ?? []; } catch { box.innerHTML = `<p class="muted">No history: the canon is outside a git repository.</p>`; return; }
-  if (!entries.length) { box.innerHTML = `<p class="muted">No changes recorded yet.</p>`; return; }
-  box.innerHTML = `<table class="history"><thead><tr><th>#</th><th>when</th><th>what</th><th>files</th><th></th></tr></thead><tbody>${entries.map((e) => `<tr class="h-${esc(e.kind)}"><td>${e.seq}</td><td>${esc(e.at.slice(0, 19).replace("T", " "))}</td><td><span class="badge kind">${esc(e.kind)}</span> ${e.id ? `<a href="#/node/${esc(e.id)}" class="id">${esc(e.id)}</a> ` : ""}${esc(e.summary)}</td><td title="${esc(e.files.join("\n"))}">${e.files.length}</td><td><button class="btn small" data-revert="${e.seq}" title="Restore every file to how it was before this change">Revert to before</button></td></tr>`).join("")}</tbody></table>`;
-  for (const b of box.querySelectorAll("[data-revert]")) b.addEventListener("click", async () => {
+  try { entries = (await fetch("/api/history", { cache: "no-store" }).then((r) => r.json())).entries ?? []; } catch { holder.innerHTML = `<p class="muted">No history: the canon is outside a git repository.</p>`; return; }
+  if (!entries.length) { holder.innerHTML = `<p class="muted">No changes recorded yet.</p>`; return; }
+  holder.innerHTML = `<table class="history"><thead><tr><th>#</th><th>when</th><th>what</th><th>files</th><th></th></tr></thead><tbody>${entries.map((e) => `<tr class="h-${esc(e.kind)}"><td>${e.seq}</td><td>${esc(e.at.slice(0, 19).replace("T", " "))}</td><td><span class="badge kind">${esc(e.kind)}</span> ${e.id ? `<a href="#/node/${esc(e.id)}" class="id">${esc(e.id)}</a> ` : ""}${esc(e.summary)}</td><td title="${esc(e.files.join("\n"))}">${e.files.length}</td><td><button class="btn small" data-revert="${e.seq}" title="Restore every file to how it was before this change">Revert to before</button></td></tr>`).join("")}</tbody></table>`;
+  for (const b of holder.querySelectorAll("[data-revert]")) b.addEventListener("click", async () => {
     const seq = Number(b.dataset.revert);
     const n = entries.filter((e) => e.seq >= seq).length;
     if (!confirm(`Undo ${n} change${n === 1 ? "" : "s"}, back to before #${seq}? The files are restored as they were; this revert can itself be undone.`)) return;
@@ -114,7 +114,7 @@ async function wireHistory() {
 function overview() {
   const { stats, health } = snap;
   if (stats.nodes === 0 && !snap.canon.root) return `
-    <div class="alert none"><span class="alert-icon">·</span><b>No canon yet.</b><span class="muted">The session is reading your documents and drafting it; the Adopt tab shows the boxes as they appear.</span></div>
+    <div class="alert none"><span class="alert-icon">·</span><b>No canon yet.</b><span class="muted">The session is reading your documents and drafting it; the Adopt tab shows the nodes as they appear.</span></div>
     <h1>Canon</h1>
     <p class="lede">Nothing to show until the first node exists. The session speaks in the panel at the bottom right.</p>`;
   const att = attentionItems();
@@ -162,8 +162,8 @@ function overview() {
   return `
     ${alert}
     <h1>${esc(snap.canon.root?.title ?? "Canon")}</h1>
-    <p class="lede">Requirements at a glance. ${stats.counts.stated + stats.counts.resolved} of ${stats.nodes} nodes are confirmed by the human; ${stats.counts.assumed + stats.counts.open + stats.counts.contested} still need a word from you.</p>
-    ${adoptionStarting() ? `<p class="lede"><span class="spin"></span> <b>${esc(adoptProgress().phase)}.</b> The session is drafting the canon from the repository; nothing to review yet. The <a href="#/adopt">Adopt view</a> shows boxes as they land, and your list fills as they do.</p>` : ""}
+    <p class="lede">Requirements at a glance. ${stats.counts.stated + stats.counts.resolved} of ${stats.nodes} nodes are confirmed by the user; ${stats.counts.assumed + stats.counts.open + stats.counts.contested} still need a word from you.</p>
+    ${adoptionStarting() ? `<p class="lede"><span class="spin"></span> <b>${esc(adoptProgress().phase)}.</b> The session is drafting the canon from the repository; nothing to review yet. The <a href="#/adopt">Adopt view</a> shows nodes as they land, and your list fills as they do.</p>` : ""}
     ${tileGroups}
     <h2>Branches</h2>
     ${legend()}
@@ -417,21 +417,21 @@ function journeys(focus) {
     <div class="card" id="${esc(j.id)}">
       <div class="row"><span class="id">${esc(j.id)}</span><h3 style="margin:0">${esc(j.title)}</h3> ${certainty(j.state)} ${j.source ? `<span class="muted mono">${esc(j.source)}</span>` : ""}</div>
       ${j.mermaid ? `<pre class="mermaid">${esc(j.mermaid)}</pre>` : ""}
-      <table class="list journey-steps${marksData ? " tested" : ""}"><thead><tr><th>Step</th><th>State</th><th>Boxes it cites</th><th class="jtest">Test that plays it</th></tr></thead><tbody>
+      <table class="list journey-steps${marksData ? " tested" : ""}"><thead><tr><th>Step</th><th>State</th><th>Nodes it cites</th><th class="jtest">Test that plays it</th></tr></thead><tbody>
         ${j.steps.map((s, k) => `<tr><td><span class="id">${esc(s.id)}</span> ${esc(s.label)}</td><td>${certainty(s.state)}</td><td>${s.requirements.map((r) => `${idLink(r)}${node(r) ? ` <span class="muted">${esc(node(r).title)}</span>` : ` <span class="badge error">missing</span>`}`).join("<br>")}</td>${k === 0 ? `<td class="jtest" rowspan="${j.steps.length}" data-jplays="${esc(j.id)}"></td>` : ""}</tr>`).join("")}
       </tbody></table>
       <div class="body" style="margin-top:10px">${snap.html[j.id] ?? ""}</div>
     </div>`).join("");
-  return `<h1>Journeys</h1><p class="lede">How you see the product working, step by step. Each step cites the boxes it rests on; a test that plays a journey stands beside its steps.${focus ? ` <a href="#/journeys">all journeys</a>` : ""}</p>${cards || `<p class="empty">No journeys.</p>`}`;
+  return `<h1>Journeys</h1><p class="lede">How you see the product working, step by step. Each step cites the nodes it rests on; a test that plays a journey stands beside its steps.${focus ? ` <a href="#/journeys">all journeys</a>` : ""}</p>${cards || `<p class="empty">No journeys.</p>`}`;
 }
-// A journey's test plays every step in order, so it stands once beside them all. It is found on the boxes the steps
+// A journey's test plays every step in order, so it stands once beside them all. It is found on the nodes the steps
 // cite: only those the marks say have a test are asked for.
 function fillJourneyTests() {
   for (const cell of $main.querySelectorAll("[data-jplays]")) {
     const j = snap.canon.journeys.find((x) => x.id === cell.dataset.jplays);
     if (!j) continue;
-    const boxes = [...new Set(j.steps.flatMap((s) => s.requirements))].filter((r) => markOf(r)?.tests);
-    Promise.all(boxes.map(fetchTests)).then((lists) => {
+    const nodes = [...new Set(j.steps.flatMap((s) => s.requirements))].filter((r) => markOf(r)?.tests);
+    Promise.all(nodes.map(fetchTests)).then((lists) => {
       if (!cell.isConnected) return;
       const plays = lists.flat().filter((t) => t.journey === j.id || String(t.journey ?? "").startsWith(`${j.id}/`));
       const key = JSON.stringify(plays);
@@ -463,13 +463,13 @@ function glossary() {
   const keyOf = (t) => (g.sort === "state" ? rank[t.state] ?? 9 : g.sort === "id" ? t.id.toLowerCase() : t.term.toLowerCase());
   const terms = [...snap.canon.terms].sort((a, b) => { const x = keyOf(a), y = keyOf(b); return (x < y ? -1 : x > y ? 1 : 0) * g.dir; });
   const th = (key, label) => `<th><a href="#" data-gsort="${key}" title="Sort by ${label.toLowerCase()}">${label}${g.sort === key ? ` <span class="muted">${g.dir > 0 ? "▲" : "▼"}</span>` : ""}</a></th>`;
-  return `<h1>Glossary</h1><p class="lede">What the human means when they say X. A term is the session's guess until you approve it, rewrite it in your words, or delete it.</p>
+  return `<h1>Glossary</h1><p class="lede">What the user means when they say X. A term is the session's guess until you approve it, rewrite it in your words, or delete it.</p>
     <p class="toolbar"><input id="g-q" type="search" placeholder="Search the terms…" value="${esc(g.q)}" /> <span class="muted" id="g-count"></span></p>
     <table class="list glossary"><thead><tr>${th("term", "Term")}${th("id", "ID")}<th>Definition</th>${th("state", "State")}</tr></thead><tbody>
     ${terms.map((t) => `<tr data-term="${esc(t.id)}" data-search="${esc(`${t.term} ${t.id} ${t.definition}`.toLowerCase())}" ${termMatches(t, g.q) ? "" : "hidden"}><td><b>${esc(t.term)}</b><div>${badge(t.state)}</div></td><td class="id">${esc(t.id)}</td><td class="def">${esc(t.definition)}</td><td class="acts"><span class="row">${green(t) ? "" : `<button class="btn small primary" data-term-approve="${esc(t.id)}" title="Keep it as written; it becomes approved by you">Approve</button>`}<button class="btn small" data-term-edit="${esc(t.id)}" title="Say it in your own words">Rewrite</button><button class="btn small" data-term-delete="${esc(t.id)}">Delete</button></span></td></tr>`).join("")}
     </tbody></table>`;
 }
-// The glossary's rows act like boxes: approve, rewrite in place, delete; each reaches the session as a change.
+// The glossary's rows act like nodes: approve, rewrite in place, delete; each reaches the session as a change.
 function wireGlossary() {
   const after = async (what) => { await load(); render(); startWorking(what); };
   // the search filters the rows in place, so typing never redraws the page; the sort redraws once
@@ -479,7 +479,7 @@ function wireGlossary() {
   applySearch();
   for (const a of $main.querySelectorAll("[data-gsort]")) a.addEventListener("click", (e) => { e.preventDefault(); const key = a.dataset.gsort; if (ui.glossary.sort === key) ui.glossary.dir = -ui.glossary.dir; else { ui.glossary.sort = key; ui.glossary.dir = 1; } render(); });
   for (const b of $main.querySelectorAll("[data-term-approve]")) b.addEventListener("click", async () => { const id = b.dataset.termApprove; try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); after(`you approved ${id}`); } catch (e) { showToast(e); } });
-  for (const b of $main.querySelectorAll("[data-term-delete]")) b.addEventListener("click", async () => { const id = b.dataset.termDelete; if (!confirm(`Delete ${id}? The session re-reads the boxes that use the word.`)) return; try { await fetch(`/api/node/${encodeURIComponent(id)}`, { method: "DELETE" }); after(`you deleted ${id}`); } catch (e) { showToast(e); } });
+  for (const b of $main.querySelectorAll("[data-term-delete]")) b.addEventListener("click", async () => { const id = b.dataset.termDelete; if (!confirm(`Delete ${id}? The session re-reads the nodes that use the word.`)) return; try { await fetch(`/api/node/${encodeURIComponent(id)}`, { method: "DELETE" }); after(`you deleted ${id}`); } catch (e) { showToast(e); } });
   for (const b of $main.querySelectorAll("[data-term-edit]")) b.addEventListener("click", () => {
     const id = b.dataset.termEdit, tr = $main.querySelector(`tr[data-term="${CSS.escape(id)}"]`), t = snap.canon.terms.find((x) => x.id === id);
     if (!tr || !t) return;
@@ -587,7 +587,7 @@ function showIssueCard(header, label = "Issue") {
   document.getElementById("issue-label").textContent = label;
   document.getElementById("issue-sub").textContent = header ?? $question.dataset.label ?? "";
   $issueCard.hidden = false;
-  // a card that opens on "Write it yourself" puts the cursor in its box
+  // a card that opens on "Write it yourself" puts the cursor in its node
   if ($question.querySelector('input[name=opt][value="write"]')?.checked) $question.querySelector("#q-other")?.focus();
   if ($issueCard.dataset.placed) return;
   const area = $main.querySelector(".adopt #cy")?.getBoundingClientRect() ?? $main.getBoundingClientRect();
@@ -638,7 +638,7 @@ document.getElementById("session-toggle").addEventListener("click", () => setTog
     grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up);
   });
 }
-// A message carries the passage the human highlighted in a card, when they did: the chip above the box names
+// A message carries the passage the user highlighted in a card, when they did: the chip above the node names
 // the node and the words, and both go with the text. Enter sends; Shift+Enter breaks a line.
 const $msg = document.getElementById("msg"), $quote = document.getElementById("quote");
 let quote = null;
@@ -673,16 +673,16 @@ function issuesOf(s) {
   const queue = s?.queue ?? (s?.question ? [s.question] : []);
   const qTitle = (q) => { const draft = /"([^"\n]{3,90}?)\./.exec(q.question ?? "")?.[1]; return (q.nodeId && node(q.nodeId)?.title) || draft || q.header; };
   const named = new Set();
-  // a contradiction is one by its kind, by its box being contested, or by a header that says so: agents file them in all three ways
+  // a contradiction is one by its kind, by its node being contested, or by a header that says so: agents file them in all three ways
   const isContradiction = (q) => q.kind === "contradiction" || node(q.nodeId)?.state === "contested" || /contradict|contested/i.test(q.header ?? "");
   queue.forEach((q) => { if (q.nodeId) named.add(q.nodeId); out.push({ kind: isContradiction(q) ? "contradiction" : "question", key: q.id, id: q.id, nodeId: q.nodeId, title: qTitle(q), sub: q.header && q.header !== q.nodeId && q.header !== qTitle(q) ? q.header : "", current: q.id === s?.question?.id }); });
   for (const n of Object.values(snap.canon.nodes)) {
-    if (named.has(n.id) || pendingNodes.has(n.id)) continue; // a pending box is the session's for now; its line says so
+    if (named.has(n.id) || pendingNodes.has(n.id)) continue; // a pending node is the session's for now; its line says so
     if (n.state === "contested") out.push({ kind: "contradiction", key: "c:" + n.id, nodeId: n.id, title: n.title, standIn: true });
     else if (n.state === "draft") out.push({ kind: "question", key: "o:" + n.id, nodeId: n.id, title: n.title, standIn: true, preparing: agentLive(s) });
   }
-  // in the order of what settling the box releases (the next command's human list); the rest keep their order
-  const rank = new Map((snap.next?.human ?? []).map((h, i) => [h.id, i]));
+  // in the order of what settling the node releases (the next command's user list); the rest keep their order
+  const rank = new Map((snap.next?.user ?? []).map((h, i) => [h.id, i]));
   out.forEach((i, k) => { i.order = k; });
   out.sort((a, b) => (rank.get(a.nodeId) ?? 1e9) - (rank.get(b.nodeId) ?? 1e9) || a.order - b.order);
   return out;
@@ -693,45 +693,45 @@ function renderIssues(s) {
   for (const [id, p] of pendingNodes) if (Date.now() - p.since > 15 * 60 * 1000) pendingNodes.delete(id);
   const issues = issuesOf(s);
   const notReady = new Set([...issues.filter((i) => i.preparing).map((i) => i.nodeId), ...pendingNodes.keys()]);
-  // what the human can do, ranked by impact (the next command's human list, with its reason): the first is next for
+  // what the user can do, ranked by impact (the next command's user list, with its reason): the first is next for
   // them, a few more follow, so they always see where their time goes furthest, during adoption and after it.
   // The issues show live as they are filed, ranked, in groups by kind; while the drafting runs the gate is one
-  // line of progress above them, never a reason to withhold them (the human asked to see them as they land).
-  // In Guided the drafting stops at each box until it is approved: the line then says whose turn it is, with no spinner.
+  // line of progress above them, never a reason to withhold them (the user asked to see them as they land).
+  // In Guided the drafting stops at each node until it is approved: the line then says whose turn it is, with no spinner.
   const gate = snap.next?.gate;
   const waits = guidedWaits().length > 0;
   const drafting = Boolean(gate && gate.total && !gate.open && agentLive(s) && !waits);
-  const picks =(snap.next?.human ?? []).filter((h) => !notReady.has(h.id)).slice(0, 5);
+  const picks =(snap.next?.user ?? []).filter((h) => !notReady.has(h.id)).slice(0, 5);
   const top = picks[0];
   const minutes = (p) => Math.floor((Date.now() - p.since) / 60000);
   const ago = (p) => { const m = minutes(p); return m < 1 ? "just now" : m === 1 ? "a minute ago" : `${m} minutes ago`; };
   const pendingKey = [...pendingNodes].map(([id, p]) => `${id}:${minutes(p)}`);
   const active = agentLive(s) ? activeIds() : []; // what the disk shows moving, shown only while a session is attached
-  // the reason in a few tokens: "93 below · 18 red", "contested · ~7 hidden · 9 wait", "leaf"; in Guided only a box
+  // the reason in a few tokens: "93 below · 18 red", "contested · ~7 not drafted · 9 wait", "leaf"; in Guided only a node
   // with its check reads "leaf", and one the session has yet to draft under reads "nothing below yet"
-  const shortWhy = (h) => String(h.why ?? "").replace(/validates the path for (\d+) boxe?s? below it/, "$1 below").replace(/, (\d+) of them red/, " · $1 red").replace(/(\d+) boxe?s? below it/, "$1 below").replace(/, (\d+) red/, " · $1 red").replace(/hides about (\d+) boxe?s?/, "~$1 hidden").replace(/(\d+) wait on it/, "$1 wait").replace(/frees (\d+)/, "frees $1").replace(/nothing below it/, guided() && !node(h.id)?.kind ? "nothing below yet" : "leaf").replace(/; /g, " · ");
+  const shortWhy = (h) => String(h.why ?? "").replace(/validates the path for (\d+) nodes? below it/, "$1 below").replace(/, (\d+) of them red/, " · $1 red").replace(/(\d+) nodes? below it/, "$1 below").replace(/, (\d+) red/, " · $1 red").replace(/about (\d+) nodes? not drafted yet/, "~$1 not drafted").replace(/(\d+) wait on it/, "$1 wait").replace(/frees (\d+)/, "frees $1").replace(/nothing below it/, guided() && !node(h.id)?.kind ? "nothing below yet" : "leaf").replace(/; /g, " · ");
   const key = JSON.stringify([issuesTab, issuesSort, waits, drafting && `${gate.refined}/${gate.total}`, picks.map((h) => `${h.id}:${h.action}:${shortWhy(h)}`), pendingKey, active, ...issues.map((i) => i.key + (i.preparing ? "~" : ""))]);
   if (body.dataset.key === key) return;
   body.dataset.key = key;
   const open = issues.filter((i) => !i.preparing).length;
   count.textContent = open; count.hidden = open === 0;
-  // each box the human acted on (with how long ago), then what the disk shows moving
+  // each node the user acted on (with how long ago), then what the disk shows moving
   const pendingLines = [...pendingNodes].map(([id, p]) => `<p class="pending-line"><span class="spin"></span> <a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a> <span class="muted">· the session is working on it; ${esc(p.why)} ${esc(ago(p))}</span></p>`).join("");
   const activeLine = active.length ? `<p class="pending-line"><span class="spin"></span> <span class="muted">Being refined now:</span> ${active.map((id) => `<a href="#" data-next="${esc(id)}" title="Select it on the canvas">${esc(id)}</a>`).join(", ")}</p>` : "";
   const hint = (i) => i.preparing ? "The session is still writing its question for this draft" : i.kind === "contradiction" ? "Settle the contradiction" : i.standIn ? "Define this draft" : "Open this question";
   const pickRow = (h, first) => `<button class="btn small issue-row pick${first ? " now" : ""}" data-next="${esc(h.id)}" title="Select it on the canvas"><span class="kind">${h.action === "settle" ? "!" : "✓"}</span><span class="tag">${esc(h.id)}</span><span>${esc(h.action)} <span class="muted">· ${esc(shortWhy(h))}</span></span></button>`;
   const row = (i, k) => `<button class="btn small issue-row${i.current ? " now" : ""}${i.preparing ? " preparing" : ""}" data-issue="${k}" title="${hint(i)}"><span class="kind">${i.preparing ? "…" : ISSUE_MARK[i.kind]}</span>${i.nodeId ? `<span class="tag">${esc(i.nodeId)}</span>` : ""}<span>${esc(i.title)}${i.preparing ? ` <span class="muted">· being prepared</span>` : ""}</span></button>`;
   const index = new Map(issues.map((i, k) => [i.key, k]));
-  // the two lists of issues in the order the human picked: by importance (what settling the box releases, then how
-  // many boxes lie below it, then the shallower box), by requirement number, or by title
+  // the two lists of issues in the order the user picked: by importance (what settling the node releases, then how
+  // many nodes lie below it, then the shallower node), by requirement number, or by title
   const sorted = (list) => issuesSort === "number" ? [...list].sort((a, b) => byReqNumber(a.nodeId, b.nodeId) || a.order - b.order)
     : issuesSort === "title" ? [...list].sort((a, b) => String(a.title ?? "").localeCompare(String(b.title ?? ""), undefined, { sensitivity: "base", numeric: true }) || byReqNumber(a.nodeId, b.nodeId))
-    : [...list].sort((a, b) => (humanRank.get(a.nodeId) ?? 1e9) - (humanRank.get(b.nodeId) ?? 1e9) || boxesBelow(b.nodeId) - boxesBelow(a.nodeId) || (node(a.nodeId)?.depth ?? 99) - (node(b.nodeId)?.depth ?? 99) || a.order - b.order);
-  const humanRank = new Map((snap.next?.human ?? []).map((h, i) => [h.id, i]));
+    : [...list].sort((a, b) => (userRank.get(a.nodeId) ?? 1e9) - (userRank.get(b.nodeId) ?? 1e9) || nodesBelow(b.nodeId) - nodesBelow(a.nodeId) || (node(a.nodeId)?.depth ?? 99) - (node(b.nodeId)?.depth ?? 99) || a.order - b.order);
+  const userRank = new Map((snap.next?.user ?? []).map((h, i) => [h.id, i]));
   const contradictions = sorted(issues.filter((i) => i.kind === "contradiction")), drafts = sorted(issues.filter((i) => i.kind !== "contradiction"));
   const sortBar = `<label class="issues-sort muted">Sort <select data-issues-sort><option value="importance"${issuesSort === "importance" ? " selected" : ""}>by importance</option><option value="number"${issuesSort === "number" ? " selected" : ""}>by requirement number</option><option value="title"${issuesSort === "title" ? " selected" : ""}>alphabetically</option></select></label>`;
   // four tabs, one short status line above them: what to do first, the two kinds of issue, and what moves
-  const status = waits ? "Waiting for your approval. The session drafts under a box once you approve it." : drafting ? `<span class="spin"></span> Drafting · ${gate.refined}/${gate.total}` : adoptionStarting() ? `<span class="spin"></span> Reading` : "";
+  const status = waits ? "Waiting for your approval. The session drafts under a node once you approve it." : drafting ? `<span class="spin"></span> Drafting · ${gate.refined}/${gate.total}` : adoptionStarting() ? `<span class="spin"></span> Reading` : "";
   const tabs = [["for-you", "For you", picks.length], ["contradictions", "Contradictions", contradictions.length], ["drafts", "Drafts", drafts.length], ["activity", "Activity", pendingNodes.size + active.length]];
   if (!tabs.some(([k]) => k === issuesTab)) issuesTab = "for-you";
   let content;
@@ -739,32 +739,32 @@ function renderIssues(s) {
   else if (issuesTab === "contradictions") content = contradictions.length ? sortBar + contradictions.map((i) => row(i, index.get(i.key))).join("") : `<p class="muted">No contradiction open.</p>`;
   else if (issuesTab === "drafts") content = drafts.length ? sortBar + drafts.map((i) => row(i, index.get(i.key))).join("") : `<p class="muted">No draft waits for you.</p>`;
   else content = (pendingLines + activeLine) || `<p class="muted">Nothing moving right now.</p>`;
-  // a redraw keeps the human's place: the scroll position comes back, and an open card is never touched
+  // a redraw keeps the user's place: the scroll position comes back, and an open card is never touched
   const scroll = body.scrollTop;
   body.innerHTML = `${status ? `<p class="status muted">${status}</p>` : ""}<div class="tabs">${tabs.map(([k, label, n]) => `<button class="btn small${k === issuesTab ? " on" : ""}" data-tab="${k}">${label}${n ? ` <span class="pill">${n}</span>` : ""}</button>`).join("")}</div>${content}`;
   body.scrollTop = scroll;
   for (const b of body.querySelectorAll("[data-tab]")) b.addEventListener("click", () => { issuesTab = b.dataset.tab; body.dataset.key = ""; body.scrollTop = 0; renderIssues(lastSession); });
   body.querySelector("[data-issues-sort]")?.addEventListener("change", (e) => { issuesSort = e.target.value; try { localStorage.setItem("hc-issues-sort", issuesSort); } catch { /* fine */ } body.dataset.key = ""; body.scrollTop = 0; renderIssues(lastSession); });
   for (const b of body.querySelectorAll("[data-issue]")) b.addEventListener("click", () => openIssue(issues[Number(b.dataset.issue)]));
-  // a pick opens its card: the issue filed on the box when there is one, else the box itself
+  // a pick opens its card: the issue filed on the node when there is one, else the node itself
   for (const a of body.querySelectorAll("[data-next]")) a.addEventListener("click", (e) => { e.preventDefault(); const id = e.currentTarget.dataset.next; const issue = issues.find((i) => i.nodeId === id && i.current) ?? issues.find((i) => i.nodeId === id); if (issue) openIssue(issue); else if (id === "ROOT" || node(id)) focusOnCanvas(id, true, true); });
 }
 let issuesTab = "for-you";
 // How the issue lists are ordered, kept across visits: "importance", "number" or "title".
 let issuesSort = "importance";
 try { const saved = localStorage.getItem("hc-issues-sort"); if (saved === "number" || saved === "title") issuesSort = saved; } catch { /* fine */ }
-// Requirement ids in their natural order: REQ-2.10 after REQ-2.9; an issue with no box goes last.
+// Requirement ids in their natural order: REQ-2.10 after REQ-2.9; an issue with no node goes last.
 const byReqNumber = (a, b) => { if (!a || !b) return a ? -1 : b ? 1 : 0; const pa = String(a).match(/\d+/g) ?? [], pb = String(b).match(/\d+/g) ?? []; for (let k = 0; k < Math.max(pa.length, pb.length); k++) { const d = (pa[k] === undefined ? -1 : Number(pa[k])) - (pb[k] === undefined ? -1 : Number(pb[k])); if (d) return d; } return String(a).localeCompare(String(b)); };
-// How many boxes lie below a box, counted once per snapshot.
+// How many nodes lie below a node, counted once per snapshot.
 let belowMemo = { snap: null, counts: new Map() };
-function boxesBelow(id) {
+function nodesBelow(id) {
   if (belowMemo.snap !== snap) belowMemo = { snap, counts: new Map() };
   const n = id ? node(id) : undefined;
   if (!n) return 0;
   if (belowMemo.counts.has(id)) return belowMemo.counts.get(id);
   belowMemo.counts.set(id, 0);
   let total = 0;
-  for (const c of n.children ?? []) total += 1 + boxesBelow(typeof c === "string" ? c : c.id);
+  for (const c of n.children ?? []) total += 1 + nodesBelow(typeof c === "string" ? c : c.id);
   belowMemo.counts.set(id, total);
   return total;
 }
@@ -772,7 +772,7 @@ function boxesBelow(id) {
 const REF_RE = /[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+(?:-\d+)?/g;
 const plainWords = (html) => html.replace(/<[^>]+>/g, "").replace(/\s*\(([^()]*)\)/g, (m, inner) => (/[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]+:\d+/.test(inner) ? "" : m)).trim();
 const refsOf = (html) => [...new Set(html.replace(/<[^>]+>/g, "").match(REF_RE) ?? [])];
-// Settling writes the human's words into the node, stated; an explicit issue is answered as well.
+// Settling writes the user's words into the node, stated; an explicit issue is answered as well.
 async function settleNode(id, text, resolve, q, selected) {
   try {
     await post(`/api/node/${encodeURIComponent(id)}`, resolve ? { intent: text, resolve } : { intent: text }, "PUT");
@@ -783,7 +783,7 @@ async function settleNode(id, text, resolve, q, selected) {
   } catch (e) { showToast(e); }
 }
 // The contradiction's template: the sources at odds, each statement with its references, the session's
-// summary, which is correct, a place to write, and what the decision changes, kept current as the human picks.
+// summary, which is correct, a place to write, and what the decision changes, kept current as the user picks.
 function contradictionCard(nodeId, q) {
   const n = node(nodeId);
   if (!n) return;
@@ -801,14 +801,14 @@ function contradictionCard(nodeId, q) {
   });
 }
 function openIssue(issue) {
-  if (issue.preparing) { if (node(issue.nodeId)) focusOnCanvas(issue.nodeId, false, true); showToast("The session is still writing its question for this draft; open the box if you want to define it yourself."); return; }
-  // The card keeps what the human typed across a close and reopen of the same question; a stand-in, which
+  if (issue.preparing) { if (node(issue.nodeId)) focusOnCanvas(issue.nodeId, false, true); showToast("The session is still writing its question for this draft; open the node if you want to define it yourself."); return; }
+  // The card keeps what the user typed across a close and reopen of the same question; a stand-in, which
   // carries no term decisions, is redrawn from the node whenever it is reopened.
   if ($question.dataset.issue !== issue.key || (!issue.id && $issueCard.hidden)) {
     if (issue.id) { const q = (lastSession?.queue ?? []).find((x) => x.id === issue.id && x.question !== undefined) ?? (lastSession?.question?.id === issue.id ? lastSession.question : null); if (!q) return; shownQuestionId = q.id; termState = {}; renderQuestion(q, lastSession?.pending ?? 1); }
     else if (issue.kind === "contradiction") contradictionCard(issue.nodeId, null);
     else {
-      // a draft node the session filed no question for: the human defines it in their words
+      // a draft node the session filed no question for: the user defines it in their words
       const id = issue.nodeId, n = node(id), intent = extractHtmlSection(snap.html[id] ?? "", "Intent").replace(/<h2>[^<]*<\/h2>/, "");
       questionCard({ badge: "Draft", nodeId: id, title: n.title, questionHtml: "What is this, and what must hold for it?", summaryHtml: `<p class="sub">No question from the session for this draft yet; one usually follows within a minute of the draft, and this card is replaced by it. Define it in your words now, or wait. What it knows so far:</p>${intent}`, options: [], onAnswer: ({ text }) => settleNode(id, text) });
     }
@@ -851,18 +851,18 @@ async function pollSession() {
       }
     }
     if (s.question && s.question.id !== shownQuestionId && !(shownIssue && !$issueCard.hidden)) { shownQuestionId = s.question.id; termState = {}; renderQuestion(s.question, s.pending); $question.dataset.issue = s.question.id; shownIssue = null; chime("issue"); }
-    ageActivity(); // a box that went quiet loses its paint here; no new snapshot comes for that
+    ageActivity(); // a node that went quiet loses its paint here; no new snapshot comes for that
     for (const q of s.queue ?? []) if (q.nodeId && pendingNodes.has(q.nodeId)) clearPending(q.nodeId);
     renderIssues(s); // every poll: what is pending, prepared or live changes with time; the key guard keeps the DOM still
     renderLive(s);
     // A question that vanished under an open card: the session replaced it, withdrew it, or it was answered elsewhere.
-    // The card shows the replacement on the same box, or says the question is gone; typed words are kept in sight.
+    // The card shows the replacement on the same node, or says the question is gone; typed words are kept in sight.
     const shownKey = $question.dataset.issue;
     if (!$issueCard.hidden && shownKey && !shownKey.includes(":") && !(s.queue ?? []).some((q) => q.id === shownKey)) {
       const typed = $question.querySelector("#q-other")?.value?.trim();
       const kept = typed ? ` What you had typed: “${esc(typed)}”` : "";
       const next = (s.queue ?? []).find((q) => q.nodeId && q.nodeId === $question.dataset.nodeId);
-      if (next) { shownQuestionId = next.id; termState = {}; renderQuestion(next, s.pending); $question.dataset.issue = next.id; $question.insertAdjacentHTML("afterbegin", `<p class="notice"><b>The session replaced its question on this box;</b> this is the new one.${kept}</p>`); }
+      if (next) { shownQuestionId = next.id; termState = {}; renderQuestion(next, s.pending); $question.dataset.issue = next.id; $question.insertAdjacentHTML("afterbegin", `<p class="notice"><b>The session replaced its question on this node;</b> this is the new one.${kept}</p>`); }
       else { $question.innerHTML = `<p class="notice"><b>This question is no longer open:</b> it was answered, withdrawn or replaced.${kept}</p>`; $question.dataset.issue = ""; }
       // a replacement still wants an answer; a withdrawal asks nothing, so it says so without a sound
       if (next) chime("issue");
@@ -890,32 +890,32 @@ async function pollSession() {
 }
 // Between questions: the session is reading, writing or thinking; show that it is, and for how long.
 let working = null;
-// Boxes the session is working on after the human acted on them: answered, defined or rewritten. Cleared when the
-// session says something about the box, changes it on disk, or files a new question for it; dropped after a while.
+// Nodes the session is working on after the user acted on them: answered, defined or rewritten. Cleared when the
+// session says something about the node, changes it on disk, or files a new question for it; dropped after a while.
 const pendingNodes = new Map();
 const paintPending = (id) => { const c = window.__cy; if (c) { const n = c.getElementById(id); if (n.length) n.toggleClass("pending", pendingNodes.has(id)); } window.__cySpin?.(); };
 const markPending = (id, why) => { if (id) { pendingNodes.set(id, { since: Date.now(), why }); paintPending(id); } };
 const clearPending = (id) => { if (id && pendingNodes.delete(id)) { paintPending(id); renderIssues(lastSession); } };
-// A session is live when it asked something in the last fifteen minutes, or when the disk shows a box moving that no
+// A session is live when it asked something in the last fifteen minutes, or when the disk shows a node moving that no
 // edit from this page explains: while drafting, agents write for long stretches without asking anything.
 const agentLive = (s) => Boolean(lastStatus?.listening) || workingSet.size > 0 || (typeof s?.agentSeenAgo === "number" && s.agentSeenAgo < 900);
-// Guided: the boxes the session waits for, each a guess with no check and nothing under it, which it drafts under
-// only once the human approves it. Read from the canon and the mode alone, never from who is live: an armed waiter
-// counts as a live session, and a pause lasts as long as the human takes.
+// Guided: the nodes the session waits for, each a guess with no check and nothing under it, which it drafts under
+// only once the user approves it. Read from the canon and the mode alone, never from who is live: an armed waiter
+// counts as a live session, and a pause lasts as long as the user takes.
 const guided = () => lastStatus?.settings?.mode === "guided";
-const guidedWaits = () => (guided() && snap ? snap.next?.human ?? [] : []).filter((h) => { const n = node(h.id); return h.action === "approve" && n && !n.kind && !n.children.length; });
-// which worker holds a box, from the status the page polls
+const guidedWaits = () => (guided() && snap ? snap.next?.user ?? [] : []).filter((h) => { const n = node(h.id); return h.action === "approve" && n && !n.kind && !n.children.length; });
+// which worker holds a node, from the status the page polls
 const workerOf =(id) => (lastStatus?.workers ?? []).find((w) => w.ids.includes(id))?.by;
-// Boxes being refined right now, as the disk shows it (DEC-024): the snapshot names each node file written in the last
+// Nodes being refined right now, as the disk shows it (DEC-024): the snapshot names each node file written in the last
 // two minutes with the seconds since. The page keeps the write time that implies and ages it by the same rule, because
-// a new snapshot comes only when a file changes, never when one goes quiet. Painted like a pending box but kept apart
-// from pendingNodes: those lines say what the human did; this says only that the file moves.
+// a new snapshot comes only when a file changes, never when one goes quiet. Painted like a pending node but kept apart
+// from pendingNodes: those lines say what the user did; this says only that the file moves.
 const activeNodes = new Map();
 const ACTIVE_FOR = 120 * 1000;
-// a file the human just changed from the page is their own write, not the session at work: it is not "active"
-const humanTouched = new Map();
-const touched = (id) => { if (id) humanTouched.set(id, Date.now()); };
-const isActive = (id) => activeNodes.has(id) && Date.now() - activeNodes.get(id) <= ACTIVE_FOR && !(humanTouched.has(id) && Date.now() - humanTouched.get(id) <= ACTIVE_FOR);
+// a file the user just changed from the page is their own write, not the session at work: it is not "active"
+const userTouched = new Map();
+const touched = (id) => { if (id) userTouched.set(id, Date.now()); };
+const isActive = (id) => activeNodes.has(id) && Date.now() - activeNodes.get(id) <= ACTIVE_FOR && !(userTouched.has(id) && Date.now() - userTouched.get(id) <= ACTIVE_FOR);
 const activeIds = () => [...activeNodes.keys()].filter(isActive);
 function noteActivity(activity) {
   const was = [...activeNodes.keys()], now = Date.now();
@@ -926,7 +926,7 @@ function noteActivity(activity) {
 function ageActivity() {
   for (const [id] of activeNodes) if (!isActive(id)) { activeNodes.delete(id); paintPending(id); }
 }
-// Boxes the session wrote on disk in the last minutes, for the live status when it has not said what it is doing.
+// Nodes the session wrote on disk in the last minutes, for the live status when it has not said what it is doing.
 let recentChanges = [];
 // The session's live status at the top of the panel: what it says it is running, else what the page sees appearing
 // on disk, else whether a session is attached at all.
@@ -951,10 +951,10 @@ function renderLive(s) {
   } else if (!agentLive(s)) html = `<span class="muted">No session attached to this page.</span>`;
   else if (doing.length || workingSet.size) {
     // "Working" is the workers and where each is right now, as they signalled it: the session with the branches it
-    // holds, each refiner with the one box it is on. Nothing here comes from file times.
+    // holds, each refiner with the one node it is on. Nothing here comes from file times.
     const workers = (lastStatus?.workers ?? []).filter((w) => w.ids.length);
-    const box = (id) => `${id === "ROOT" ? "Premise" : linkIds(id)}${node(id) ? ` ${esc(node(id).title)}` : ""}`;
-    const items = workers.length ? workers.map((w) => `<b>${esc(w.by === "session" ? "session" : w.by.replace(/^refiner-/, "refiner of "))}</b> · ${w.ids.map(box).join(", ")}`) : doing.map((d) => linkIds(d));
+    const nodeLabel = (id) => `${id === "ROOT" ? "Premise" : linkIds(id)}${node(id) ? ` ${esc(node(id).title)}` : ""}`;
+    const items = workers.length ? workers.map((w) => `<b>${esc(w.by === "session" ? "session" : w.by.replace(/^refiner-/, "refiner of "))}</b> · ${w.ids.map(nodeLabel).join(", ")}`) : doing.map((d) => linkIds(d));
     const meta = doing.length ? `said ${ago(now - saidAt)}` : "";
     const n = workers.length || items.length;
     html = `<button class="btn small live-toggle" title="Where each worker is now"><span class="spin"></span> Working <span class="muted">· ${n} worker${n === 1 ? "" : "s"}</span></button><ul class="live-list" ${liveOpen ? "" : "hidden"}>${items.map((i) => `<li>${i}</li>`).join("")}${meta ? `<li class="muted">${meta}</li>` : ""}</ul>`;
@@ -976,8 +976,8 @@ function showWorking(what) {
 // One card for every issue: the node's title, the question, a short summary, the options to pick from with
 // "Write it yourself" as the last, and Answer at the bottom. `onAnswer` gets the picked options' indices, or the
 // typed text. `change` names the node the decision rewrites, with each option's resulting text.
-// The path to a box as a card's head: the premise, each ancestor and the box itself, buttons with a slash between.
-// A click focuses the box on the canvas; a double click opens its node card beside the issue card.
+// The path to a node as a card's head: the premise, each ancestor and the node itself, buttons with a slash between.
+// A click focuses the node on the canvas; a double click opens its node card beside the issue card.
 function crumbsHtml(id) {
   const crumbs = [];
   for (let p = id; p; p = node(p)?.parent) { const n = node(p); if (!n) break; crumbs.unshift({ id: p, title: n.title }); }
@@ -1009,15 +1009,15 @@ function questionCard({ badge, nodeId, title, questionHtml, summaryHtml, options
     ${change ? `<p class="q-change"><b>This changes ${esc(change.nodeId)} · ${esc(change.title)}.</b> It will read: <em id="q-change-text"></em></p>` : ""}
     <div class="row"><button class="btn primary" id="q-submit">Answer</button><span class="sub" id="q-hint"></span></div>`;
   wireCrumbs($question);
-  const free = $question.querySelector("#q-free"), writeBox = $question.querySelector('input[name=opt][value="write"]'), textarea = $question.querySelector("#q-other");
-  const preview = () => { const el = $question.querySelector("#q-change-text"); if (!el || !change) return; const picked = $question.querySelector("input[name=opt]:checked"); el.textContent = writeBox.checked ? (textarea.value.trim() || "what you write above") : picked ? change.texts[Number(picked.value)] ?? "" : "…"; };
-  const sync = () => { free.hidden = !writeBox.checked; if (writeBox.checked) textarea.focus(); preview(); };
+  const free = $question.querySelector("#q-free"), writeOption = $question.querySelector('input[name=opt][value="write"]'), textarea = $question.querySelector("#q-other");
+  const preview = () => { const el = $question.querySelector("#q-change-text"); if (!el || !change) return; const picked = $question.querySelector("input[name=opt]:checked"); el.textContent = writeOption.checked ? (textarea.value.trim() || "what you write above") : picked ? change.texts[Number(picked.value)] ?? "" : "…"; };
+  const sync = () => { free.hidden = !writeOption.checked; if (writeOption.checked) textarea.focus(); preview(); };
   for (const i of $question.querySelectorAll("input[name=opt]")) i.addEventListener("change", sync);
   textarea.addEventListener("input", preview);
   if (!options.length) sync(); else preview();
   $question.querySelector("#iss-card")?.addEventListener("click", () => openPopup(target));
   $question.querySelector("#q-submit").addEventListener("click", () => {
-    const write = writeBox.checked, text = textarea.value.trim();
+    const write = writeOption.checked, text = textarea.value.trim();
     const picked = write ? [] : [...$question.querySelectorAll("input[name=opt]:checked")].map((i) => Number(i.value));
     if (write && !text) { showToast("Write it first, or pick an option."); return; }
     if (!write && !picked.length) { showToast("Pick an option, or write it yourself."); return; }
@@ -1096,16 +1096,16 @@ async function decideTerm(q, term, decision, replacement, definition) {
 }
 // The undefined terms as rows under the draft, each with Keep and Drop, so the gate before the answer is in plain sight.
 function renderTermRows(q) {
-  const box = $question.querySelector("#q-terms");
-  if (!box) return;
-  if (!q.terms.length) { box.hidden = true; return; }
+  const holder = $question.querySelector("#q-terms");
+  if (!holder) return;
+  if (!q.terms.length) { holder.hidden = true; return; }
   const left = q.terms.filter((t) => !termState[t.term.toLowerCase()]).length;
-  box.hidden = false;
-  box.innerHTML = `<p class="sub">${left ? `Before you answer: ${left} term${left > 1 ? "s" : ""} in this draft that the glossary does not define. Keep a term and it enters the glossary with this meaning; drop it and name a word to use instead.` : "Every term is decided; the answer can go."}</p>` +
+  holder.hidden = false;
+  holder.innerHTML = `<p class="sub">${left ? `Before you answer: ${left} term${left > 1 ? "s" : ""} in this draft that the glossary does not define. Keep a term and it enters the glossary with this meaning; drop it and name a word to use instead.` : "Every term is decided; the answer can go."}</p>` +
     q.terms.map((t) => { const st = termState[t.term.toLowerCase()]; return `<div class="term-row"><b>${esc(t.term)}</b><span class="muted">${esc(t.definition)}</span>${st ? `<span class="badge ${st.decision === "keep" ? "stated" : "contested"}">${st.decision === "keep" ? "kept" : `dropped${st.replacement ? `, use "${esc(st.replacement)}"` : ""}`}</span>` : `<span class="row"><button class="btn small ok" data-term-keep="${esc(t.term)}">Keep</button><button class="btn small no" data-term-drop="${esc(t.term)}">Drop</button><input class="term-replace" data-term-input="${esc(t.term)}" placeholder="word to use instead (optional)" hidden /></span>`}</div>`; }).join("");
-  for (const b of box.querySelectorAll("[data-term-keep]")) b.addEventListener("click", () => { const t = q.terms.find((x) => x.term === b.dataset.termKeep); decideTerm(q, t.term, "keep", "", t.definition); });
-  for (const b of box.querySelectorAll("[data-term-drop]")) {
-    const input = box.querySelector(`[data-term-input="${CSS.escape(b.dataset.termDrop)}"]`);
+  for (const b of holder.querySelectorAll("[data-term-keep]")) b.addEventListener("click", () => { const t = q.terms.find((x) => x.term === b.dataset.termKeep); decideTerm(q, t.term, "keep", "", t.definition); });
+  for (const b of holder.querySelectorAll("[data-term-drop]")) {
+    const input = holder.querySelector(`[data-term-input="${CSS.escape(b.dataset.termDrop)}"]`);
     const drop = () => decideTerm(q, b.dataset.termDrop, "drop", input.value.trim(), "");
     b.addEventListener("click", () => { if (input.hidden) { input.hidden = false; input.focus(); b.textContent = "Drop it"; return; } drop(); });
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); drop(); } });
@@ -1125,9 +1125,9 @@ async function submitAnswer(q, picked, text) {
 document.addEventListener("click", (e) => { if (!$tooltip.contains(e.target) && !e.target.classList?.contains("jargon")) { $tooltip.hidden = true; tooltipPinned = false; } });
 
 // ---------------------------------------------------------------- adopt: the canvas for reviewing a drafted canon
-// Green: the human approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
-// human before adoption can finish: open (the session would not guess), contested, or a check flagged it.
-// Boxes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
+// Green: the user approved it (stated or resolved). Yellow: the session's guess (assumed). Red: it needs the
+// user before adoption can finish: open (the session would not guess), contested, or a check flagged it.
+// Nodes start as plain circles; a click shows a node's name, a double-click or its ↗ opens the card.
 const adoptState = { expanded: null, selected: null, labelled: new Set(), labels: false, deps: true, edges: true, bands: true, order: true, mode: "dendro", menu: true, prn: true, issuesOpen: true, view: null, focus: new Set() };
 function colorOf(id) {
   if (id === "ROOT" || id === "PRINCIPLES") { const s = snap.canon.root?.state; return s === "stated" || s === "resolved" ? "green" : "yellow"; }
@@ -1135,14 +1135,14 @@ function colorOf(id) {
   const n = node(id);
   if (!n) return "yellow";
   if (n.state === "draft" || n.state === "contested") return "red";
-  // red is an issue for the human, a draft or a contested box; a finding is the session's to fix and never paints a box
+  // red is an issue for the user, a draft or a contested node; a finding is the session's to fix and never paints a node
   return n.state === "stated" || n.state === "resolved" ? "green" : "yellow";
 }
 function ensureExpanded() {
   if (adoptState.expanded) return;
   adoptState.expanded = new Set(["ROOT"]);
 }
-// True when every box with children is open: then the button offers to collapse back to the domains.
+// True when every node with children is open: then the button offers to collapse back to the domains.
 function allOpen() { ensureExpanded(); return Object.keys(snap.canon.nodes).every((id) => !node(id).children.length || adoptState.expanded.has(id)); }
 function adoptScope() {
   ensureExpanded();
@@ -1158,20 +1158,20 @@ function adoptCounts() {
   for (const t of snap.canon.terms) c[t.state === "stated" || t.state === "resolved" ? "green" : t.state === "draft" || t.state === "contested" ? "red" : "yellow"]++;
   return c;
 }
-// The legend of the canvas: the four colours, with their counts over the boxes, the principles and the terms; then the
-// two marks about the code and how many boxes with a check have a test, as the server counted them.
+// The legend of the canvas: the four colours, with their counts over the nodes, the principles and the terms; then the
+// two marks about the code and how many nodes with a check have a test, as the server counted them.
 function adoptLegend() {
   const c = adoptCounts();
   const blocked = snap.canon.roots.length ? domainProgress().n.blocked : 0;
   const k = marksData?.counts;
-  const code = k ? `<span title="Boxes with a check that no code implements yet"><i class="sw grey"></i>not built ${k.notBuilt ?? 0}</span><span title="Boxes whose code fails their tests or contradicts them"><i class="sw ring"></i>out of sync ${k.outOfSync ?? 0}</span><span title="Boxes with a check that have a test">tested ${k.tested ?? 0} of ${k.measurable ?? 0}</span>` : "";
+  const code = k ? `<span title="Nodes with a check that no code implements yet"><i class="sw grey"></i>not built ${k.notBuilt ?? 0}</span><span title="Nodes whose code fails their tests or contradicts them"><i class="sw ring"></i>out of sync ${k.outOfSync ?? 0}</span><span title="Nodes with a check that have a test">tested ${k.tested ?? 0} of ${k.measurable ?? 0}</span>` : "";
   return `<span class="legend"><span><i class="sw green"></i>approved ${c.green}</span><span><i class="sw yellow"></i>guessed ${c.yellow}</span><span><i class="sw blue"></i>blocked ${blocked}</span><span><i class="sw red"></i>needs you ${c.red}</span>${code}</span>`;
 }
 function adopt(selectedId) {
   if (selectedId) adoptState.selected = selectedId;
   return `<div class="adopt">
     <div class="toolbar adopt-bar">
-      <button class="btn small primary" id="implement-btn" title="Build what is not built and align what is out of sync: the selected box and what is under it, or every box when none is selected">${implementLabel()}</button>
+      <button class="btn small primary" id="implement-btn" title="Build what is not built and align what is out of sync: the selected node and what is under it, or every node when none is selected">${implementLabel()}</button>
       ${adoptLegend()}
       <span class="modes"><button class="btn small" data-mode-btn="feature" disabled title="Opens after adoption completes: describe what you want to build">New feature</button><button class="btn small" disabled title="Later">Revise</button><button class="btn small" disabled title="Later">Rebalance</button></span>
     </div>
@@ -1180,7 +1180,7 @@ function adopt(selectedId) {
   </div>`;
 }
 // Progress of a draft: the agent writes one file per node in dependency order, so the canon on disk says
-// how far it is. Phases: reading, premise, drafting to the leaves while the human reviews by impact, finished.
+// how far it is. Phases: reading, premise, drafting to the leaves while the user reviews by impact, finished.
 function adoptProgress() {
   const nodes = Object.values(snap.canon.nodes);
   const finished = snap.canon.decisions.some((d) => /adoption-scope/.test(d.file));
@@ -1189,35 +1189,35 @@ function adoptProgress() {
   if (!premiseDrafted()) return { phase: "Reading the repository", f: none, n: {}, detail: "the premise comes first" };
   if (snap.canon.roots.length === 0) return { phase: premiseApproved() ? "Drafting the domains" : "The premise waits for you", f: none, n: {}, detail: "the canvas opens with the domains" };
   // from the domains on, the bar is the work: every domain weighs the same, so a domain the session has not started
-  // yet is a full grey share, and the bar fills as boxes are approved (green), guessed (yellow), stop on you (red)
-  // or wait behind a red box (blue)
+  // yet is a full grey share, and the bar fills as nodes are approved (green), guessed (yellow), stop on you (red)
+  // or wait behind a red node (blue)
   const d = domainProgress();
   const gate = snap.next?.gate;
   const toRefine = snap.stats?.unrefined ?? 0;
   let phase, detail;
-  // Guided: while a box waits for approval before the session drafts under it, the phase is the human's turn
+  // Guided: while a node waits for approval before the session drafts under it, the phase is the user's turn
   const w = guidedWaits().length;
-  if (w) { phase = "Waiting for your approval"; detail = `${w} ${w === 1 ? "box waits" : "boxes wait"} · For you, under Issues`; }
+  if (w) { phase = "Waiting for your approval"; detail = `${w} ${w === 1 ? "node waits" : "nodes wait"} · For you, under Issues`; }
   else if (gate && gate.total && !gate.open) {
     const domains = nodes.filter((n) => !n.parent);
     const opened = domains.filter((n) => n.children.length || n.state === "draft" || n.state === "contested");
     if (opened.length < domains.length) { phase = "Drafting the capabilities of each domain"; detail = `${opened.length} of ${domains.length} domains · ${d.n.issue} need you`; }
     else { phase = "Refining capabilities"; detail = `${gate.refined} of ${gate.total} · ${d.n.issue} need you · ${d.n.blocked} wait behind them`; }
-  } else if (toRefine) { phase = "Refining to the leaves"; detail = `${nodes.length - toRefine} of ${nodes.length} boxes · ${d.n.issue} need you · ${d.n.blocked} wait behind them`; }
+  } else if (toRefine) { phase = "Refining to the leaves"; detail = `${nodes.length - toRefine} of ${nodes.length} nodes · ${d.n.issue} need you · ${d.n.blocked} wait behind them`; }
   else { phase = "Every branch ends in a testable leaf"; detail = `${snap.stats?.leaves ?? nodes.filter((n) => n.kind).length} leaves with a check · ${d.n.issue} need you`; }
   return { phase, f: d.f, n: d.n, detail };
 }
-// Each domain's subtree in four bands: refined, red (waiting on the human), yellow (an unrefined box behind a red
+// Each domain's subtree in four bands: refined, red (waiting on the user), yellow (an unrefined node behind a red
 // one, through a requires chain or under it), grey (unrefined, the machine's to do). The total weighs each
 // domain the same.
-// A box is blocked when it waits on another: a prerequisite not yet refined (the session's blocked list) or a red
-// box above it; the tag names what it waits on.
+// A node is blocked when it waits on another: a prerequisite not yet refined (the session's blocked list) or a red
+// node above it; the tag names what it waits on.
 function blockedBy(id) {
   const n = snap.canon.nodes[id]; if (!n) return null;
   const waits = (snap.next?.blocked ?? []).find((b) => b.id === id)?.waitingOn ?? [];
   const redAbove = []; for (let p = n.parent; p; p = snap.canon.nodes[p]?.parent) { const a = snap.canon.nodes[p]; if (a && (a.state === "draft" || a.state === "contested")) redAbove.push(p); }
   if (!waits.length && !redAbove.length) return null;
-  const parts = []; if (waits.length) parts.push(`waits on ${waits.join(", ")}`); if (redAbove.length) parts.push(`under a red box: ${redAbove.join(", ")}`);
+  const parts = []; if (waits.length) parts.push(`waits on ${waits.join(", ")}`); if (redAbove.length) parts.push(`under a red node: ${redAbove.join(", ")}`);
   return { waits, redAbove, text: parts.join("; ") };
 }
 function blockedBadge(id) { const b = blockedBy(id); return b ? ` <span class="badge blocked" title="${esc(b.text)}">blocked</span>` : ""; }
@@ -1237,8 +1237,8 @@ function domainProgress() {
     return r;
   };
   const byId = (a, b) => a.localeCompare(b, undefined, { numeric: true });
-  // five bands per domain: approved (green), guessed (yellow), blocked behind a red box (blue), needing you (red),
-  // and still to refine (grey); a box counts once, in the first band that fits
+  // five bands per domain: approved (green), guessed (yellow), blocked behind a red node (blue), needing you (red),
+  // and still to refine (grey); a node counts once, in the first band that fits
   const domains = [...snap.canon.roots].sort(byId).map((r) => {
     const pool = [r, ...descendants(r)].map((id) => snap.canon.nodes[id]).filter(Boolean);
     const size = pool.length || 1;
@@ -1267,10 +1267,10 @@ function notePhase() {
 function celebrate() {
   showToast("Adoption complete: every branch ends in a testable leaf. The list keeps ranking what to approve next.");
   let k = 0; const t = setInterval(() => { chime.last = 0; chime(); if (++k >= 3) clearInterval(t); }, 400);
-  const box = document.createElement("div"); box.className = "confetti";
+  const holder = document.createElement("div"); holder.className = "confetti";
   const colours = ["#4c8dff", "#f0b429", "#3fb950", "#ff6b6b", "#a497f0"];
-  for (let i = 0; i < 80; i++) { const sp = document.createElement("span"); sp.style.left = `${Math.random() * 100}vw`; sp.style.background = colours[i % colours.length]; sp.style.animationDelay = `${Math.random() * 1.2}s`; sp.style.animationDuration = `${2 + Math.random() * 2}s`; box.appendChild(sp); }
-  document.body.appendChild(box); setTimeout(() => box.remove(), 5000);
+  for (let i = 0; i < 80; i++) { const sp = document.createElement("span"); sp.style.left = `${Math.random() * 100}vw`; sp.style.background = colours[i % colours.length]; sp.style.animationDelay = `${Math.random() * 1.2}s`; sp.style.animationDuration = `${2 + Math.random() * 2}s`; holder.appendChild(sp); }
+  document.body.appendChild(holder); setTimeout(() => holder.remove(), 5000);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) document.title = document.title.replace(/^✓ /, ""); });
 let progressMode = "total";
@@ -1291,7 +1291,7 @@ function progressStrip() {
   const head = `<span class="progress-head"><b>Progress</b><span class="tabs">${["total", "domain"].map((m) => `<button class="btn small ${mode === m ? "on" : ""}" data-pmode="${m}">${m === "total" ? "Total" : "Domain"}</button>`).join("")}</span></span>`;
   if (mode === "total") return `<div class="progress total">${head}${progressBar(p.f, p.n, p.detail)}<span class="progress-label"><b>${esc(p.phase)}</b></span></div>`;
   // one bar per domain, empty until the session starts on it, so the grey is what the agent still has to do
-  const rows = domainProgress().domains.map((d) => `<div class="dom ${d.started ? "" : "idle"}"><span class="dom-name" title="${esc(d.title)}"><span class="id">${esc(d.id)}</span> ${esc(d.title)}</span>${progressBar(d.f, d.n, d.started ? `${d.n.size} boxes` : "not started")}</div>`).join("");
+  const rows = domainProgress().domains.map((d) => `<div class="dom ${d.started ? "" : "idle"}"><span class="dom-name" title="${esc(d.title)}"><span class="id">${esc(d.id)}</span> ${esc(d.title)}</span>${progressBar(d.f, d.n, d.started ? `${d.n.size} nodes` : "not started")}</div>`).join("");
   return `<div class="progress domain">${head}<div class="progress-domains">${rows}</div></div>`;
 }
 document.addEventListener("click", (e) => {
@@ -1325,7 +1325,7 @@ function buildAdoptCanvas() {
     : id.startsWith("PRN-") ? { ...blank, title: snap.canon.principles.find((p) => p.id === id)?.title ?? id, children: [], parent: "PRINCIPLES" }
     : node(id);
   const kindOf = (id) => (id === "ROOT" ? "premise" : id === "PRINCIPLES" ? "principles" : id.startsWith("PRN-") ? "prn" : "");
-  // an id the canon does not have, a box signalled before its file exists, has no parent here and is simply not drawn
+  // an id the canon does not have, a node signalled before its file exists, has no parent here and is simply not drawn
   const parentOf = (id) => (id === "ROOT" || id === "PRINCIPLES" ? undefined : info(id) ? info(id).parent ?? "ROOT" : undefined);
   const labelled = (id) => adoptState.labels || adoptState.labelled.has(id);
   // A closed circle shows its number; a long number gets a smaller font, the circle never grows.
@@ -1388,16 +1388,16 @@ function buildAdoptCanvas() {
     layout: { name: "preset" },
   });
   window.__cy = cy;
-  // Fit shows everything, but never closer than a comfortable zoom: one box alone does not fill the screen.
+  // Fit shows everything, but never closer than a comfortable zoom: one node alone does not fill the screen.
   const fitAll = () => { cy.fit(undefined, 40); if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(); } };
   // Positions come from a force simulation, as in a node canvas: a containment edge is a strong spring that
-  // holds a child under its parent, a dependency edge a weaker spring that draws a box toward what it needs,
-  // boxes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
-  // hierarchy reads top-down; after that the simulation runs live, including while a box is dragged.
+  // holds a child under its parent, a dependency edge a weaker spring that draws a node toward what it needs,
+  // nodes repel each other and never overlap. The first arrangement is seeded by a layered pass so the
+  // hierarchy reads top-down; after that the simulation runs live, including while a node is dragged.
   const dimsOf = (n) => [n.width(), n.height()];
   const sim = { alpha: 0, raf: 0, pinned: new Set(), heavy: new Set(), offsets: new Map(), top0: 0, lanes: null, rings: null, centre: { x: 0, y: 0 } };
-  // Lanes: every level of the tree has its own horizontal band. A lane grows with the number of boxes in it
-  // that carry dependency lines, so crowded levels get room; a box moves freely inside its lane.
+  // Lanes: every level of the tree has its own horizontal band. A lane grows with the number of nodes in it
+  // that carry dependency lines, so crowded levels get room; a node moves freely inside its lane.
   const LANE = 150;
   const depthOf = (n) => (n.id() === "ROOT" || n.id() === "PRINCIPLES" ? 0 : n.hasClass("prn") ? 1 : (node(n.id())?.depth ?? 0) + 1);
   const laneGeom = () => {
@@ -1412,18 +1412,18 @@ function buildAdoptCanvas() {
   };
   const laneOf = (n) => (sim.lanes ?? laneGeom())[depthOf(n)] ?? { top: 0, h: LANE, c: 0 };
   const laneY = (n) => laneOf(n).c;
-  // Inside its lane a box moves freely up and down; it only never leaves the band.
+  // Inside its lane a node moves freely up and down; it only never leaves the band.
   const inLane = (n, y) => { const l = laneOf(n), half = l.h / 2 - 22; return Math.max(l.c - half, Math.min(l.c + half, y)); };
   // Radial: every dot in a number is a ring. The premise sits at the centre, the domains on the first ring,
   // their capabilities on the second, and so on; a ring is as thick as a lane and moves outward until its
-  // circumference holds every box on it, and thick enough that its widest box clears the rings beside it. The
+  // circumference holds every node on it, and thick enough that its widest node clears the rings beside it. The
   // arrangement is computed outright, not simulated: every branch
-  // owns a slice of its parent's slice, sized by how many boxes it shows, so siblings stand together; with
-  // Order on, siblings are swapped around while that pulls the dependency lines apart; then the boxes on
+  // owns a slice of its parent's slice, sized by how many nodes it shows, so siblings stand together; with
+  // Order on, siblings are swapped around while that pulls the dependency lines apart; then the nodes on
   // each ring are spaced so none overlap. The containment lines fork like a dendrogram: out from the parent
-  // to just inside the children's ring, around, and out to each child. Boxes cannot be dragged here.
+  // to just inside the children's ring, around, and out to each child. Nodes cannot be dragged here.
   const ringOf = (n) => (n.id() === "ROOT" ? 0 : n.id() === "PRINCIPLES" ? 1 : n.hasClass("prn") ? 2 : n.id().replace(/^REQ-/, "").split(".").length);
-  // past this many boxes an arrangement is applied, not animated: 840 glides and a card per box per frame is what froze the tab
+  // past this many nodes an arrangement is applied, not animated: 840 glides and a card per node per frame is what froze the tab
   const BIG = () => cy.nodes().length > 150;
   const closedSize = (n) => (n.hasClass("premise") ? [44, 40] : n.hasClass("principles") ? [40, 40] : n.hasClass("prn") ? [22, 22] : [30, 30]);
   const finalSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("labelled") ? cardSize(n) : closedSize(n));
@@ -1448,7 +1448,7 @@ function buildAdoptCanvas() {
     const size = new Map();
     const count = (id) => { let s = 1; for (const c of kidsOf(id)) s += count(c); size.set(id, s); return s; };
     count("ROOT");
-    // every box's direction, from the slices, given the order of every box's children
+    // every node's direction, from the slices, given the order of every node's children
     const lay = () => {
       const A = new Map([["ROOT", 0]]);
       const walk = (id, a0, a1) => { const ks = kidsOf(id), total = ks.reduce((s, c) => s + size.get(c), 0) || 1; let a = a0; for (const c of ks) { const span = ((a1 - a0) * size.get(c)) / total; A.set(c, a + span / 2); walk(c, a, a + span); a += span; } };
@@ -1476,7 +1476,7 @@ function buildAdoptCanvas() {
         if (!improved) break;
       }
     }
-    // on each ring the boxes keep their order and move apart until none overlap along the ring; a box's extent
+    // on each ring the nodes keep their order and move apart until none overlap along the ring; a node's extent
     // along the ring depends on where it stands: wide at the top and bottom, tall at the sides
     const byRing = new Map();
     for (const n of cy.nodes()) { if (n.id() === "ROOT") continue; const r = ringOf(n); (byRing.get(r) ?? byRing.set(r, []).get(r)).push(n); }
@@ -1484,7 +1484,7 @@ function buildAdoptCanvas() {
       const R = rings[r].c;
       const run = [...group].sort((a, b) => A.get(a.id()) - A.get(b.id()));
       const span = run.map((n) => { const a = A.get(n.id()), [w, h] = finalSize(n); return (Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a)) + 26) / R; });
-      // the ring is a circle: the last box and the first are neighbours too, so the passes wrap around
+      // the ring is a circle: the last node and the first are neighbours too, so the passes wrap around
       const as = run.map((n) => A.get(n.id())), N = run.length, TAU = 2 * Math.PI;
       for (let it = 0; it < 20 && N > 1; it++) {
         let moved = false;
@@ -1495,8 +1495,8 @@ function buildAdoptCanvas() {
       run.forEach((n, i) => A.set(n.id(), as[i]));
     }
     const P = new Map(cy.nodes().map((n) => [n.id(), n.id() === "ROOT" ? { ...sim.centre } : cart(radius(n.id()), A.get(n.id()))]));
-    // the forks, as segment lines: a line leaves a box from the middle of the side that faces the way it
-    // goes, and arrives at the middle of the side that faces it, so it visibly meets the box instead of
+    // the forks, as segment lines: a line leaves a node from the middle of the side that faces the way it
+    // goes, and arrives at the middle of the side that faces it, so it visibly meets the node instead of
     // slipping under a corner; the points are given relative to the straight line from parent to child
     const door = (n, p, dx, dy) => { const [w, h] = finalSize(n); if (Math.abs(dx) * h >= Math.abs(dy) * w) { const sx = Math.sign(dx) || 1; return { x: p.x + sx * (w / 2 + 18), y: p.y }; } const sy = Math.sign(dy) || 1; return { x: p.x, y: p.y + sy * (h / 2 + 18) }; };
     cy.batch(() => {
@@ -1525,7 +1525,7 @@ function buildAdoptCanvas() {
     for (const p of pts) { const px = p.x - S.x, py = p.y - S.y; ws.push(((px * vx + py * vy) / (L * L)).toFixed(4)); ds.push(((-px * vy + py * vx) / L).toFixed(2)); }
     e.addClass(cls).style({ "segment-weights": ws.join(" "), "segment-distances": ds.join(" ") });
   };
-  // Dendrogram: left to right, one column per level, every box a single row showing its number and its
+  // Dendrogram: left to right, one column per level, every node a single row showing its number and its
   // whole title; a column is as wide as its widest row. A leaf takes one row, a parent as many as its
   // children together and stands level with their middle, so a branch never overlaps another. Dotted
   // lines mark the columns and, inside a column, part one parent's children from the next's. Computed
@@ -1592,14 +1592,14 @@ function buildAdoptCanvas() {
       cy.nodes().ungrabify();
       for (const n of cy.nodes()) { const p = P.get(n.id()); if (animated && !BIG()) n.animate({ position: p }, { duration: 320, easing: "ease-in-out", queue: false }); else n.position(p); }
     });
-    // every box is a row here, so the overlays are rebuilt, not just moved
+    // every node is a row here, so the overlays are rebuilt, not just moved
     makeOverlays();
     if (animated && !BIG()) follow(380);
   };
   // Which computed arrangement the view uses; the lanes use the simulation instead.
   const relayout = (animated) => (adoptState.mode === "radial" ? layoutRadial : layoutDendro)(animated);
-  // Overlap is never allowed to stand. Boxes in the same lane separate sideways, since the lane clamp would undo
-  // a vertical push; others separate along the axis of least overlap. A bright or just-dropped box has right of way.
+  // Overlap is never allowed to stand. Nodes in the same lane separate sideways, since the lane clamp would undo
+  // a vertical push; others separate along the axis of least overlap. A bright or just-dropped node has right of way.
   const separate = (arr, strength, iterations) => {
     for (let it = 0; it < iterations; it++) {
       let any = false;
@@ -1619,7 +1619,7 @@ function buildAdoptCanvas() {
     }
   };
   const collect = () => { const arr = []; for (const n of cy.nodes()) { const p = n.position(), [w, h] = dimsOf(n); arr.push({ n, x: p.x, y: p.y, fx: 0, fy: 0, w, h, bright: !n.hasClass("dim") }); } return arr; };
-  // Ordering: within each lane, boxes are sorted by the average x of their neighbours in the lanes above and
+  // Ordering: within each lane, nodes are sorted by the average x of their neighbours in the lanes above and
   // below and of their dependency partners (the barycenter heuristic), swept down and up, then re-spaced in that
   // order. The simulation keeps doing the spacing; this pass only decides who stands left of whom.
   const orderLanes = (animated) => {
@@ -1637,7 +1637,7 @@ function buildAdoptCanvas() {
       const sorted = [...group].sort((a, b) => bary(a) - bary(b) || X.get(a.id()) - X.get(b.id()));
       const gap = 26;
       const want = sorted.map((n) => bary(n));
-      // left to right, each box takes its wanted place unless that overlaps the one before; then a pass back
+      // left to right, each node takes its wanted place unless that overlaps the one before; then a pass back
       // from the right pulls crowded runs toward where they wanted to be
       const xs = [];
       for (let i = 0; i < sorted.length; i++) { const minX = i ? xs[i - 1] + (sorted[i - 1].width() + sorted[i].width()) / 2 + gap : -Infinity; xs.push(Math.max(want[i], minX)); }
@@ -1681,8 +1681,8 @@ function buildAdoptCanvas() {
     for (const e of cy.edges(".contains")) { const c = P.get(e.target().id()); if (!c) continue; const k = e.source().id(); (groups.get(k) ?? groups.set(k, []).get(k)).push(c); }
     for (const g of groups.values()) { if (g.length < 2) continue; let cx = 0, cy0 = 0; for (const m of g) { cx += m.x; cy0 += m.y; } cx /= g.length; cy0 /= g.length; for (const m of g) { m.fx += 0.09 * (cx - m.x); m.fy += (adoptState.bands ? 0.02 : 0.04) * (cy0 - m.y); } }
     if (adoptState.bands) for (const p of arr) { const deg = p.deg ?? 0; const l = laneOf(p.n); const target = l.c + (deg ? -Math.min(l.h / 2 - 24, 10 + 14 * deg) : 12); p.fy += 0.05 * (target - p.y); }
-    // Lines push boxes off them, and are pushed off boxes: a box near a line it is not an end of is nudged away,
-    // perpendicular to the line, measured against the box's real rectangle; the line's ends get the opposite nudge.
+    // Lines push nodes off them, and are pushed off nodes: a node near a line it is not an end of is nudged away,
+    // perpendicular to the line, measured against the node's real rectangle; the line's ends get the opposite nudge.
     const segs = [];
     for (const e of cy.edges()) { if (e.hasClass("hidden")) continue; const a = P.get(e.source().id()), b = P.get(e.target().id()); if (a && b) segs.push({ a, b }); }
     for (const p of arr) for (const sg of segs) {
@@ -1707,7 +1707,7 @@ function buildAdoptCanvas() {
       if (d < 220 + size * 2) { const f = Math.min(10, (2600 + 40 * size) / (d * d) * (size > 60 ? 3 : 1)); a.fx -= (f * dx) / d; a.fy -= (f * dy) / d; b.fx += (f * dx) / d; b.fy += (f * dy) / d; }
     }
     separate(arr, sim.pinned.size ? 0.3 : 0.9, 2);
-    // a pinned box follows the mouse; a just-dropped block stays where it was put while the others clear out
+    // a pinned node follows the mouse; a just-dropped block stays where it was put while the others clear out
     const gain = sim.alpha * (sim.pinned.size ? 0.35 : 1);
     cy.batch(() => { for (const p of arr) { if (sim.pinned.has(p.n.id()) || sim.heavy.has(p.n.id())) continue; p.n.position({ x: p.x + p.fx * gain, y: adoptState.bands ? inLane(p.n, p.y + p.fy * gain) : p.y + p.fy * gain }); } });
     place();
@@ -1717,7 +1717,7 @@ function buildAdoptCanvas() {
     const step = () => { tick(); sim.alpha *= 0.95; if (sim.alpha > 0.02) sim.raf = requestAnimationFrame(step); else { sim.alpha = 0; orderLanes(true); setTimeout(() => { hardSeparate(); keepInView(adoptState.selected); }, 340); sim.heavy.clear(); } };
     sim.raf = requestAnimationFrame(step);
   };
-  // On the rings a settle is one fresh arrangement; several asked for in the same breath (a box and its
+  // On the rings a settle is one fresh arrangement; several asked for in the same breath (a node and its
   // ancestors naming themselves) become one. In the lanes it is the simulation.
   const settle = (strength = 1) => { if (adoptState.mode === "lanes" && BIG()) { seed(); place(); return; } if (adoptState.mode !== "lanes") { if (!sim.relayout) sim.relayout = setTimeout(() => { sim.relayout = 0; relayout(true); }, 0); return; } sim.alpha = Math.max(sim.alpha, strength); run(); };
   const seed = () => { cy.nodes().union(cy.edges(".contains")).layout({ ...layout(), animate: false }).run(); sim.top0 = (cy.getElementById("ROOT").length ? cy.getElementById("ROOT").position().y : 0) - LANE / 2; sim.lanes = null; };
@@ -1732,8 +1732,8 @@ function buildAdoptCanvas() {
     el.style.backgroundSize = `${step}px ${step}px`;
     el.style.backgroundPosition = `${p.x}px ${p.y}px`;
   };
-  // Focus: the boxes the human expanded, their descendants and their ancestors are active; the rest fade a little.
-  // Focus follows the boxes the human expanded themselves; with none, everything is active.
+  // Focus: the nodes the user expanded, their descendants and their ancestors are active; the rest fade a little.
+  // Focus follows the nodes the user expanded themselves; with none, everything is active.
   const applyFocus = () => {
     const shown = cy.nodes().map((n) => n.id());
     const active = new Set();
@@ -1750,12 +1750,12 @@ function buildAdoptCanvas() {
     for (const n of cy.nodes()) n.toggleClass("dim", !active.has(n.id()));
     for (const e of cy.edges()) e.toggleClass("dim", e.source().hasClass("dim") && e.target().hasClass("dim"));
   };
-  // Buttons that float over the boxes: the children handle under every box that has children, and, on a
-  // named box, the card with its tag and title, the eye that hides the name and the ↗ that opens the card.
+  // Buttons that float over the nodes: the children handle under every node that has children, and, on a
+  // named node, the card with its tag and title, the eye that hides the name and the ↗ that opens the card.
   const overlay = document.createElement("div");
   overlay.className = "overlays";
   el.appendChild(overlay);
-  // the classes a row card carries from its box: colour, state and the two marks about the code
+  // the classes a row card carries from its node: colour, state and the two marks about the code
   const ROW_CLASSES = ["green", "yellow", "red", "done", "pending", "draft", "selected", "not-built", "out-of-sync"];
   const makeOverlays = () => {
     overlay.innerHTML = "";
@@ -1786,7 +1786,7 @@ function buildAdoptCanvas() {
         eye.addEventListener("click", (ev) => { ev.stopPropagation(); hideLabel(id); });
         overlay.appendChild(eye);
         const go = document.createElement("button");
-        go.className = "ov go"; go.dataset.id = id; go.dataset.kind = "go"; go.textContent = "↗"; go.title = "Open this box";
+        go.className = "ov go"; go.dataset.id = id; go.dataset.kind = "go"; go.textContent = "↗"; go.title = "Open this node";
         go.addEventListener("click", (ev) => { ev.stopPropagation(); select(id); openPopup(id); });
         overlay.appendChild(go);
       }
@@ -1796,14 +1796,14 @@ function buildAdoptCanvas() {
     laneLines();
     place();
   };
-  // A spinner at the top-left corner of every box being refined now; rebuilt whenever the activity changes.
+  // A spinner at the top-left corner of every node being refined now; rebuilt whenever the activity changes.
   const syncSpinners = (andPlace = true) => {
     for (const w of overlay.querySelectorAll(".ov.working")) w.remove();
-    // a box being refined that is folded away spins its nearest open ancestor, named on hover
+    // a node being refined that is folded away spins its nearest open ancestor, named on hover
     const shown = new Set(cy.nodes().map((n) => n.id()));
     const under = new Map();
     // the session's own signal first; the disk only when no signal exists at all, and then named as writing
-    // exactly what the workers signalled, live: the session holds its branches, each refiner the one box it is on
+    // exactly what the workers signalled, live: the session holds its branches, each refiner the one node it is on
     const signalled = workingSet.size > 0;
     const spinning = new Set([...pendingNodes.keys(), ...workingSet]);
     for (const id of spinning) {
@@ -1823,7 +1823,7 @@ function buildAdoptCanvas() {
     if (andPlace) place();
   };
   window.__cySpin = syncSpinners;
-  // Columns and lanes are named by the layer the boxes at that depth carry, never by the depth alone: nested
+  // Columns and lanes are named by the layer the nodes at that depth carry, never by the depth alone: nested
   // requirements stay requirements, numbered, and a project without a domain layer starts with capabilities.
   const PLURAL = { domain: "domains", capability: "capabilities", requirement: "requirements" };
   const levelName = (d) => {
@@ -1880,7 +1880,7 @@ function buildAdoptCanvas() {
     const step = () => { const l = sim.panLeft; if (!l) { sim.panRaf = 0; return; } const kx = l.x * 0.25, ky = l.y * 0.25; cy.panBy({ x: kx, y: ky }); l.x -= kx; l.y -= ky; if (Math.abs(l.x) > 0.5 || Math.abs(l.y) > 0.5) sim.panRaf = requestAnimationFrame(step); else { cy.panBy({ x: l.x, y: l.y }); sim.panLeft = null; sim.panRaf = 0; } };
     sim.panRaf = requestAnimationFrame((sim.panStep = step));
   };
-  // The selected or just-moved box stays on screen: the view pans just enough to show it whole.
+  // The selected or just-moved node stays on screen: the view pans just enough to show it whole.
   const keepInView = (id) => {
     const n = id ? cy.getElementById(id) : null;
     if (!n || !n.length) return;
@@ -1905,8 +1905,8 @@ function buildAdoptCanvas() {
       <button class="btn small ${adoptState.bands ? "on" : ""}" data-bands="1" data-views="lanes" title="Keep every level in its own lane">Levels</button>
       <button class="btn small ${adoptState.order ? "on" : ""}" data-order="1" data-views="lanes" title="Sort each lane to untangle the lines">Order</button>
       <button class="btn small" data-fit="1" data-views="lanes radial dendro" title="Bring everything into view">Fit</button>
-      <button class="btn small" data-expand-all="1" data-views="lanes dendro" title="${allOpen() ? "Close every box back to the domains" : "Open every box down to the leaves"}">${allOpen() ? "Collapse all" : "Show all"}</button>
-      <p class="menu-hint">Double-click a box to open it. The handle beside it shows its children; a double border is a leaf with its check, which branches no further. Drag to pan, wheel to zoom.</p>
+      <button class="btn small" data-expand-all="1" data-views="lanes dendro" title="${allOpen() ? "Close every node back to the domains" : "Open every node down to the leaves"}">${allOpen() ? "Collapse all" : "Show all"}</button>
+      <p class="menu-hint">Double-click a node to open it. The handle beside it shows its children; a double border is a leaf with its check, which branches no further. Drag to pan, wheel to zoom.</p>
     </div>`;
   el.appendChild(menu);
   // The canvas takes the wheel in the capture phase, before a panel lying on it can keep it: so the wheel over a
@@ -1919,51 +1919,51 @@ function buildAdoptCanvas() {
   const leftStack = document.createElement("div");
   leftStack.className = "left-stack";
   el.appendChild(leftStack);
-  const prnBox = document.createElement("div");
-  prnBox.className = "menu principles" + (adoptState.prn ? "" : " closed");
+  const prnPanel = document.createElement("div");
+  prnPanel.className = "menu principles" + (adoptState.prn ? "" : " closed");
   const prnRows = () => snap.canon.principles.map((p) => `<button class="btn small prn-row" data-prn="${esc(p.id)}" title="${esc(p.statement)}"><i class="sw ${colorOf(p.id)}"></i><span class="tag">${esc(p.id)}</span><span>${esc(p.title)}</span></button>`).join("") || `<span class="muted">none yet</span>`;
-  prnBox.innerHTML = `<div class="menu-head"><b>Principles</b><button class="btn small" data-prn-approve="1" title="Approve every principle still guessed; the session goes on from here">Approve the rest</button><button class="btn small caret" data-collapse="1" title="Fold or unfold the principles">▾</button></div><div class="menu-body">${prnRows()}</div>`;
-  adoptState.refreshPrn = () => { const b = prnBox.querySelector(".menu-body"); b.innerHTML = prnRows(); for (const x of b.querySelectorAll("[data-prn]")) x.addEventListener("click", () => openPopup(x.dataset.prn)); prnBox.querySelector("[data-prn-approve]").hidden = snap.canon.principles.every((p) => p.state === "stated" || p.state === "resolved"); };
-  leftStack.appendChild(prnBox);
-  prnBox.querySelector("[data-prn-approve]").hidden = snap.canon.principles.every((p) => p.state === "stated" || p.state === "resolved");
-  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) prnBox.addEventListener(ev, (e) => e.stopPropagation());
-  // The Issues panel: the session's questions, which open when the human clicks them, and the boxes that need the
-  // human; a click highlights a box, a double-click opens its card. Nothing here opens by itself.
-  const issuesBox = document.createElement("div");
-  issuesBox.className = "menu issues" + (adoptState.issuesOpen ? "" : " closed");
-  issuesBox.innerHTML = `<div class="menu-head"><b>Issues</b><span class="pill" id="issues-count" hidden></span><button class="btn small" data-issues-expand="1"></button><button class="btn small caret" data-collapse="1" title="Fold or unfold the issues">▾</button></div><div class="menu-body" id="issues-body"></div>`;
-  leftStack.appendChild(issuesBox);
+  prnPanel.innerHTML = `<div class="menu-head"><b>Principles</b><button class="btn small" data-prn-approve="1" title="Approve every principle still guessed; the session goes on from here">Approve the rest</button><button class="btn small caret" data-collapse="1" title="Fold or unfold the principles">▾</button></div><div class="menu-body">${prnRows()}</div>`;
+  adoptState.refreshPrn = () => { const b = prnPanel.querySelector(".menu-body"); b.innerHTML = prnRows(); for (const x of b.querySelectorAll("[data-prn]")) x.addEventListener("click", () => openPopup(x.dataset.prn)); prnPanel.querySelector("[data-prn-approve]").hidden = snap.canon.principles.every((p) => p.state === "stated" || p.state === "resolved"); };
+  leftStack.appendChild(prnPanel);
+  prnPanel.querySelector("[data-prn-approve]").hidden = snap.canon.principles.every((p) => p.state === "stated" || p.state === "resolved");
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) prnPanel.addEventListener(ev, (e) => e.stopPropagation());
+  // The Issues panel: the session's questions, which open when the user clicks them, and the nodes that need the
+  // user; a click highlights a node, a double-click opens its card. Nothing here opens by itself.
+  const issuesPanel = document.createElement("div");
+  issuesPanel.className = "menu issues" + (adoptState.issuesOpen ? "" : " closed");
+  issuesPanel.innerHTML = `<div class="menu-head"><b>Issues</b><span class="pill" id="issues-count" hidden></span><button class="btn small" data-issues-expand="1"></button><button class="btn small caret" data-collapse="1" title="Fold or unfold the issues">▾</button></div><div class="menu-body" id="issues-body"></div>`;
+  leftStack.appendChild(issuesPanel);
   // The panel opens into a large card at the centre of the window and goes back to its corner. It lives on the page
-  // itself while large, below the cards, so a box or an issue opened from it draws over it. One at a time: a
+  // itself while large, below the cards, so a node or an issue opened from it draws over it. One at a time: a
   // redraw of the canvas makes a new panel, and the old large one is taken away first.
   for (const old of document.querySelectorAll("body > .menu.issues.expanded")) old.remove();
   const placeIssues = () => {
     const big = Boolean(adoptState.issuesBig);
-    issuesBox.classList.toggle("expanded", big);
-    if (big) { issuesBox.classList.remove("closed"); document.body.appendChild(issuesBox); } else { issuesBox.classList.toggle("closed", !adoptState.issuesOpen); leftStack.appendChild(issuesBox); }
-    const b = issuesBox.querySelector("[data-issues-expand]");
+    issuesPanel.classList.toggle("expanded", big);
+    if (big) { issuesPanel.classList.remove("closed"); document.body.appendChild(issuesPanel); } else { issuesPanel.classList.toggle("closed", !adoptState.issuesOpen); leftStack.appendChild(issuesPanel); }
+    const b = issuesPanel.querySelector("[data-issues-expand]");
     b.textContent = big ? "Dock" : "Expand";
     b.title = big ? "Put the issues back in the corner of the canvas" : "Open the issues as a large card in the middle of the window";
   };
   // The move between the corner and the centre is shown: the panel grows from where it was to where it lands, and
-  // shrinks back the same way. Skipped for a person who asked their system for less motion.
-  issuesBox.querySelector("[data-issues-expand]").addEventListener("click", () => {
-    const from = issuesBox.getBoundingClientRect();
+  // shrinks back the same way. Skipped for a user who asked their system for less motion.
+  issuesPanel.querySelector("[data-issues-expand]").addEventListener("click", () => {
+    const from = issuesPanel.getBoundingClientRect();
     adoptState.issuesBig = !adoptState.issuesBig;
     placeIssues();
-    const to = issuesBox.getBoundingClientRect();
-    if (!from.width || !to.width || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !issuesBox.animate) return;
-    issuesBox.getAnimations().forEach((a) => a.cancel());
-    issuesBox.animate([{ transformOrigin: "top left", transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.6 }, { transformOrigin: "top left", transform: "none", opacity: 1 }], { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)" });
+    const to = issuesPanel.getBoundingClientRect();
+    if (!from.width || !to.width || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !issuesPanel.animate) return;
+    issuesPanel.getAnimations().forEach((a) => a.cancel());
+    issuesPanel.animate([{ transformOrigin: "top left", transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.6 }, { transformOrigin: "top left", transform: "none", opacity: 1 }], { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)" });
   });
   placeIssues();
-  if (adoptState.issuesBig && adoptState.issuesScroll) requestAnimationFrame(() => { const b = issuesBox.querySelector(".menu-body"); if (b) b.scrollTop = adoptState.issuesScroll; adoptState.issuesScroll = 0; });
-  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) issuesBox.addEventListener(ev, (e) => e.stopPropagation());
-  issuesBox.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.issuesOpen = !adoptState.issuesOpen; issuesBox.classList.toggle("closed", !adoptState.issuesOpen); });
+  if (adoptState.issuesBig && adoptState.issuesScroll) requestAnimationFrame(() => { const b = issuesPanel.querySelector(".menu-body"); if (b) b.scrollTop = adoptState.issuesScroll; adoptState.issuesScroll = 0; });
+  for (const ev of ["pointerdown", "mousedown", "touchstart", "wheel"]) issuesPanel.addEventListener(ev, (e) => e.stopPropagation());
+  issuesPanel.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.issuesOpen = !adoptState.issuesOpen; issuesPanel.classList.toggle("closed", !adoptState.issuesOpen); });
   renderIssues(lastSession);
-  prnBox.querySelector("[data-prn-approve]")?.addEventListener("click", async () => { try { await post("/api/principles/approve", {}); showToast("Principles approved as listed."); } catch (e) { showToast(e); } });
-  prnBox.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.prn = !adoptState.prn; prnBox.classList.toggle("closed", !adoptState.prn); });
-  for (const b of prnBox.querySelectorAll("[data-prn]")) b.addEventListener("click", () => openPopup(b.dataset.prn));
+  prnPanel.querySelector("[data-prn-approve]")?.addEventListener("click", async () => { try { await post("/api/principles/approve", {}); showToast("Principles approved as listed."); } catch (e) { showToast(e); } });
+  prnPanel.querySelector("[data-collapse]").addEventListener("click", () => { adoptState.prn = !adoptState.prn; prnPanel.classList.toggle("closed", !adoptState.prn); });
+  for (const b of prnPanel.querySelectorAll("[data-prn]")) b.addEventListener("click", () => openPopup(b.dataset.prn));
   const setMode = (mode) => {
     if (adoptState.mode === mode) return;
     adoptState.mode = mode;
@@ -1983,18 +1983,18 @@ function buildAdoptCanvas() {
   };
   for (const b of menu.querySelectorAll(".mode button")) b.addEventListener("click", () => setMode(b.dataset.mode));
   window.__sim.layoutRadial = layoutRadial; window.__sim.layoutDendro = layoutDendro;
-  // While boxes glide on their own, outside the simulation, the overlays follow them frame by frame.
+  // While nodes glide on their own, outside the simulation, the overlays follow them frame by frame.
   const follow = (ms) => { const until = performance.now() + ms; const loop = () => { place(); if (performance.now() < until) requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
   // The dependency lines follow the Dependencies and Edges switches; in the tree only the selected row's show.
   const applyDeps = () => { const on = adoptState.deps && adoptState.edges, sel = adoptState.selected; for (const e of cy.edges(".dep")) e.toggleClass("hidden", !on || (adoptState.mode === "dendro" && e.source().id() !== sel && e.target().id() !== sel)); };
-  // a selection changes classes, not cards: the row cards take their box's classes in place, so nothing is recreated and
+  // a selection changes classes, not cards: the row cards take their node's classes in place, so nothing is recreated and
   // nothing replays its entry animation
   const syncRowCards = () => { for (const c of overlay.querySelectorAll(".ov-card.row[data-id]")) { const n = cy.getElementById(c.dataset.id); if (!n.length) continue; const want = "ov-card row " + n.classes().filter((k) => ROW_CLASSES.includes(k)).join(" "); if (c.className !== want) c.className = want; } };
   adoptState.syncRowCards = syncRowCards;
   // the run card's scope is the selection, so it follows a new one at once
   const select = (id) => { adoptState.selected = id; cy.$("node.selected").removeClass("selected"); cy.getElementById(id).addClass("selected"); applyFocus(); applyDeps(); syncRowCards(); place(); keepInView(id); renderRunCard(); };
   cy.on("tap", (e) => { if (e.target === cy && adoptState.selected) { adoptState.selected = null; cy.$("node.selected").removeClass("selected"); applyFocus(); applyDeps(); syncRowCards(); place(); renderRunCard(); } });
-  // A box grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
+  // A node grows into its card over a third of a second while the simulation runs, and shrinks back the same way.
   const cardSize = (n) => (n.hasClass("dendro") ? [n.data("dw"), 30] : n.hasClass("prn") ? [170, 48] : n.hasClass("premise") || n.hasClass("principles") ? [200, 60] : [190, 58]);
   const showLabel = (id) => {
     const n = cy.getElementById(id);
@@ -2017,7 +2017,7 @@ function buildAdoptCanvas() {
     makeOverlays();
     settle(0.4);
   };
-  // Expanding or collapsing changes the graph in place: new boxes grow out of their parent and everything
+  // Expanding or collapsing changes the graph in place: new nodes grow out of their parent and everything
   // glides to the new layered layout.
   const sync = () => {
     const show = adoptScope();
@@ -2034,8 +2034,8 @@ function buildAdoptCanvas() {
     settle(0.8);
   };
   adoptState.sync = sync;
-  // A change on disk: every shown box takes its current colour and name, boxes that appeared or went move the layout.
-  // Only what changed moves: a box whose colour or name changed takes it, the layout runs only when boxes appeared
+  // A change on disk: every shown node takes its current colour and name, nodes that appeared or went move the layout.
+  // Only what changed moves: a node whose colour or name changed takes it, the layout runs only when nodes appeared
   // or went, and a refresh that changes nothing touches nothing, so the canvas never blinks on a poll.
   adoptState.refresh = () => {
     const before = cy.nodes().length;
@@ -2065,7 +2065,7 @@ function buildAdoptCanvas() {
     select(id);
     if (adoptState.mode === "dendro") return;
     showLabel(id);
-    // the path to the root reads along with the box: every ancestor shows its name too
+    // the path to the root reads along with the node: every ancestor shows its name too
     let p = parentOf(id);
     while (p && cy.getElementById(p).length) { showLabel(p); p = parentOf(p); }
   });
@@ -2102,7 +2102,7 @@ function buildAdoptCanvas() {
     }
     if (adoptState.view) cy.viewport(adoptState.view); else fitAll();
     grid(); applyFocus(); makeOverlays();
-    // a redraw with a selected box brings that box on screen
+    // a redraw with a selected node brings that node on screen
     if (adoptState.selected && cy.getElementById(adoptState.selected).length) keepInView(adoptState.selected);
   });
   if (window.ResizeObserver) new ResizeObserver(() => { cy.resize(); grid(); place(); }).observe(el);
@@ -2119,22 +2119,22 @@ function buildAdoptCanvas() {
   $main.querySelector("[data-edges]")?.addEventListener("click", (ev) => { adoptState.edges = !adoptState.edges; ev.currentTarget.classList.toggle("on", adoptState.edges); cy.edges().toggleClass("hidden", !adoptState.edges); applyDeps(); });
   $main.querySelector("[data-bands]")?.addEventListener("click", (ev) => { adoptState.bands = !adoptState.bands; ev.currentTarget.classList.toggle("on", adoptState.bands); laneLines(); settle(0.6); });
   $main.querySelector("[data-order]")?.addEventListener("click", (ev) => { adoptState.order = !adoptState.order; ev.currentTarget.classList.toggle("on", adoptState.order); settle(0.5); });
-  $main.querySelector('[data-mode-btn="feature"]')?.addEventListener("click", () => { const box = document.getElementById("msg"); if (box) { box.value = "New feature: "; box.focus(); } showToast("Describe what you want to build; the session checks it and asks where it goes."); });
+  $main.querySelector('[data-mode-btn="feature"]')?.addEventListener("click", () => { const holder = document.getElementById("msg"); if (holder) { holder.value = "New feature: "; holder.focus(); } showToast("Describe what you want to build; the session checks it and asks where it goes."); });
   $main.querySelector("[data-expand-all]")?.addEventListener("click", (ev) => {
     if (allOpen()) adoptState.expanded = new Set(["ROOT"]);
     else for (const id of Object.keys(snap.canon.nodes)) if (node(id).children.length) adoptState.expanded.add(id);
     adoptState.focus.clear();
-    const open = allOpen(); ev.currentTarget.textContent = open ? "Collapse all" : "Show all"; ev.currentTarget.title = open ? "Close every box back to the domains" : "Open every box down to the leaves";
+    const open = allOpen(); ev.currentTarget.textContent = open ? "Collapse all" : "Show all"; ev.currentTarget.title = open ? "Close every node back to the domains" : "Open every node down to the leaves";
     sync();
   });
 }
 function toggleExpand(id) { ensureExpanded(); if (adoptState.expanded.has(id)) { adoptState.expanded.delete(id); adoptState.focus.delete(id); } else { adoptState.expanded.add(id); adoptState.focus.add(id); } if (adoptState.sync && $main.querySelector(".adopt #cy")) adoptState.sync(); else render(); }
-// The canvas shows a box: selected, its ancestors opened, the view drawn around it, and its card when asked.
-function focusOnCanvas(id, open, byHuman = false) {
-  // while the human has a card open, the session's pointing is noted in the chat and moves nothing; the
-  // human's own click closes the card first, unless they are mid-rewrite
+// The canvas shows a node: selected, its ancestors opened, the view drawn around it, and its card when asked.
+function focusOnCanvas(id, open, byUser = false) {
+  // while the user has a card open, the session's pointing is noted in the chat and moves nothing; the
+  // user's own click closes the card first, unless they are mid-rewrite
   if (!$popup.hidden) {
-    if (!byHuman) { adoptState.selected = id; appendChat([{ kind: "sys", text: `The session points at ${id}; your card stays as it is.`, at: new Date().toISOString() }]); return; }
+    if (!byUser) { adoptState.selected = id; appendChat([{ kind: "sys", text: `The session points at ${id}; your card stays as it is.`, at: new Date().toISOString() }]); return; }
     if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; }
     closePopup();
   }
@@ -2156,15 +2156,15 @@ function openPopup(id) {
   if (isPrinciples) { openTextCard(id, "Principles", snap.canon.principles.map((p) => `<p><i class="sw ${colorOf(p.id)}"></i><b>${esc(p.id)} ${esc(p.title)}</b> ${esc(p.statement)}${p.source ? ` <span class="muted">Source: ${esc(p.source)}</span>` : ""}</p>`).join("")); return; }
   const color = colorOf(id);
   const state = isRoot ? snap.canon.root?.state : n.state;
-  // every side of a contradiction: the boxes this one conflicts with, either way round
+  // every side of a contradiction: the nodes this one conflicts with, either way round
   const conflictIds = isRoot || prn ? [] : [...new Set([...(n.conflicts ?? []), ...Object.values(snap.canon.nodes).filter((o) => (o.conflicts ?? []).includes(id)).map((o) => o.id)])].filter((x) => snap.canon.nodes[x]);
   const because = color === "red"
-    ? (state === "draft" ? "A draft: the session's provisional name for a thing it could not define. Its question is an issue; answering it defines the box." : state === "contested" ? (conflictIds.length ? "This box and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
+    ? (state === "draft" ? "A draft: the session's provisional name for a thing it could not define. Its question is an issue; answering it defines the node." : state === "contested" ? (conflictIds.length ? "This node and another contradict each other; the tabs show both. Keep one or rewrite." : "Two statements pull against each other; the tabs show each. Keep one or rewrite.") : "A check flagged it; see below.")
     : color === "yellow" ? "The session's guess from your documents. Approve it, rewrite it, or delete it." : "Approved by you.";
   const fs = isRoot || prn ? [] : findingsFor(id).filter((f) => f.level !== "info");
   const kids = isRoot ? snap.canon.roots.length : n.children.length;
   const bodyHtml = isRoot ? stripHtmlSection(snap.html[id] ?? "", "Principles") : prn ? `<p>${esc(prn.statement)}</p>${prn.source ? `<p class="muted">Source: ${esc(prn.source)}</p>` : ""}` : snap.html[id];
-  // ... and the statements a contested box records against each other; each side gets a tab beside the box's own text
+  // ... and the statements a contested node records against each other; each side gets a tab beside the node's own text
   const contestedHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Contested");
   const statements = [...contestedHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
   // the session's summary of the contradiction: the paragraph under the heading, before the statements
@@ -2177,7 +2177,7 @@ function openPopup(id) {
     const text = st.replace(/\s*\(([^()]*)\)/g, (m, inner) => (refOne.test(inner) && inner.replace(refRe, "").replace(/[;,\s]/g, "") === "" ? "" : m));
     panes.push({ label: `Statement ${i + 1}`, html: `<p class="sub">Statement ${i + 1} of ${statements.length}, as the contested section records it.</p><p>${text}</p>${refs.length ? `<div class="sources"><span class="muted">Where it comes from</span>${refs.map((r) => `<code>${esc(r)}</code>`).join("")}</div>` : `<p class="muted">No source recorded for this statement.</p>`}` });
   });
-  for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this box. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
+  for (const cid of conflictIds) { const o = snap.canon.nodes[cid]; panes.push({ label: cid, html: `<p class="sub"><i class="sw ${colorOf(cid)}"></i>${esc(cid)} ${badge(o.state)} <b>${esc(o.title)}</b> conflicts with this node. <a href="#" data-open="${esc(cid)}">Open ${esc(cid)}</a></p>${snap.html[cid] ?? ""}` }); }
   // the Deferred list, the parts not yet refined, and As built, what the code does today, live in tabs of their own so
   // the intent stands alone: what must hold on the card, what holds one click away
   const deferredHtml = isRoot || prn ? "" : extractHtmlSection(bodyHtml ?? "", "Deferred");
@@ -2185,8 +2185,8 @@ function openPopup(id) {
   const builtHtml = isRoot || prn ? "" : (extractHtmlSection(bodyHtml ?? "", "Implemented by") || extractHtmlSection(bodyHtml ?? "", "As built"));
   const binds = isRoot || prn ? [] : (n.binds ?? []);
   const bindsHtml = binds.length ? ["implements", "contributes", "contradicts"].map((r) => { const xs = binds.filter((b) => b.relation === r); return xs.length ? `<p class="sub"><b>${r}</b></p><ul>${xs.map((b) => `<li><code>${esc(b.unit)}</code></li>`).join("")}</ul>` : ""; }).join("") : "";
-  if (builtHtml || bindsHtml) panes.push({ label: `Implemented by${binds.length ? ` (${binds.length})` : ""}`, html: `<p class="sub">The code units and documents this box rests on, with how each relates to it; written from the bindings, never approved by you.</p>${bindsHtml}${builtHtml}` });
-  // the tests of a box with a check, one click away like the rest of what holds; the list arrives after the card
+  if (builtHtml || bindsHtml) panes.push({ label: `Implemented by${binds.length ? ` (${binds.length})` : ""}`, html: `<p class="sub">The code units and documents this node rests on, with how each relates to it; written from the bindings, never approved by you.</p>${bindsHtml}${builtHtml}` });
+  // the tests of a node with a check, one click away like the rest of what holds; the list arrives after the card
   const mark = isRoot || prn ? undefined : markOf(id);
   if (mark && (n.kind || mark.tests)) panes.push({ key: "tests", label: testsLabel(mark), html: `<p class="sub">What each test checks and how, with its last result.</p><div data-tests-for="${esc(id)}"><p class="muted">Loading the tests…</p></div>` });
   let mainHtml = bodyHtml ?? "";
@@ -2206,7 +2206,7 @@ function openPopup(id) {
     <div id="pp-review"></div>
     <div class="row pp-actions">
       ${color !== "green" && state !== "draft" ? `<button class="btn primary" id="pp-approve" title="Keep it as written; it becomes approved by you">Approve</button>` : ""}
-      ${isRoot || prn ? "" : `<button class="btn" id="pp-implement" title="The session builds this box alone, runs its tests, and brings the result to you"${canImplement(id) ? "" : " hidden"}>Implement this</button>`}
+      ${isRoot || prn ? "" : `<button class="btn" id="pp-implement" title="The session builds this node alone, runs its tests, and brings the result to you"${canImplement(id) ? "" : " hidden"}>Implement this</button>`}
       <button class="btn" id="pp-edit" title="Say it in your own words">${state === "draft" ? "Write it yourself" : "Rewrite"}</button>
       ${isRoot ? "" : `<button class="btn" id="pp-delete" title="Remove this node and everything under it">Delete</button>`}
       ${kids && !isRoot ? `<button class="btn" id="pp-toggle">${adoptState.expanded?.has(id) ? "Hide children" : `Show ${kids} children`}</button>` : ""}
@@ -2217,7 +2217,7 @@ function openPopup(id) {
   const wasHidden = $popup.hidden;
   $popup.hidden = false;
   $popup.dataset.id = id;
-  testsCache.delete(id); // a card that opens asks for the box's tests afresh
+  testsCache.delete(id); // a card that opens asks for the node's tests afresh
   syncPopupReview(); // before the card takes its size, so a decision that waits is inside it
   if (wasHidden) centerPopup();
   wirePopupMoves();
@@ -2227,7 +2227,7 @@ function openPopup(id) {
   $popup.querySelector("#pp-explain")?.addEventListener("click", async () => { try { await post("/api/message", { text: `Explain the contradiction in ${id} in one or two sentences: what the two statements cannot both hold, and what choosing decides. Record it as the first paragraph under its Contested heading.`, nodeId: id }); startWorking(`you asked for an explanation of ${id}`); } catch (e) { showToast(e); } });
   for (const a of $popup.querySelectorAll("[data-open]")) a.addEventListener("click", (ev) => { ev.preventDefault(); if (editingDraft()) { showToast("Finish or cancel your rewrite first."); return; } closePopup(); focusOnCanvas(a.dataset.open, true); });
   $popup.querySelector("#pp-approve")?.addEventListener("click", async () => {
-    // In Guided an approval starts work only where the session waited for it: the premise, or a box with no check and
+    // In Guided an approval starts work only where the session waited for it: the premise, or a node with no check and
     // nothing under it. Any other approval opens nothing and the session says nothing, so no clock starts for it.
     const opens = () => { const x = node(id); return !guided() || isRoot || Boolean(!prn && x && !x.kind && !x.children.length); };
     try { await post(`/api/node/${encodeURIComponent(id)}/approve`, {}); touched(id); closePopup(); await load(); refreshAdopt(); if (opens()) startWorking(`you approved ${id}`); } catch (e) { showToast(e); }
@@ -2238,7 +2238,7 @@ function openPopup(id) {
   });
   $popup.querySelector("#pp-toggle")?.addEventListener("click", () => { toggleExpand(id); openPopup(id); });
   $popup.querySelector("#pp-define")?.addEventListener("click", async () => { try { await post("/api/refine", { id }); startWorking(`you asked the session to define ${id} further`); } catch (e) { showToast(e); } });
-  // one box is the unit of building; while a run is under way the press shows that run instead of asking for another
+  // one node is the unit of building; while a run is under way the press shows that run instead of asking for another
   $popup.querySelector("#pp-implement")?.addEventListener("click", () => { if (isActiveRun(runData.run)) openRunCard(); else askImplement([id], { single: true }); });
   fillTests($popup);
   const startEdit = async (keep) => {
@@ -2265,14 +2265,14 @@ function openPopup(id) {
   if (draft) startEdit(draft);
 }
 function closePopup() { $popup.hidden = true; delete $popup.dataset.id; editBase = null; document.getElementById("conflict").hidden = true; window.CSS?.highlights?.delete("quote"); }
-// A rewrite in progress: what the human has typed, so that no redraw can lose it.
+// A rewrite in progress: what the user has typed, so that no redraw can lose it.
 function editingDraft() {
   if ($popup.hidden) return null;
   const ta = $popup.querySelector("#pp-editor #pp-intent");
   if (!ta) return null;
   return { id: $popup.dataset.id, title: $popup.querySelector("#pp-editor #pp-title")?.value, intent: ta.value };
 }
-// The text a rewrite started from. When the session rewrites that box meanwhile, the human chooses: keep
+// The text a rewrite started from. When the session rewrites that node meanwhile, the user chooses: keep
 // what they typed, or take the session's words; the session hears which as an edit-conflict entry.
 let editBase = null;
 function checkConflict() {
@@ -2391,7 +2391,7 @@ function wirePopupMoves() {
   });
 }
 // Asking about a passage: select words in a card and the chat is ready with them. The words stay lit in the
-// card, the chip above the message box names the node and the words, and the cursor is in the box.
+// card, the chip above the message node names the node and the words, and the cursor is in the node.
 document.addEventListener("mouseup", (ev) => {
   const target = ev.target;
   setTimeout(() => {
@@ -2402,25 +2402,25 @@ document.addEventListener("mouseup", (ev) => {
     const inIssue = !$issueCard.hidden && $issueCard.contains(sel?.anchorNode);
     if (!text || (!inPopup && !inIssue)) { if (quote && !document.getElementById("session").contains(target)) setQuote(null); return; }
     if (window.CSS?.highlights && window.Highlight) CSS.highlights.set("quote", new Highlight(sel.getRangeAt(0).cloneRange()));
-    // words from an issue card are about its box when it has one, else about the issue itself
+    // words from an issue card are about its node when it has one, else about the issue itself
     setQuote(inPopup ? { id: $popup.dataset.id, text: text.slice(0, 300) } : { id: $question.dataset.nodeId || undefined, about: `the issue "${$question.dataset.label ?? "issue"}"`, text: text.slice(0, 300) });
     openSession();
     $msg.focus();
   }, 0);
 });
 
-// The chat: what the session says and what the human sends, with the actions between them as quiet lines.
+// The chat: what the session says and what the user sends, with the actions between them as quiet lines.
 let chatCursor = 0;
-// Ids named in a chat line are links; a line about a box carries the box as a chip; every line has its time.
+// Ids named in a chat line are links; a line about a node carries the node as a chip; every line has its time.
 const ID_RE = /\b(REQ-\d+(?:\.\d+)*|PRN-\d+|DEC-\d+)\b/g;
 const linkIds = (text) => esc(text).replace(ID_RE, (id) => `<a class="id" data-id="${id}" href="#/node/${id}">${id}</a>`);
 const timeOf = (at) => { const d = at ? new Date(at) : new Date(); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
-// Two lists. The chat holds what the session asks of the human (a say marked `to: human`, or one that ends in a
-// question) and what they write. The history holds the rest: what the session did, and what the human did on
-// the canvas. A history line opens its box on a double-click, or the nearest box above it if it is gone.
+// Two lists. The chat holds what the session asks of the user (a say marked `to: user`, or one that ends in a
+// question) and what they write. The history holds the rest: what the session did, and what the user did on
+// the canvas. A history line opens its node on a double-click, or the nearest node above it if it is gone.
 const KIND_LABELS = { "node-approved": "approved", "node-edited": "rewritten", "node-deleted": "deleted", "node-created": "created", "term-enshrined": "term kept", "term-dropped": "term dropped", "refine-request": "asked to define", "finish-request": "finish", "edit-conflict": "conflict", "question-superseded": "question withdrawn", answer: "you answered", say: "session", "implement-request": "asked to build", "run-stop": "asked to stop", "run-continue": "asked to continue", "slice-approved": "approved", "slice-discarded": "discarded", "slice-sent-back": "sent back" };
 let historyNew = 0;
-// What changed between two readings of the canon, as chat lines: boxes, principles, terms and decisions that
+// What changed between two readings of the canon, as chat lines: nodes, principles, terms and decisions that
 // appeared, changed or went, each naming its id so a click goes there.
 function canonDiff(was, now) {
   const at = new Date().toISOString(), out = [];
@@ -2429,10 +2429,10 @@ function canonDiff(was, now) {
   const a = was.canon.nodes, b = now.canon.nodes;
   for (const id of Object.keys(b)) { if (!a[id]) line("node-created", id, `${id} appeared on disk · ${b[id].title}`); else if (was.html[id] !== now.html[id] || a[id].title !== b[id].title || a[id].state !== b[id].state) line("node-edited", id, `${id} changed on disk${a[id].state !== b[id].state ? `, now ${b[id].state}` : ""} · ${b[id].title}`); }
   for (const id of Object.keys(a)) if (!b[id]) line("node-deleted", id, `${id} gone from disk · ${a[id].title}`);
-  // a refiner's set appears as one line under its parent, not one per box
+  // a refiner's set appears as one line under its parent, not one per node
   const byParent = new Map();
   for (const e of out) if (e.kind === "node-created" && b[e.id]) { const p = b[e.id].parent ?? "ROOT"; (byParent.get(p) ?? byParent.set(p, []).get(p)).push(e); }
-  for (const [p, list] of byParent) if (list.length >= 3) { out.splice(out.indexOf(list[0]), 0, { kind: "node-created", id: p, text: `${list.length} boxes appeared under ${p}${b[p] ? ` · ${b[p].title}` : ""}: ${list.map((e) => e.id).join(", ")}`, at }); for (const e of list) out.splice(out.indexOf(e), 1); }
+  for (const [p, list] of byParent) if (list.length >= 3) { out.splice(out.indexOf(list[0]), 0, { kind: "node-created", id: p, text: `${list.length} nodes appeared under ${p}${b[p] ? ` · ${b[p].title}` : ""}: ${list.map((e) => e.id).join(", ")}`, at }); for (const e of list) out.splice(out.indexOf(e), 1); }
   const sets = [["principle", byId(was.canon.principles), byId(now.canon.principles), (p) => p.title, (p) => `${p.title}|${p.statement ?? p.text ?? ""}|${p.state}`], ["term", byId(was.canon.terms), byId(now.canon.terms), (t) => t.term, (t) => `${t.term}|${t.definition}|${t.state}`], ["decision", byId(was.canon.decisions), byId(now.canon.decisions), (d) => d.title, (d) => `${d.title}|${d.state ?? ""}`]];
   for (const [what, x, y, name, sig] of sets) {
     for (const id of Object.keys(y)) { if (!x[id]) line("node-created", id, `${what} ${id} added on disk · ${name(y[id])}`); else if (sig(x[id]) !== sig(y[id])) line("node-edited", id, `${what} ${id} changed on disk · ${name(y[id])}`); }
@@ -2518,7 +2518,7 @@ function renderOnboard(stage, animated) {
 }
 function onboardHtml(stage) {
   if (stage === "welcome") return `
-    <p>HeadCanon writes down what your project is for, as a tree of boxes you can read and correct. The session reads that tree before every piece of work, so the work stays true to it.</p>
+    <p>HeadCanon writes down what your project is for, as a tree of nodes you can read and correct. The session reads that tree before every piece of work, so the work stays true to it.</p>
     <p>It is reading your repository now: the code, the documents, the content. Nothing is decided from that reading. It is evidence.</p>
     <p>You will be asked three things, in order: the premise, the principles, then the issues the evidence could not settle. You will not be asked what the code or the documents already answer.</p>
     <div class="actions"><button class="btn primary" id="ob-begin">Begin</button></div>`;
@@ -2570,21 +2570,21 @@ function wireOnboard(stage) {
   for (const b of body.querySelectorAll("[data-pick-mode]")) b.addEventListener("click", () => obAct(async () => { const cap = body.querySelector("#ob-cap")?.value?.trim(); await post("/api/settings", { mode: b.dataset.pickMode, cap: cap || null }); lastStatus = { ...(lastStatus ?? {}), settings: { mode: b.dataset.pickMode, at: new Date().toISOString() } }; }));
   body.querySelector("#ob-approve")?.addEventListener("click", () => obAct(async () => { await post("/api/node/ROOT/approve", {}); touched("ROOT"); startWorking("you approved the premise"); }));
   body.querySelector("#ob-rewrite")?.addEventListener("click", async () => {
-    const box = body.querySelector("#ob-edit"); const raw = await fetch("/api/node/ROOT/raw").then((r) => r.json()).catch(() => ({ text: "" }));
+    const holder = body.querySelector("#ob-edit"); const raw = await fetch("/api/node/ROOT/raw").then((r) => r.json()).catch(() => ({ text: "" }));
     const intent = (/^##\s+Intent\b[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(raw.text ?? "")?.[1] ?? "").trim();
-    box.innerHTML = `<p class="muted">Your words replace the draft and are recorded as yours.</p><textarea id="ob-intent">${esc(intent)}</textarea><div class="actions"><button class="btn primary" id="ob-save">Save</button><button class="btn" id="ob-cancel">Cancel</button></div>`;
-    box.hidden = false; body.querySelector("#ob-premise").hidden = true; body.querySelector("#ob-premise-actions").hidden = true; box.querySelector("#ob-intent").focus();
-    box.querySelector("#ob-cancel").addEventListener("click", () => renderOnboard("premise", false));
-    box.querySelector("#ob-save").addEventListener("click", () => obAct(async () => { await post("/api/node/ROOT", { intent: box.querySelector("#ob-intent").value }, "PUT"); touched("ROOT"); startWorking("you rewrote the premise"); }));
+    holder.innerHTML = `<p class="muted">Your words replace the draft and are recorded as yours.</p><textarea id="ob-intent">${esc(intent)}</textarea><div class="actions"><button class="btn primary" id="ob-save">Save</button><button class="btn" id="ob-cancel">Cancel</button></div>`;
+    holder.hidden = false; body.querySelector("#ob-premise").hidden = true; body.querySelector("#ob-premise-actions").hidden = true; holder.querySelector("#ob-intent").focus();
+    holder.querySelector("#ob-cancel").addEventListener("click", () => renderOnboard("premise", false));
+    holder.querySelector("#ob-save").addEventListener("click", () => obAct(async () => { await post("/api/node/ROOT", { intent: holder.querySelector("#ob-intent").value }, "PUT"); touched("ROOT"); startWorking("you rewrote the premise"); }));
   });
   for (const b of body.querySelectorAll("[data-prn-ok]")) b.addEventListener("click", () => obAct(() => post(`/api/node/${encodeURIComponent(b.dataset.prnOk)}/approve`, {})));
   for (const b of body.querySelectorAll("[data-prn-del]")) b.addEventListener("click", () => { if (!confirm("Remove this principle? The session will not judge anything against it.")) return; obAct(() => fetch(`/api/node/${encodeURIComponent(b.dataset.prnDel)}`, { method: "DELETE" })); });
   for (const b of body.querySelectorAll("[data-prn-edit]")) b.addEventListener("click", () => {
-    const li = b.closest("li"); const p = snap.canon.principles.find((x) => x.id === b.dataset.prnEdit); const box = li.querySelector(".ob-prn-edit");
-    box.innerHTML = `<input id="ob-prn-title" value="${esc(p.title)}" /><textarea id="ob-prn-text">${esc(p.statement)}</textarea><div class="actions"><button class="btn small primary" id="ob-prn-save">Save</button><button class="btn small" id="ob-prn-cancel">Cancel</button></div>`;
-    box.hidden = false; li.querySelector(".st").hidden = true; box.querySelector("#ob-prn-text").focus();
-    box.querySelector("#ob-prn-cancel").addEventListener("click", () => renderOnboard("principles", false));
-    box.querySelector("#ob-prn-save").addEventListener("click", () => obAct(() => post(`/api/node/${encodeURIComponent(p.id)}`, { title: box.querySelector("#ob-prn-title").value, intent: box.querySelector("#ob-prn-text").value }, "PUT")));
+    const li = b.closest("li"); const p = snap.canon.principles.find((x) => x.id === b.dataset.prnEdit); const holder = li.querySelector(".ob-prn-edit");
+    holder.innerHTML = `<input id="ob-prn-title" value="${esc(p.title)}" /><textarea id="ob-prn-text">${esc(p.statement)}</textarea><div class="actions"><button class="btn small primary" id="ob-prn-save">Save</button><button class="btn small" id="ob-prn-cancel">Cancel</button></div>`;
+    holder.hidden = false; li.querySelector(".st").hidden = true; holder.querySelector("#ob-prn-text").focus();
+    holder.querySelector("#ob-prn-cancel").addEventListener("click", () => renderOnboard("principles", false));
+    holder.querySelector("#ob-prn-save").addEventListener("click", () => obAct(() => post(`/api/node/${encodeURIComponent(p.id)}`, { title: holder.querySelector("#ob-prn-title").value, intent: holder.querySelector("#ob-prn-text").value }, "PUT")));
   });
   body.querySelector("#ob-approve-rest")?.addEventListener("click", () => obAct(() => post("/api/principles/approve", {})));
 }
@@ -2603,9 +2603,9 @@ document.getElementById("ob-close").addEventListener("click", () => { onboardDis
 document.getElementById("session-status").addEventListener("click", () => { if (onboardStage && onboardDismissed) { onboardDismissed = false; renderOnboard(onboardStage, false); } });
 
 // ---------------------------------------------------------------- the code beside the canon: marks, tests, the run, the final decision
-// Two marks stand beside the colours: a grey fill on a box that is not built, a red dashed ring around one that is out
+// Two marks stand beside the colours: a grey fill on a node that is not built, a red dashed ring around one that is out
 // of sync with the code. The viewer measures them; the page asks at load and when their revision changes on the poll,
-// and swaps classes where the boxes are, so a mark never redraws the canvas. A viewer that does not answer, here or on
+// and swaps classes where the nodes are, so a mark never redraws the canvas. A viewer that does not answer, here or on
 // any route below, means "nothing yet": the page stays as it is without them.
 let marksData = null, lastMarksRev = null;
 const markOf = (id) => marksData?.marks?.[id];
@@ -2634,7 +2634,7 @@ async function fetchMarks() {
   marksData = got;
   paintMarks();
 }
-// Every place a mark shows takes it where it stands: the canvas boxes and their row cards, the Tree tab, the legend,
+// Every place a mark shows takes it where it stands: the canvas nodes and their row cards, the Tree tab, the legend,
 // the journeys' tests, the open card and the run card.
 function paintMarks() {
   if (!snap) return;
@@ -2650,12 +2650,12 @@ function paintMarks() {
   if (!$run.hidden) fillTests($runBody);
   renderRunCard();
 }
-// What a box's mark says in words. A box without a check of its own speaks for what is under it.
+// What a node's mark says in words. A node without a check of its own speaks for what is under it.
 function builtWords(id) {
   const m = markOf(id), n = snap?.canon.nodes[id];
   if (!m || !n) return "";
   if (m.mark === "not-built") return n.kind ? "Not built yet" : "Nothing under it is built yet";
-  if (m.mark === "out-of-sync") return n.kind ? "Out of sync with the code" : "A box under it is out of sync with the code";
+  if (m.mark === "out-of-sync") return n.kind ? "Out of sync with the code" : "A node under it is out of sync with the code";
   if (!n.kind) return "";
   if (m.tested === "passing") return "Built and passing";
   if (m.tested === "failing") return "Its tests fail";
@@ -2664,9 +2664,9 @@ function builtWords(id) {
 }
 const builtLine = (id) => { const m = markClass(id); return `${m === "not-built" ? `<i class="sw grey"></i>` : m === "out-of-sync" ? `<i class="sw ring"></i>` : ""}${esc(builtWords(id))}`; };
 const testsLabel = (m) => `Tests${m?.tests ? ` (${m.tests})` : ""}`;
-// "Implement this" stands on a box with a check that is not built or out of sync, never on a red one, and not while
+// "Implement this" stands on a node with a check that is not built or out of sync, never on a red one, and not while
 // what was built for it waits for a decision.
-const canImplement = (id) => Boolean(node(id)?.kind && markClass(id) && colorOf(id) !== "red") && !reviewSlices().some((s) => s.box === id);
+const canImplement = (id) => Boolean(node(id)?.kind && markClass(id) && colorOf(id) !== "red") && !reviewSlices().some((s) => s.node === id);
 // The open card follows the marks in place: its line of words, the count on its Tests tab, the button, the tests.
 function syncPopupMarks() {
   const id = $popup.dataset.id, line = $popup.querySelector("#pp-built");
@@ -2684,8 +2684,8 @@ function certainty(state) {
   return `<span class="certainty"><i class="sw ${colour}"></i>${word}</span>`;
 }
 
-// The tests of a box, as a person who does not read code needs them: what is checked and how, the kind, the last
-// result in words, where the file is, and the journey an end-to-end test plays. Kept per box until the marks or the
+// The tests of a node, as a user who does not read code needs them: what is checked and how, the kind, the last
+// result in words, where the file is, and the journey an end-to-end test plays. Kept per node until the marks or the
 // run change, since both mean the results may have.
 const testsCache = new Map();
 function fetchTests(id) {
@@ -2693,7 +2693,7 @@ function fetchTests(id) {
   return testsCache.get(id);
 }
 const KIND_WORDS = { unit: "unit", integration: "integration", e2e: "end to end", eval: "eval", other: "other" };
-const OUTCOME_WORDS = { passed: "passed", failed: "failed", errored: "stopped on an error", skipped: "skipped", missing: "its file is gone", changed: "its file changed after it was accepted", stale: "written for an earlier text of the box", "not-run": "not run yet" };
+const OUTCOME_WORDS = { passed: "passed", failed: "failed", errored: "stopped on an error", skipped: "skipped", missing: "its file is gone", changed: "its file changed after it was accepted", stale: "written for an earlier text of the node", "not-run": "not run yet" };
 const testOutcome = (t) => (t.status === "proposed" ? "waiting for its review" : t.status === "rejected" ? "rejected in review" : OUTCOME_WORDS[t.outcome] ?? "not run yet");
 const testTone = (t) => (t.status !== "accepted" ? "" : t.outcome === "passed" ? "ok" : ["failed", "errored", "missing", "changed"].includes(t.outcome) ? "bad" : "");
 // A page served over http cannot open a local file, so the link carries the file's address and a click copies its full path.
@@ -2705,14 +2705,14 @@ function fileLink(file) {
   return `<a class="mono test-file" href="${esc(href)}" data-path="${esc(full)}" title="Copy the full path of this test file">${esc(file)}</a>`;
 }
 function testsHtml(tests, withJourney = true) {
-  if (!tests.length) return `<p class="muted">No test is recorded for this box yet.</p>`;
+  if (!tests.length) return `<p class="muted">No test is recorded for this node yet.</p>`;
   return `<ul class="tests">${tests.map((t) => {
     const jid = withJourney && t.journey ? String(t.journey).split("/")[0] : "";
     const plays = jid ? `<span>plays <a class="id" href="#/journey/${esc(jid)}" title="${esc(snap.canon.journeys.find((j) => j.id === jid)?.title ?? "")}">${esc(t.journey)}</a></span>` : "";
     return `<li class="test ${testTone(t)}"><span>${esc(t.description)}</span><span class="test-meta"><span class="badge kind">${esc(KIND_WORDS[t.kind] ?? t.kind)}</span><span class="outcome">${esc(testOutcome(t))}</span>${fileLink(t.file)}${plays}</span>${t.message && testTone(t) === "bad" ? `<span class="test-msg">${esc(String(t.message).slice(0, 600))}</span>` : ""}${t.review && t.status === "rejected" ? `<span class="sub">Why the review rejected it: ${esc(t.review)}</span>` : ""}</li>`;
   }).join("")}</ul>`;
 }
-// Every place that waits for a box's tests gets them; an answer that changed nothing leaves the list as it is.
+// Every place that waits for a node's tests gets them; an answer that changed nothing leaves the list as it is.
 function fillTests(where) {
   for (const el of where.querySelectorAll("[data-tests-for]")) fetchTests(el.dataset.testsFor).then((tests) => {
     const key = JSON.stringify(tests);
@@ -2727,7 +2727,7 @@ async function copyText(text) { try { await navigator.clipboard.writeText(text);
 const noAnswer = (e) => e instanceof TypeError || /^\d{3}$/.test(String(e?.message ?? e));
 const sayWhy = (what, e) => (noAnswer(e) ? `${what}: the viewer gave no answer. Check that it still runs, then press again.` : String(e?.message ?? e));
 
-// The run: Implement/align on a scope, or "Implement this" on one box. The page reads it from the viewer when its
+// The run: Implement/align on a scope, or "Implement this" on one node. The page reads it from the viewer when its
 // revision changes on the poll; the card over the canvas says what a run would do, then how it stands.
 let runData = { run: null, listening: false }, lastRunRev = null, runSeen = false, listenedAt = 0;
 const isActiveRun = (r) => Boolean(r) && r.status !== "done" && r.status !== "stopped";
@@ -2739,7 +2739,7 @@ const sessionListening = () => Boolean(lastStatus ? lastStatus.listening : runDa
 const RUN_WORDS = { running: "running", waiting: "waits on you", review: "your decision", done: "done", stopped: "stopped" };
 function implementLabel() {
   const r = runData.run, n = reviewSlices().length;
-  return `Implement/align${isActiveRun(r) ? ` <span class="run-tag">· ${esc(RUN_WORDS[r.status] ?? r.status)}</span>` : ""}${n ? ` <span class="pill" title="Boxes built and waiting for your decision">${n}</span>` : ""}`;
+  return `Implement/align${isActiveRun(r) ? ` <span class="run-tag">· ${esc(RUN_WORDS[r.status] ?? r.status)}</span>` : ""}${n ? ` <span class="pill" title="Nodes built and waiting for your decision">${n}</span>` : ""}`;
 }
 async function fetchRun() {
   let got = null;
@@ -2756,7 +2756,7 @@ async function fetchRun() {
   syncPopupReview();
   syncPopupMarks();
 }
-// The run chimes at two moments only: when it starts to wait on the person, and when it ends. A run the viewer no
+// The run chimes at two moments only: when it starts to wait on the user, and when it ends. A run the viewer no
 // longer returns has ended and been decided.
 function noteRun(was, now) {
   const waits = (r) => r.status === "waiting" || r.status === "review";
@@ -2798,18 +2798,18 @@ function openRunCard() {
     $run.dataset.placed = "1";
   }
   renderRunCard();
-  // a card that would open over the box's card goes beside it instead
+  // a card that would open over the node's card goes beside it instead
   const over = (a, b) => { const x = a.getBoundingClientRect(), y = b.getBoundingClientRect(); return x.left < y.right && y.left < x.right && x.top < y.bottom && y.top < x.bottom; };
   if (wasHidden && !$popup.hidden && over($run, $popup)) placeBeside($run, $popup, $run.offsetWidth);
   fetchRun();
 }
-// The scope of a press: the selected box and what is under it; with nothing selected, every box.
+// The scope of a press: the selected node and what is under it; with nothing selected, every node.
 function runScope() {
   const sel = adoptState.selected && node(adoptState.selected) ? adoptState.selected : null;
   return { sel, ids: sel ? [sel, ...descendants(sel)] : Object.keys(snap.canon.nodes), send: sel ? [sel] : [...snap.canon.roots] };
 }
-// What a run over these boxes would do, from the marks as measured: a red box is left out, a box with a check and no
-// test gets one, a marked box is built or aligned.
+// What a run over these nodes would do, from the marks as measured: a red node is left out, a node with a check and no
+// test gets one, a marked node is built or aligned.
 function scopeCounts(ids) {
   const c = { test: 0, build: 0, align: 0, needYou: 0 };
   for (const id of ids) {
@@ -2828,7 +2828,7 @@ const terminalHtml = (ids) => { const line = `/headcanon:implement ${ids.join(" 
 function runBeforeHtml() {
   const { sel, ids, send } = runScope(), c = scopeCounts(ids), todo = c.test + c.build + c.align;
   const tile = (n, label) => `<li><b>${n}</b><span>${label}</span></li>`;
-  const scope = sel ? `<span class="id">${esc(sel)}</span> ${esc(node(sel).title)} and what is under it.` : "every box. Select a box on the canvas to narrow it.";
+  const scope = sel ? `<span class="id">${esc(sel)}</span> ${esc(node(sel).title)} and what is under it.` : "every node. Select a node on the canvas to narrow it.";
   const next = !todo ? `Nothing in scope needs a test, a build or an alignment.${c.needYou ? " What needs you is under Issues." : ""}`
     : marksData ? "The tests come first, then the build. You decide on each result before it is kept."
     : "What is built is not measured yet. The first run of the tests measures it.";
@@ -2839,32 +2839,32 @@ function runBeforeHtml() {
 }
 function runAskedHtml(a) {
   if (!a.listening) return terminalHtml(a.ids);
-  const what = a.single ? `build ${a.ids[0]} alone` : a.all ? "work on every box" : `work on ${a.ids.join(", ")} and what is under it`;
+  const what = a.single ? `build ${a.ids[0]} alone` : a.all ? "work on every node" : `work on ${a.ids.join(", ")} and what is under it`;
   return `<p><span class="spin"></span>The session was asked to ${esc(what)}. The steps appear here when the run starts.</p>`;
 }
 const RUN_SAYS = { running: "The run is under way.", waiting: "The run waits on you. What holds it is marked below; settle it, then continue.", review: "The run waits for your decision on what was built.", done: "The run is done.", stopped: "The run was stopped." };
-const STEP_WORDS = { prepare: "Prepare the build branch", readiness: "Check that the boxes can be built from their text", tests: "Write the tests and review them", "first-run": "Run the tests once", build: "Build, one box at a time", review: "Your decision" };
+const STEP_WORDS = { prepare: "Prepare the build branch", readiness: "Check that the nodes can be built from their text", tests: "Write the tests and review them", "first-run": "Run the tests once", build: "Build, one node at a time", review: "Your decision" };
 const STEP_STATE = { waiting: ["·", "to come"], running: [`<span class="spin"></span>`, "running"], done: ["✓", "done"], blocked: ["!", "waits on you"] };
 const SLICE_WORDS = { queued: "queued", building: "being built", passed: "passing", blocked: "waiting for your answer", review: "waiting for your decision", approved: "approved", discarded: "discarded", "sent-back": "sent back", stopped: "stopped" };
 function runStepsHtml(run) {
   return `<ol class="run-steps">${(run.steps ?? []).map((s) => { const [sign, word] = STEP_STATE[s.status] ?? ["·", s.status]; return `<li class="s-${esc(s.status)}"><span class="step-mark">${sign}</span><span><b>${esc(STEP_WORDS[s.name] ?? s.name)}</b>${s.note ? ` <span class="muted">· ${esc(s.note)}</span>` : ""}</span><span class="step-state">${esc(word)}</span></li>`; }).join("")}</ol>`;
 }
-// The boxes of a run, those waiting for a decision first, each with its state; one in review opens into the decision.
+// The nodes of a run, those waiting for a decision first, each with its state; one in review opens into the decision.
 function runSlicesHtml(run) {
   const slices = [...(run.slices ?? [])].sort((a, b) => (a.status === "review" ? 0 : 1) - (b.status === "review" ? 0 : 1));
-  if (!slices.length) return `<p class="muted">No box is in this run yet.</p>`;
+  if (!slices.length) return `<p class="muted">No node is in this run yet.</p>`;
   const tally = {}; for (const s of slices) tally[s.status] = (tally[s.status] ?? 0) + 1;
   const sum = Object.keys(SLICE_WORDS).filter((k) => tally[k]).map((k) => `${tally[k]} ${SLICE_WORDS[k]}`).join(" · ");
   const more = (s) => { const bits = []; if (s.status === "blocked" && s.issues?.length) bits.push(`${s.issues.length} issue${s.issues.length === 1 ? "" : "s"} under Issues`); if (s.note) bits.push(s.status === "sent-back" ? `Your note: ${s.note}` : s.note); else if (s.summary) bits.push(s.summary); return bits.length ? `<p class="sub">${esc(bits.join(" · "))}</p>` : ""; };
-  return `<p class="sub">${esc(sum)}</p><ul class="run-slices">${slices.map((s) => `<li class="slice s-${esc(s.status)}"><div class="slice-head"><button class="btn small crumb" data-run-box="${esc(s.box)}" title="Show this box on the canvas and open its card">${esc(s.box)}</button><span class="t" title="${esc(s.title ?? "")}">${esc(s.title ?? "")}</span><span class="slice-state">${s.status === "building" ? `<span class="spin"></span>` : ""}${esc(SLICE_WORDS[s.status] ?? s.status)}</span></div>${s.status === "review" ? reviewHtml(s) : more(s)}</li>`).join("")}</ul>`;
+  return `<p class="sub">${esc(sum)}</p><ul class="run-slices">${slices.map((s) => `<li class="slice s-${esc(s.status)}"><div class="slice-head"><button class="btn small crumb" data-run-node="${esc(s.node)}" title="Show this node on the canvas and open its card">${esc(s.node)}</button><span class="t" title="${esc(s.title ?? "")}">${esc(s.title ?? "")}</span><span class="slice-state">${s.status === "building" ? `<span class="spin"></span>` : ""}${esc(SLICE_WORDS[s.status] ?? s.status)}</span></div>${s.status === "review" ? reviewHtml(s) : more(s)}</li>`).join("")}</ul>`;
 }
-const approveAllHtml = () => (reviewSlices().length > 1 ? `<button class="btn" data-run="approve-all" title="Approve every box that waits for your decision">Approve all</button>` : "");
+const approveAllHtml = () => (reviewSlices().length > 1 ? `<button class="btn" data-run="approve-all" title="Approve every node that waits for your decision">Approve all</button>` : "");
 function runDuringHtml(run) {
   return `<p>${esc(RUN_SAYS[run.status] ?? "")}${run.startedAt ? ` <span class="muted">Started ${esc(timeOf(run.startedAt))}.</span>` : ""}</p>
     ${runStepsHtml(run)}${runSlicesHtml(run)}
-    <div class="row">${run.status === "waiting" ? `<button class="btn primary" data-run="continue">Continue</button>` : ""}${run.status === "running" || run.status === "waiting" ? `<button class="btn" data-run="stop" title="The run stops after the box being built now">Stop</button>` : ""}${approveAllHtml()}</div>`;
+    <div class="row">${run.status === "waiting" ? `<button class="btn primary" data-run="continue">Continue</button>` : ""}${run.status === "running" || run.status === "waiting" ? `<button class="btn" data-run="stop" title="The run stops after the node being built now">Stop</button>` : ""}${approveAllHtml()}</div>`;
 }
-// A run that ended while boxes of it still wait for a decision: they stay in reach under what a new run would do.
+// A run that ended while nodes of it still wait for a decision: they stay in reach under what a new run would do.
 const runLastHtml = (run) => (run ? `<details class="run-last" open><summary>The last run, ${esc(RUN_WORDS[run.status] ?? run.status)}</summary>${runSlicesHtml(run)}<div class="row">${approveAllHtml()}</div></details>` : "");
 // The card says one of three things: what a run would do, that the session was asked, or how the run stands. It is
 // redrawn only when its words change, and never under a note being typed.
@@ -2897,73 +2897,73 @@ async function runPress(b) {
   if (act === "start") { const { sel, send } = runScope(); await askImplement(send, { all: !sel }); }
   else if (act === "approve-all") await approveAll();
   else {
-    try { const r = await post(`/api/run/${act}`, {}); if (r.ok === false) throw new Error(r.error || "the viewer refused"); showToast(act === "stop" ? "The run stops after the box being built now." : "The run goes on."); }
+    try { const r = await post(`/api/run/${act}`, {}); if (r.ok === false) throw new Error(r.error || "the viewer refused"); showToast(act === "stop" ? "The run stops after the node being built now." : "The run goes on."); }
     catch (e) { showToast(sayWhy(act === "stop" ? "The run did not hear Stop" : "The run did not hear Continue", e)); }
     await fetchRun();
   }
   if (b.isConnected) b.disabled = false;
 }
 
-// The final decision. A box built and waiting shows what was built in plain words, its tests with their results, its
-// commits, and three ways to decide; the same block stands on the box's card and in the run card.
+// The final decision. A node built and waiting shows what was built in plain words, its tests with their results, its
+// commits, and three ways to decide; the same block stands on the node's card and in the run card.
 function reviewHtml(s) {
   const commits = (s.commits ?? []).map((c) => `<code title="${esc(c)}">${esc(/^[0-9a-f]{11,40}$/i.test(c) ? c.slice(0, 10) : c)}</code>`).join(" ");
-  return `<div class="review" data-review="${esc(s.box)}">
+  return `<div class="review" data-review="${esc(s.node)}">
     <p>${s.summary ? esc(s.summary) : `<span class="muted">The session left no words on what was built.</span>`}</p>
-    <div data-tests-for="${esc(s.box)}"><p class="muted">Loading the tests…</p></div>
+    <div data-tests-for="${esc(s.node)}"><p class="muted">Loading the tests…</p></div>
     ${commits ? `<p class="sub">Commits: ${commits}</p>` : ""}
-    <div class="row review-actions"><button class="btn primary" data-slice="approve" title="Keep it: the change to the canon is committed with your approval">Approve</button><button class="btn" data-slice="back" title="Return it with a note; the session starts again on this box">Send back</button><button class="btn" data-slice="discard" title="Undo what was built for this box">Discard</button></div>
+    <div class="row review-actions"><button class="btn primary" data-slice="approve" title="Keep it: the change to the canon is committed with your approval">Approve</button><button class="btn" data-slice="back" title="Return it with a note; the session starts again on this node">Send back</button><button class="btn" data-slice="discard" title="Undo what was built for this node">Discard</button></div>
     <div class="review-note" hidden><textarea rows="3" placeholder="What should change, in your words"></textarea><div class="row"><button class="btn primary" data-slice="send">Send back</button><button class="btn" data-slice="cancel">Cancel</button></div></div>
   </div>`;
 }
-// The box's card carries the decision while the box waits for one.
+// The node's card carries the decision while the node waits for one.
 function syncPopupReview() {
   const place = $popup.querySelector("#pp-review");
   if (!place || $popup.hidden || editingDraft()) return;
-  const s = reviewSlices().find((x) => x.box === $popup.dataset.id), key = s ? JSON.stringify(s) : "";
+  const s = reviewSlices().find((x) => x.node === $popup.dataset.id), key = s ? JSON.stringify(s) : "";
   if ((place.dataset.key ?? "") === key || place.querySelector(".review-note textarea")?.value.trim()) return;
   place.dataset.key = key;
   place.innerHTML = s ? `<p class="review-head"><b>Built, and waiting for your decision.</b></p>${reviewHtml(s)}` : "";
   fillTests(place);
 }
-// A decision that went through shows where the box stands and in the history; only one that did not is said.
+// A decision that went through shows where the node stands and in the history; only one that did not is said.
 const SLICE_FAILED = { approve: "could not be approved", discard: "could not be discarded", "send-back": "could not be sent back" };
-async function sliceAct(action, box, note) {
-  try { const r = await post(`/api/slice/${action}`, note === undefined ? { box } : { box, note }); if (r.ok === false) throw new Error(r.error || "the viewer refused"); return true; }
-  catch (e) { showToast(sayWhy(`${box} ${SLICE_FAILED[action]}`, e)); return false; }
+async function sliceAct(action, node, note) {
+  try { const r = await post(`/api/slice/${action}`, note === undefined ? { node } : { node, note }); if (r.ok === false) throw new Error(r.error || "the viewer refused"); return true; }
+  catch (e) { showToast(sayWhy(`${node} ${SLICE_FAILED[action]}`, e)); return false; }
 }
 async function slicePress(b) {
-  const review = b.closest(".review"), box = review?.dataset.review, act = b.dataset.slice;
-  if (!box) return;
+  const review = b.closest(".review"), node = review?.dataset.review, act = b.dataset.slice;
+  if (!node) return;
   const note = review.querySelector(".review-note"), actions = review.querySelector(".review-actions"), text = note.querySelector("textarea");
   if (act === "back") { note.hidden = false; actions.hidden = true; text.focus(); return; }
   if (act === "cancel") { text.value = ""; note.hidden = true; actions.hidden = false; return; }
   if (act === "send" && !text.value.trim()) { showToast("Write what should change first."); return; }
-  if (act === "discard" && !confirm(`Discard what was built for ${box}? Its commits are reverted.`)) return;
+  if (act === "discard" && !confirm(`Discard what was built for ${node}? Its commits are reverted.`)) return;
   const action = act === "send" ? "send-back" : act;
   b.disabled = true;
-  if (await sliceAct(action, box, act === "send" ? text.value.trim() : undefined)) { text.value = ""; await fetchRun(); }
+  if (await sliceAct(action, node, act === "send" ? text.value.trim() : undefined)) { text.value = ""; await fetchRun(); }
   if (b.isConnected) b.disabled = false;
 }
 async function approveAll() {
-  for (const s of reviewSlices()) if (!(await sliceAct("approve", s.box))) break;
+  for (const s of reviewSlices()) if (!(await sliceAct("approve", s.node))) break;
   await fetchRun();
 }
 // One listener for what these cards hold, wherever they are drawn: the button, the run card, a test's file, a decision.
 document.addEventListener("click", async (e) => {
-  const t = e.target.closest?.("#implement-btn, [data-run], [data-run-box], [data-copy], a.test-file, [data-slice]");
+  const t = e.target.closest?.("#implement-btn, [data-run], [data-run-node], [data-copy], a.test-file, [data-slice]");
   if (!t) return;
   if (t.matches("a.test-file")) { e.preventDefault(); const path = t.dataset.path; showToast((await copyText(path)) ? `Copied the path of the test file: ${path}` : `The test file is at ${path}`); }
   else if (t.id === "implement-btn") openRunCard();
   else if (t.dataset.copy) { if (await copyText(t.dataset.copy)) t.textContent = "Copied"; else showToast("The line could not be copied. Select it and copy it by hand."); }
-  else if (t.dataset.runBox) { if (node(t.dataset.runBox)) focusOnCanvas(t.dataset.runBox, true, true); }
+  else if (t.dataset.runNode) { if (node(t.dataset.runNode)) focusOnCanvas(t.dataset.runNode, true, true); }
   else if (t.dataset.run) runPress(t);
   else slicePress(t);
 });
 
 // ---------------------------------------------------------------- the canvas view, refreshed in place
-// A change on disk never rebuilds the canvas: the strip, the legend, the principles box and the boxes' colours are
-// updated where they are, and only boxes that appeared or went move the layout. Reloads are spaced while the session
+// A change on disk never rebuilds the canvas: the strip, the legend, the principles node and the nodes' colours are
+// updated where they are, and only nodes that appeared or went move the layout. Reloads are spaced while the session
 // writes continuously, except during onboarding, when the canon is small and the next step must not wait.
 function refreshAdopt() {
   if (route().view !== "adopt" || !snap) return;
@@ -2997,18 +2997,18 @@ function scheduleReload(named) {
 }
 
 function appendChat(entries) {
-  // the chat holds only what the person and the session say to each other; the terminal's mirror has its own tab
+  // the chat holds only what the user and the session say to each other; the terminal's mirror has its own tab
   const chat = document.getElementById("activity"), history = document.getElementById("history"), terminal = document.getElementById("terminal");
   for (const e of entries) {
     if (e.kind === "say" && e.intro) { introAt = e.at; continue; } // the onboarding signal: the card owns its words; its time names the run
     if (e.kind === "terminal") { const li = document.createElement("li"); li.className = `terminal ${e.role === "session" ? "say" : "message"}`; li.innerHTML = `<span class="kind">terminal · ${e.role === "session" ? "session" : "you"}</span>${chatHtml(e.text ?? "")}<div class="meta"><time>${timeOf(e.at)}</time></div>`; (terminal ?? chat).appendChild(li); continue; }
     const li = document.createElement("li");
     const t = timeOf(e.at);
-    const toHuman = e.kind === "message" || (e.kind === "say" && (e.to === "human" || /\?\s*$/.test(e.text ?? "")));
-    if (toHuman && e.kind === "say") { li.className = "say"; li.innerHTML = `${chatHtml(e.text)}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; chat.appendChild(li); }
+    const toUser = e.kind === "message" || (e.kind === "say" && (e.to === "user" || /\?\s*$/.test(e.text ?? "")));
+    if (toUser && e.kind === "say") { li.className = "say"; li.innerHTML = `${chatHtml(e.text)}<div class="meta">${e.id ? `<a class="ref" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}" title="Open ${esc(e.id)}">${esc(e.id)}</a>` : ""}<time>${t}</time></div>`; chat.appendChild(li); }
     else if (e.kind === "message") { li.className = "message"; li.innerHTML = `${e.quote ? `<span class="q">${e.id ? `<a class="id" data-id="${esc(e.id)}" href="#/node/${esc(e.id)}">${esc(e.id)}</a> › ` : ""}“${esc(e.quote)}”</span>` : ""}${linkIds(e.text ?? "")}<div class="meta"><time>${t}</time></div>`; chat.appendChild(li); }
     else {
-      li.className = `ev ${e.kind}`; if (e.id) li.dataset.id = e.id; li.title = "Double-click to go to this box";
+      li.className = `ev ${e.kind}`; if (e.id) li.dataset.id = e.id; li.title = "Double-click to go to this node";
       li.innerHTML = `<span class="kind">${esc(KIND_LABELS[e.kind] ?? e.kind)}</span>${linkIds(e.text ?? "")}<div class="meta">${e.id ? `<span class="ref">${esc(e.id)}</span>` : ""}<time>${t}</time></div>`;
       li.addEventListener("dblclick", () => goToEvent(e.id));
       history.appendChild(li);
@@ -3033,7 +3033,7 @@ for (const b of document.querySelectorAll(".panel-tabs button")) b.addEventListe
   if (b.dataset.panel === "history") { historyNew = 0; document.getElementById("history-new").hidden = true; }
   document.getElementById(b.dataset.panel).lastElementChild?.scrollIntoView({ block: "nearest" });
 });
-// While the canvas is up, a box named in the chat is focused there rather than opened as a page; a principle opens its card.
+// While the canvas is up, a node named in the chat is focused there rather than opened as a page; a principle opens its card.
 document.getElementById("activity").addEventListener("click", (ev) => {
   const a = ev.target.closest("a[data-id]");
   if (!a || !document.body.classList.contains("adopt-mode")) return;

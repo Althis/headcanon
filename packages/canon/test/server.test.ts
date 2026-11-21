@@ -118,7 +118,7 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((q) => q.id === a || q.id === b)).toBe(false);
   });
 
-  it("settling an issue with the human's words drops the section it came from", async () => {
+  it("settling an issue with the user's words drops the section it came from", async () => {
     await send("/api/node/REQ-2", { text: "---\nid: REQ-2\ntitle: \"Billing works\"\nstate: contested\n---\n\n# Billing works\n\n## Intent\n\nOld.\n\n## Contested\n\nTwo readings.\n\n- A (docs/a.md:1).\n- B (docs/b.md:2).\n" }, "PUT");
     expect(loadCanon(join(dir, "canon")).nodes["REQ-2"]?.state).toBe("contested");
     await send("/api/node/REQ-2", { intent: "A.", resolve: "contested" }, "PUT");
@@ -148,13 +148,13 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     await send("/api/message", { text: "please go deeper on REQ-1" });
     await send("/api/message", { text: "what does this mean?", nodeId: "REQ-1", quote: "productive without help" });
     await send("/api/conflict", { id: "REQ-1", choice: "keep" });
-    await send("/api/say", { text: "Which of the two stands?", nodeId: "REQ-1", to: "human" });
+    await send("/api/say", { text: "Which of the two stands?", nodeId: "REQ-1", to: "user" });
     await send("/api/refine", { id: "REQ-1" });
     const changes = await get(`/api/changes?since=${before}`);
     const entries = changes["entries"] as Array<Record<string, unknown>>;
     expect(entries.map((e) => e["kind"])).toEqual(["term-enshrined", "message", "message", "edit-conflict", "say", "refine-request"]);
     expect(entries[3]).toMatchObject({ kind: "edit-conflict", id: "REQ-1" });
-    expect(entries[4]).toMatchObject({ kind: "say", to: "human" });
+    expect(entries[4]).toMatchObject({ kind: "say", to: "user" });
     expect(entries[2]).toMatchObject({ kind: "message", id: "REQ-1", quote: "productive without help", text: "what does this mean?" });
   });
 
@@ -179,7 +179,7 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     const top = await send("/api/node", { title: "Billing is fair" });
     expect(top.body["id"]).toBe("REQ-3");
   });
-  it("withdraws a box's pending question when the human rewrites it, and tells a live session from a dead one", async () => {
+  it("withdraws a node's pending question when the user rewrites it, and tells a live session from a dead one", async () => {
     const q = (await send("/api/ask", { nodeId: "REQ-1.1", question: "Still open?", header: "Draft" })).body["questionId"] as string;
     expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((x) => x.id === q)).toBe(true);
     expect((await send("/api/node/REQ-1.1", { intent: "Signing up takes one step." }, "PUT")).status).toBe(200);
@@ -190,14 +190,14 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     expect(typeof (await get("/api/session"))["agentSeenAgo"]).toBe("number");
     expect(before === null || typeof before === "number").toBe(true);
   });
-  it("withdraws a box's questions at the session's word", async () => {
+  it("withdraws a node's questions at the session's word", async () => {
     const q = (await send("/api/ask", { nodeId: "REQ-2", question: "Decided after all?", header: "Draft" })).body["questionId"] as string;
     expect((await send("/api/withdraw", { nodeId: "REQ-2", reason: "decided by precedence" })).body["withdrawn"]).toBe(1);
     expect(((await get("/api/session"))["queue"] as Array<{ id: string }>).some((x) => x.id === q)).toBe(false);
     expect((await send("/api/withdraw", {})).status).toBe(400);
   });
   it("keeps what the session says it is doing, for the page's live status", async () => {
-    expect((await send("/api/say", { text: "Cutting two boxes.", doing: ["cutting REQ-1.1", "verifying REQ-2"] })).status).toBe(200);
+    expect((await send("/api/say", { text: "Cutting two nodes.", doing: ["cutting REQ-1.1", "verifying REQ-2"] })).status).toBe(200);
     const d = (await get("/api/session"))["doing"] as { items: string[]; at: string };
     expect(d.items).toEqual(["cutting REQ-1.1", "verifying REQ-2"]);
     expect(typeof d.at).toBe("string");
@@ -209,7 +209,7 @@ describe("viewer session endpoints [REQ-12.1.7]", () => {
     const s = await get("/api/session");
     expect([String(s["marksRev"]), String(s["runRev"])].every((x) => /^[0-9a-f]{12}$/.test(x))).toBe(true);
     expect((await get("/api/status"))["run"]).toBeNull();
-    expect((await send("/api/slice/approve", { box: "REQ-2" })).body).toEqual({ ok: false, error: "The canon is not inside a git repository, so there is no run to decide on." });
+    expect((await send("/api/slice/approve", { node: "REQ-2" })).body).toEqual({ ok: false, error: "The canon is not inside a git repository, so there is no run to decide on." });
   });
 });
 
@@ -226,7 +226,7 @@ describe("marks, tests and the run through the viewer [REQ-12.1.7]", () => {
     base = served.url.replace(/\/$/, "");
     close = served.close;
   };
-  const onBox = async (id: string) => ((await get("/api/session"))["queue"] as Array<Record<string, unknown>>).filter((q) => q["nodeId"] === id);
+  const onNode = async (id: string) => ((await get("/api/session"))["queue"] as Array<Record<string, unknown>>).filter((q) => q["nodeId"] === id);
   const entriesSince = async (cursor: number) => (await get(`/api/changes?since=${cursor}`))["entries"] as Array<Record<string, unknown>>;
 
   // a repository of its own, so the stores under its git directory exist: the queue, the results, the runs
@@ -243,38 +243,38 @@ describe("marks, tests and the run through the viewer [REQ-12.1.7]", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("keeps the questions of two authors on one box, and both survive a restart of the viewer", async () => {
+  it("keeps the questions of two authors on one node, and both survive a restart of the viewer", async () => {
     const mine = (await send("/api/ask", { nodeId: "REQ-1.1", question: "Which limit stands?", header: "Draft" })).body["questionId"] as string;
     const theirs = (await send("/api/ask", { nodeId: "REQ-1.1", kind: "impossible", question: "Sign-up cannot end in one step.", by: "implementer-REQ-1.1", blocks: true })).body["questionId"] as string;
-    expect((await onBox("REQ-1.1")).map((q) => q["id"])).toEqual([mine, theirs]);
+    expect((await onNode("REQ-1.1")).map((q) => q["id"])).toEqual([mine, theirs]);
     expect(existsSync(join(gitDir, "headcanon", "questions.json"))).toBe(true);
     close();
     await start();
-    const kept = await onBox("REQ-1.1");
+    const kept = await onNode("REQ-1.1");
     expect(kept.map((q) => q["id"])).toEqual([mine, theirs]);
     expect(kept[1]).toMatchObject({ kind: "impossible", by: "implementer-REQ-1.1", blocks: true, options: [], header: "Could not be built" });
     expect("by" in kept[0]!).toBe(false);
     // the agent's newer question replaces its own and leaves the session's
     const newer = (await send("/api/ask", { nodeId: "REQ-1.1", kind: "impossible", question: "Sign-up needs a second step.", by: "implementer-REQ-1.1", blocks: true })).body["questionId"] as string;
-    expect((await onBox("REQ-1.1")).map((q) => q["id"])).toEqual([mine, newer]);
+    expect((await onNode("REQ-1.1")).map((q) => q["id"])).toEqual([mine, newer]);
     // a withdrawal under a name takes that author's only; the answer says whose issue it was
     expect((await send("/api/withdraw", { nodeId: "REQ-1.1", by: "tester-REQ-1" })).body["withdrawn"]).toBe(0);
     const before = (await get("/api/changes"))["cursor"] as number;
     expect((await send("/api/answer", { questionId: newer, selected: [], other: "Two steps are fine." })).status).toBe(200);
     expect((await entriesSince(before))[0]).toMatchObject({ kind: "answer", id: "REQ-1.1", by: "implementer-REQ-1.1", blocks: true });
     expect((await send("/api/withdraw", { nodeId: "REQ-1.1" })).body["withdrawn"]).toBe(1);
-    expect(await onBox("REQ-1.1")).toEqual([]);
+    expect(await onNode("REQ-1.1")).toEqual([]);
   });
 
   it("hands an implement request, a stop and a continue to the session, and says whether one is listening", async () => {
     const before = (await get("/api/changes"))["cursor"] as number;
     expect((await send("/api/implement", { ids: ["REQ-1", "REQ-2", "REQ-1"] })).body).toEqual({ ok: true, listening: false });
     expect((await send("/api/implement", { ids: ["REQ-1.1"], single: true })).body).toEqual({ ok: true, listening: false });
-    // nothing selected is every box: the entry names none
+    // nothing selected is every node: the entry names none
     expect((await send("/api/implement", { ids: [] })).status).toBe(200);
-    // an id that is no box is refused, never dropped: dropping it would widen the scope to everything
+    // an id that is no node is refused, never dropped: dropping it would widen the scope to everything
     const unknown = await send("/api/implement", { ids: ["REQ-1", "REQ-99"] });
-    expect([unknown.status, unknown.body["ok"], String(unknown.body["error"])]).toEqual([400, false, "no such box: REQ-99"]);
+    expect([unknown.status, unknown.body["ok"], String(unknown.body["error"])]).toEqual([400, false, "no such node: REQ-99"]);
     expect((await send("/api/implement", { ids: ["REQ-1", "REQ-2"], single: true })).status).toBe(400);
     expect((await send("/api/implement", {})).status).toBe(400);
     expect((await send("/api/run/stop", {})).body["ok"]).toBe(true);
@@ -284,12 +284,12 @@ describe("marks, tests and the run through the viewer [REQ-12.1.7]", () => {
       ["implement-request", "REQ-1 REQ-2", "all"],
       ["implement-request", "REQ-1.1", "single"],
       ["implement-request", null, "all"],
-      ["run-stop", null, "The human asked to stop the run."],
-      ["run-continue", null, "The human asked to continue the run."],
+      ["run-stop", null, "The user asked to stop the run."],
+      ["run-continue", null, "The user asked to continue the run."],
     ]);
     // a session waiting on the feed is listening, and the request wakes it
     const cursor = (await get("/api/changes"))["cursor"] as number;
-    const waiting = fetch(`${base}/api/changes?since=${cursor}&timeout=5&wake=human`).then((r) => r.json() as Promise<{ entries: Array<{ kind: string; id?: string }> }>);
+    const waiting = fetch(`${base}/api/changes?since=${cursor}&timeout=5&wake=user`).then((r) => r.json() as Promise<{ entries: Array<{ kind: string; id?: string }> }>);
     await new Promise((r) => setTimeout(r, 150));
     expect((await get("/api/run"))["listening"]).toBe(true);
     expect((await send("/api/implement", { ids: ["ROOT"] })).body).toEqual({ ok: true, listening: true });
@@ -309,11 +309,11 @@ describe("marks, tests and the run through the viewer [REQ-12.1.7]", () => {
     expect(await get("/api/run")).toEqual({ run: null, listening: false });
     expect((await get("/api/status"))["run"]).toBeNull();
     for (const action of ["approve", "discard", "send-back"]) {
-      const r = await send(`/api/slice/${action}`, { box: "REQ-1.1", note: "Keep the email optional." });
+      const r = await send(`/api/slice/${action}`, { node: "REQ-1.1", note: "Keep the email optional." });
       expect([r.status, r.body]).toEqual([200, { ok: false, error: "No run is waiting on your decision." }]);
-      expect((await send(`/api/slice/${action}`, { note: "No box named." })).status).toBe(400);
+      expect((await send(`/api/slice/${action}`, { note: "No node named." })).status).toBe(400);
     }
-    expect((await send("/api/slice/send-back", { box: "REQ-1.1" })).body).toMatchObject({ ok: false, error: "note is required: say what to change" });
+    expect((await send("/api/slice/send-back", { node: "REQ-1.1" })).body).toMatchObject({ ok: false, error: "note is required: say what to change" });
   });
 
   it("gives the page a revision for the marks and one for the run, each changing only with its own stores", async () => {
@@ -337,31 +337,31 @@ describe("marks, tests and the run through the viewer [REQ-12.1.7]", () => {
     rmSync(join(canonDir, "tests.json"));
   });
 
-  it("shows a box's recorded tests in plain words, each with its last outcome, from the stores of testing.ts", async () => {
+  it("shows a node's recorded tests in plain words, each with its last outcome, from the stores of testing.ts", async () => {
     const file = join(canonDir, "REQ-1-onboarding", "REQ-1.1-fast-signup.md");
     writeFileSync(file, readFileSync(file, "utf8").replace(/id: REQ-1\.1(\r?\n)/, "id: REQ-1.1$1uid: u-11$1"));
     expect(loadCanon(canonDir).nodes["REQ-1.1"]?.uid).toBe("u-11");
-    const entry = (title: string, extra: Partial<TestEntry> = {}): TestEntry => ({ box: "u-11", id: "REQ-1.1", runner: "unit", kind: "unit", file: "tests/signup.test.txt", title, description: "Signs up with a name alone and checks that it ends within the limit.", pin: "pin", status: "accepted", at: new Date().toISOString(), ...extra });
+    const entry = (title: string, extra: Partial<TestEntry> = {}): TestEntry => ({ node: "u-11", id: "REQ-1.1", runner: "unit", kind: "unit", file: "tests/signup.test.txt", title, description: "Signs up with a name alone and checks that it ends within the limit.", pin: "pin", status: "accepted", at: new Date().toISOString(), ...extra });
     saveManifest(canonDir, {
       runners: { unit: { kind: "unit", command: "run {files}", format: "junit" } },
       tests: [
         entry("sign-up is fast [hc:u-11]"),
         entry("first project, start to end [hc:u-11]", { kind: "e2e", file: "tests/first-project.txt", journey: "JRN-1", description: "Plays the first-project journey from the first screen to the first saved project." }),
-        entry("another box [hc:u-2]", { box: "u-2", id: "REQ-2" }),
+        entry("another node [hc:u-2]", { node: "u-2", id: "REQ-2" }),
       ],
     });
-    writeFileSync(resultsPath(gitDir), JSON.stringify({ at: new Date().toISOString(), tree: "t", results: [{ box: "u-11", title: "sign-up is fast [hc:u-11]", file: "tests/signup.test.txt", runner: "unit", outcome: "failed", message: "took 90 seconds" }], runs: [] }));
+    writeFileSync(resultsPath(gitDir), JSON.stringify({ at: new Date().toISOString(), tree: "t", results: [{ node: "u-11", title: "sign-up is fast [hc:u-11]", file: "tests/signup.test.txt", runner: "unit", outcome: "failed", message: "took 90 seconds" }], runs: [] }));
     expect(await get("/api/tests?id=REQ-1.1")).toEqual({ tests: [
       { description: "Signs up with a name alone and checks that it ends within the limit.", kind: "unit", file: "tests/signup.test.txt", runner: "unit", status: "accepted", outcome: "failed", message: "took 90 seconds" },
       { description: "Plays the first-project journey from the first screen to the first saved project.", kind: "e2e", file: "tests/first-project.txt", runner: "unit", status: "accepted", journey: "JRN-1" },
     ] });
     expect(await get("/api/tests?id=REQ-1")).toEqual({ tests: [] });
-    // one box of the canon carries tests now
+    // one node of the canon carries tests now
     expect(((await get("/api/marks"))["counts"] as { tested: number }).tested).toBe(1);
   });
 
-  it("shows the run from the store of runs.ts and sends a slice back with the human's note", async () => {
-    const slice = (box: string, uid: string, status: Slice["status"]): Slice => ({ box, uid, title: box, status, owes: [uid], attempts: 1, lastFailing: [], commits: [], issues: [] });
+  it("shows the run from the store of runs.ts and sends a slice back with the user's note", async () => {
+    const slice = (node: string, uid: string, status: Slice["status"]): Slice => ({ node, uid, title: node, status, owes: [uid], attempts: 1, lastFailing: [], commits: [], issues: [] });
     const step = (name: Run["steps"][number]["name"], status: Run["steps"][number]["status"]) => ({ name, status });
     const run: Run = {
       id: "run-1", startedAt: new Date().toISOString(), scope: ["REQ-1", "REQ-2"], single: false, branch: "headcanon/build", base: "main", status: "review",
@@ -372,16 +372,16 @@ describe("marks, tests and the run through the viewer [REQ-12.1.7]", () => {
     saveRun(gitDir, run);
     expect((await get("/api/session"))["runRev"]).not.toBe(before["runRev"]);
     const shown = (await get("/api/run"))["run"] as Run;
-    expect([shown.id, shown.status, shown.slices.map((s) => `${s.box}:${s.status}`)]).toEqual(["run-1", "review", ["REQ-1.1:review", "REQ-2:building"]]);
+    expect([shown.id, shown.status, shown.slices.map((s) => `${s.node}:${s.status}`)]).toEqual(["run-1", "review", ["REQ-1.1:review", "REQ-2:building"]]);
     expect((await get("/api/status"))["run"]).toEqual({ id: "run-1", status: "review", step: "build" });
-    // only a slice that waits on the human can be decided
-    expect((await send("/api/slice/send-back", { box: "REQ-2", note: "Not yet." })).body).toEqual({ ok: false, error: "REQ-2 is not waiting on your decision: it is building." });
-    expect((await send("/api/slice/approve", { box: "REQ-9" })).body).toEqual({ ok: false, error: "REQ-9 is not part of the run." });
+    // only a slice that waits on the user can be decided
+    expect((await send("/api/slice/send-back", { node: "REQ-2", note: "Not yet." })).body).toEqual({ ok: false, error: "REQ-2 is not waiting on your decision: it is building." });
+    expect((await send("/api/slice/approve", { node: "REQ-9" })).body).toEqual({ ok: false, error: "REQ-9 is not part of the run." });
     const cursor = (await get("/api/changes"))["cursor"] as number;
-    expect((await send("/api/slice/send-back", { box: "REQ-1.1", note: " Keep the email optional. " })).body).toEqual({ ok: true });
-    expect(loadRun(gitDir, "run-1")?.slices[0]).toMatchObject({ box: "REQ-1.1", status: "sent-back", note: "Keep the email optional." });
+    expect((await send("/api/slice/send-back", { node: "REQ-1.1", note: " Keep the email optional. " })).body).toEqual({ ok: true });
+    expect(loadRun(gitDir, "run-1")?.slices[0]).toMatchObject({ node: "REQ-1.1", status: "sent-back", note: "Keep the email optional." });
     expect(await entriesSince(cursor)).toMatchObject([{ kind: "slice-sent-back", id: "REQ-1.1", text: "Keep the email optional." }]);
     // decided once: the same slice no longer waits
-    expect((await send("/api/slice/approve", { box: "REQ-1.1" })).body).toEqual({ ok: false, error: "REQ-1.1 is not waiting on your decision: it is sent-back." });
+    expect((await send("/api/slice/approve", { node: "REQ-1.1" })).body).toEqual({ ok: false, error: "REQ-1.1 is not waiting on your decision: it is sent-back." });
   });
 });

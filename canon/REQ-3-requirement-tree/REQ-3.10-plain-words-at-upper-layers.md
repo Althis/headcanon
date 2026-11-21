@@ -22,4 +22,4 @@ Domains and capabilities are readable by someone who has never seen the code or 
 ## Assumptions
 
 - "Top-level ones" is read as the domain and capability layers, since both exist to be understood before anything is refined. (model assumption)
-- A term from the glossary is plain enough at any layer, because the glossary is where the human defined it. (model assumption)
+- A term from the glossary is plain enough at any layer, because the glossary is where the user defined it. (model assumption)

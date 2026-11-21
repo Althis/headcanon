@@ -1,12 +1,12 @@
 ---
 id: DEC-024
-title: "Adoption drafts the canon to its leaves before the human is asked; the human works a list ranked by impact"
+title: "Adoption drafts the canon to its leaves before the user is asked; the user works a list ranked by impact"
 state: stated
 date: 2026-11-15
 intents: [REQ-3.4, REQ-11.6, REQ-11.6.3]
 ---
 
-# Adoption drafts the canon to its leaves before the human is asked; the human works a list ranked by impact
+# Adoption drafts the canon to its leaves before the user is asked; the user works a list ranked by impact
 
 ## Stated
 
@@ -20,15 +20,15 @@ Source: Claude Code session, 2026-11-15, after the reading of the field and the 
 
 ## Intent
 
-Adoption has two phases, machine then human. First the session drafts the canon from the repository to its leaves with nobody waiting on the human: every entry the artifacts support is written `assumed`; what the code does today goes under the entry's `## As built`, apart from the Intent that says what must hold; every contradiction and every thing nothing speaks to is a draft with its question filed as an issue and left; a red box alone holds its subtree back. Then the human's session: `headcanon next` ranks what they can approve or settle by impact, the boxes an approval validates or a settled red box frees, the premise first and then the frontier of guessed boxes under approved ones, and each answer re-drafts what it invalidated in the background. The list stands after adoption, so the human validates the canon by it whenever they return; before work starts under a box, the session names the unapproved boxes on the path down to it (`headcanon next <ID>`) and asks about those alone.
+Adoption has two phases, machine then user. First the session drafts the canon from the repository to its leaves with nobody waiting on the user: every entry the artifacts support is written `assumed`; what the code does today goes under the entry's `## As built`, apart from the Intent that says what must hold; every contradiction and every thing nothing speaks to is a draft with its question filed as an issue and left; a red node alone holds its subtree back. Then the user's session: `headcanon next` ranks what they can approve or settle by impact, the nodes an approval validates or a settled red node frees, the premise first and then the frontier of guessed nodes under approved ones, and each answer re-drafts what it invalidated in the background. The list stands after adoption, so the user validates the canon by it whenever they return; before work starts under a node, the session names the unapproved nodes on the path down to it (`headcanon next <ID>`) and asks about those alone.
 
-This supersedes the reach of DEC-018 and DEC-023 and the second half of DEC-020, the lifting of the reach after Finish: nothing waits for an approval any more. DEC-017's continuous and local drafting, DEC-020's Finish as the end of the human's session whatever is red, and DEC-022's precedence and three kinds of question stand.
+This supersedes the reach of DEC-018 and DEC-023 and the second half of DEC-020, the lifting of the reach after Finish: nothing waits for an approval any more. DEC-017's continuous and local drafting, DEC-020's Finish as the end of the user's session whatever is red, and DEC-022's precedence and three kinds of question stand.
 
 ## Why
 
-The runs of October and November 2026 spent the human's quarter of an hour on questions the code already answered and on approvals whose only effect was to release more drafting, and none finished in its window. The lazy filling of REQ-3.4 as first written deferred the questions without making them cheaper and left the record thin. Machine time is cheap and resumable, so the drafting runs ahead to the leaves, and the human's time goes to what the machine could not settle, in the order of what their answer changes. Keeping `## As built` apart from the Intent stops a guess read off the code from passing for the project's want, the failure the auto-updated specifications in the field show.
+The runs of October and November 2026 spent the user's quarter of an hour on questions the code already answered and on approvals whose only effect was to release more drafting, and none finished in its window. The lazy filling of REQ-3.4 as first written deferred the questions without making them cheaper and left the record thin. Machine time is cheap and resumable, so the drafting runs ahead to the leaves, and the user's time goes to what the machine could not settle, in the order of what their answer changes. Keeping `## As built` apart from the Intent stops a guess read off the code from passing for the project's want, the failure the auto-updated specifications in the field show.
 
 ## Amended
 
 - 2026-11-16, by DEC-025: adoption is reading and onboarding with the premise approved before anything compute-intensive; the two modes Guided and Full-Auto; the refiners redefine after a change, breadth first.
-- 2026-11-18, by DEC-026: building does not wait for the path down to a box to be validated. Guessed and approved boxes are built alike, a red box alone is left out, and the human reviews what was built after the round; the ranked list stands for a human who chooses to validate.
+- 2026-11-18, by DEC-026: building does not wait for the path down to a node to be validated. Guessed and approved nodes are built alike, a red node alone is left out, and the user reviews what was built after the round; the ranked list stands for a user who chooses to validate.

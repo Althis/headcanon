@@ -1,12 +1,12 @@
 ---
 name: test-integration
 description: "What a good integration test is: one seam between parts of the product, crossed for real, the outcome observed on the far side, the same result on every run. The method in order, the Quality list as yes-or-no tests with the fatal ones marked, how the card describes the test in plain words, and the common failures. Sources and a worked example in reference.md."
-when_to_use: "The tester writes a test for a box whose Check observes several parts working together behind the surface; the reviewer gives its verdict on a test recorded with the kind integration."
+when_to_use: "The tester writes a test for a node whose Check observes several parts working together behind the surface; the reviewer gives its verdict on a test recorded with the kind integration."
 ---
 
 # Integration tests: one seam, crossed for real
 
-How a test is chosen, written down and recorded is in `skills/test/SKILL.md`. This skill holds what is particular to an integration test. Its Quality list comes before the two questions every kind shares: the expected result comes from the box and not from the code, and a person who cannot read code learns from the description what is checked and how. Sources for each line of the list, and one worked example: `reference.md`.
+How a test is chosen, written down and recorded is in `skills/test/SKILL.md`. This skill holds what is particular to an integration test. Its Quality list comes before the two questions every kind shares: the expected result comes from the node and not from the code, and a user who cannot read code learns from the description what is checked and how. Sources for each line of the list, and one worked example: `reference.md`.
 
 Words used here:
 - **seam**: the place where two parts meet and something crosses: the product's code and its store, a queue, a file, the clock, another service, or two modules of its own built apart.
@@ -20,7 +20,7 @@ By what the Check observes, never by habit.
 - Each side can be right alone and wrong together: a format, an order, a structure, a setting, a transaction. This kind finds that; a unit test cannot.
 - Not this kind:
   - a rule decided from inputs alone, even where the same code also saves: the rule is a unit test, only the saving is tested here;
-  - what a person does and sees from start to end: an e2e test of a journey;
+  - what a user does and sees from start to end: an e2e test of a journey;
   - a quality judged on examples: an eval.
 - The sense is the narrow one: this product's parts across one seam. A test that needs the whole product up with every live service is an e2e test.
 
@@ -33,7 +33,7 @@ By what the Check observes, never by habit.
 5. **Build the start state from zero,** inside the test, under names no other test uses.
 6. **Fix what varies:** the clock, random values, every generated id the test compares.
 7. **Act once, through the entry the product itself uses** to reach the seam.
-8. **Observe the outcome on the far side:** what the store holds, what was sent, what came back; read by a path apart from the one that wrote, after the write is final. Every expected value comes from the box.
+8. **Observe the outcome on the far side:** what the store holds, what was sent, what came back; read by a path apart from the one that wrote, after the write is final. Every expected value comes from the node.
 9. **Cover the failing side the Check names:** the far side refuses, is slow, is absent, the work stops half way. Where the real part cannot be made to fail, a stand-in told to fail is the right tool for that case alone.
 10. **Wait on what happens:** a signal, or a poll with a limit. Never a fixed pause.
 11. **Clean up in a step that also runs on failure:** rows, files, processes, the private instance. The repository and the machine are as they were.
@@ -64,15 +64,15 @@ Each check is yes or no. The tester applies them before recording; the reviewer 
 | round-trip | Is what was written read back by a separate path after the write is final, never from the object or session that wrote it? | |
 | failing-side | Is the failing side the Check names (refused, slow, absent, stopped half way) tested at this seam, here or in a sibling test? | |
 | no-lower | Does it leave the rule's own cases to unit tests, keeping one case for each way the seam behaves? | |
-| no-wider | Does it stop at the seam, without the surface a person uses and without a chain of further seams? | |
-| only-what-is-fixed | Does it compare only what the Check fixes, leaving free what the box leaves free (ids, times of writing, order)? | |
+| no-wider | Does it stop at the seam, without the surface a user uses and without a chain of further seams? | |
+| only-what-is-fixed | Does it compare only what the Check fixes, leaving free what the node leaves free (ids, times of writing, order)? | |
 | can-fail | Does every assertion run on every run, and does a dependency that cannot start fail the run with its name, never skip it? | fatal |
 | says-where | Does a failure name the seam, the expected and the seen, with a failed setup told apart from a failed check? | |
 | leaves-no-trace | Does it remove what it created, on failure too, leaving the repository and the machine as found? | fatal |
 
 ## What the description on the card says
 
-The reader cannot read code. The description tells them what is checked and how, in the box's own words:
+The reader cannot read code. The description tells them what is checked and how, in the node's own words:
 
 - which parts meet, named as the product names them, never as files, functions or tools;
 - what exists before, with its values;
@@ -80,7 +80,7 @@ The reader cannot read code. The description tells them what is checked and how,
 - what is looked at, where, and what counts as passing;
 - what is real and what is a stand-in, and what the stand-in was built from.
 
-Short sentences, present tense, no "I". No words of the trade: mock, stub, fixture, container, assert, endpoint, or a tool's name. Values the reader can hold against the box. As many sentences as there are parts to tell, no more.
+Short sentences, present tense, no "I". No words of the trade: mock, stub, fixture, container, assert, endpoint, or a tool's name. Values the reader can hold against the node. As many sentences as there are parts to tell, no more.
 
 - Says it: "Checks the ledger and its store together. A book holds two March entries and March is closed. The test tries to save a third entry dated in March. It passes when the save is refused and March, read again from the store, holds the same two entries. The store is a real one, started for this test and removed after it."
 - Does not: "Integration test for closeMonth with a database container; asserts findByMonth returns 2 rows."
@@ -96,6 +96,6 @@ Short sentences, present tense, no "I". No words of the trade: mock, stub, fixtu
 - **A fixed pause to wait.** Slow when it works, wrong when it does not. Wait on the signal, or poll with a limit.
 - **Leftovers:** rows, files, a process still running, a port still held. Give unique names, and clean up in a step that runs on failure.
 - **Every case of the rule through the seam.** Slow, and the seam is tested again per case for nothing. One case for each way the seam behaves; the rule's cases are unit tests.
-- **The test grows into a walk through the product.** A failure no longer says where. Cut at the seam; a person's path is a journey.
-- **A whole answer compared letter by letter.** It breaks on what the box never fixed. Compare what the Check fixes.
+- **The test grows into a walk through the product.** A failure no longer says where. Cut at the seam; a user's path is a journey.
+- **A whole answer compared letter by letter.** It breaks on what the node never fixed. Compare what the Check fixes.
 - **A missing dependency turns into a skip.** A skip reads as nothing wrong. Fail the setup and name what is missing.

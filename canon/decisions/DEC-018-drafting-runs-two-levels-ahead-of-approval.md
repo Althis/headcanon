@@ -1,13 +1,13 @@
 ---
 id: DEC-018
-title: "Drafting runs two levels ahead of approval: a box is cut only when its children lie within two levels of the deepest approved box on its path"
+title: "Drafting runs two levels ahead of approval: a node is cut only when its children lie within two levels of the deepest approved node on its path"
 state: stated
 date: 2026-10-18
 intents: [REQ-3.4]
 origin: side-effect
 ---
 
-# Drafting runs two levels ahead of approval: a box is cut only when its children lie within two levels of the deepest approved box on its path
+# Drafting runs two levels ahead of approval: a node is cut only when its children lie within two levels of the deepest approved node on its path
 
 ## Resolution
 
@@ -19,8 +19,8 @@ Claude Code session, 2026-10-18, after the seventh adopt run.
 
 ## Why
 
-DEC-017 made drafting continuous: refiners cut every ready node while the human reviews the top. In the seventh run that meant requirements four levels down were drafted under domains the human had not read yet, and one rewrite of a domain would have thrown all of it away. The human asked for a limit with a formula rather than a judgement call: conservative near the top, growing with each approval.
+DEC-017 made drafting continuous: refiners cut every ready node while the user reviews the top. In the seventh run that meant requirements four levels down were drafted under domains the user had not read yet, and one rewrite of a domain would have thrown all of it away. The user asked for a limit with a formula rather than a judgement call: conservative near the top, growing with each approval.
 
-The formula lives in the next command, where no agent can shortcut it. A box's level counts the premise as zero. The anchor is the deepest approved box on the path from the premise to the box, the premise itself once it is approved and none before. A draft may reach two levels below the anchor, so a box is cut only when its children would lie within that reach. Before the premise is approved only the domains are drafted; with it, the capabilities; an approved domain lets its capabilities be cut into requirements; an approved capability lets its requirements be cut into leaves. Approval anywhere moves the frontier under that box only. Boxes beyond reach are reported as waiting, each with the box whose approval would release it, and the attend loop leaves them alone.
+The formula lives in the next command, where no agent can shortcut it. A node's level counts the premise as zero. The anchor is the deepest approved node on the path from the premise to the node, the premise itself once it is approved and none before. A draft may reach two levels below the anchor, so a node is cut only when its children would lie within that reach. Before the premise is approved only the domains are drafted; with it, the capabilities; an approved domain lets its capabilities be cut into requirements; an approved capability lets its requirements be cut into leaves. Approval anywhere moves the frontier under that node only. Nodes beyond reach are reported as waiting, each with the node whose approval would release it, and the attend loop leaves them alone.
 
 This bounds DEC-017; it does not replace it. The distance of two is a constant in one place, to be tuned from runs.

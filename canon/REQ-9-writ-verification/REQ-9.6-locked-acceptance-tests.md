@@ -16,5 +16,5 @@ Source: docs/design-brief-v0.md:91
 
 ## Intent
 
-An implementation agent runs the accepted tests and edits none of them: each accepted test carries the fingerprint of its file, and a test whose file was changed or is gone counts as failing. A test the agent believes wrong is an issue for the human (DEC-026).
+An implementation agent runs the accepted tests and edits none of them: each accepted test carries the fingerprint of its file, and a test whose file was changed or is gone counts as failing. A test the agent believes wrong is an issue for the user (DEC-026).
 

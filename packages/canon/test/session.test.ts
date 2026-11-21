@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SessionState, isHumanEntry, type FeedKind } from "../src/session.js";
+import { SessionState, isUserEntry, type FeedKind } from "../src/session.js";
 
 describe("session state [REQ-12.1.7]", () => {
   it("queues questions, shows the head, and resolves waiters on answer", async () => {
@@ -11,7 +11,7 @@ describe("session state [REQ-12.1.7]", () => {
     const q2 = s.ask({ question: "Second?", options: [{ label: "x" }], multiSelect: true });
     expect(s.current()?.id).toBe(q1.id);
     expect(s.pendingCount()).toBe(2);
-    // a question no longer moves the view: the page lists it under Issues and the human opens it
+    // a question no longer moves the view: the page lists it under Issues and the user opens it
     expect(s.focus().id).toBeUndefined();
     expect(q1.options.map((o) => o.label)).toEqual(["Approve as written", "Drop"]);
     expect(q2.multiSelect).toBe(true);
@@ -68,7 +68,7 @@ describe("session state [REQ-12.1.7]", () => {
     expect(nodeIds(store)).toEqual(["REQ-2.1", "REQ-3"]);
     // a withdrawal and an answer read the file first too
     rewrite(store, "REQ-3", "REQ-9");
-    expect(s.supersede("REQ-9", "the human rewrote the box")).toBe(1);
+    expect(s.supersede("REQ-9", "the user rewrote the node")).toBe(1);
     expect(nodeIds(store)).toEqual(["REQ-2.1"]);
     const [left] = s.queued();
     rewrite(store, "REQ-2.1", "REQ-2.2");
@@ -83,30 +83,30 @@ describe("session state [REQ-12.1.7]", () => {
     expect(s.queued()[0]).toMatchObject({ kind: "contradiction", nodeId: "REQ-2" });
     expect(s.ask({ question: "Plain?" }).kind).toBe("question");
   });
-  it("keeps one question per box: a newer ask replaces the pending one, and a rewrite withdraws it, waking the waiter", async () => {
+  it("keeps one question per node: a newer ask replaces the pending one, and a rewrite withdraws it, waking the waiter", async () => {
     const s = new SessionState();
     const a = s.ask({ nodeId: "REQ-9", question: "First?", header: "Draft" });
     const waited = s.waitFor(a.id, 1000);
     const b = s.ask({ nodeId: "REQ-9", question: "Second?", header: "Draft" });
     expect(s.queued().map((q) => q.id)).toEqual([b.id]);
-    expect((await waited)?.other).toBe("superseded: a newer question on the same box");
-    expect(s.supersede("REQ-9", "the human rewrote the box")).toBe(1);
+    expect((await waited)?.other).toBe("superseded: a newer question on the same node");
+    expect(s.supersede("REQ-9", "the user rewrote the node")).toBe(1);
     expect(s.queued()).toEqual([]);
     expect(s.changes().entries.filter((e) => e.kind === "question-superseded").map((e) => e.id)).toEqual(["REQ-9", "REQ-9"]);
   });
-  it("a box that could not be built is an issue of its own kind, with its agent's choices only, its author and whether it blocks", () => {
+  it("a node that could not be built is an issue of its own kind, with its agent's choices only, its author and whether it blocks", () => {
     const s = new SessionState();
     const q = s.ask({ kind: "impossible", nodeId: "REQ-2.1", question: "The month cannot be closed twice and reopened once.", by: " implementer-REQ-2.1 ", blocks: true });
     expect([q.kind, q.header, q.options, q.by, q.blocks]).toEqual(["impossible", "Could not be built", [], "implementer-REQ-2.1", true]);
     expect(s.queued()[0]).toMatchObject({ kind: "impossible", nodeId: "REQ-2.1", by: "implementer-REQ-2.1", blocks: true });
-    const given = s.ask({ kind: "impossible", nodeId: "REQ-2.2", question: "Which way out?", options: [{ label: "Drop the check" }, { label: "Reword the box" }] });
-    expect(given.options.map((o) => o.label)).toEqual(["Drop the check", "Reword the box"]);
+    const given = s.ask({ kind: "impossible", nodeId: "REQ-2.2", question: "Which way out?", options: [{ label: "Drop the check" }, { label: "Reword the node" }] });
+    expect(given.options.map((o) => o.label)).toEqual(["Drop the check", "Reword the node"]);
     // the session's own question says neither; an unknown kind is a plain question
     const plain = s.ask({ question: "Plain?", by: "  " });
     expect("by" in plain || "blocks" in plain).toBe(false);
     expect(s.ask({ question: "Odd?", kind: "riddle" as never }).kind).toBe("question");
   });
-  it("keeps the questions of different authors on one box side by side; a newer one replaces only its own author's", async () => {
+  it("keeps the questions of different authors on one node side by side; a newer one replaces only its own author's", async () => {
     const s = new SessionState();
     const session = s.ask({ nodeId: "REQ-3", question: "Which rule stands?", header: "Draft" });
     const builder = s.ask({ nodeId: "REQ-3", question: "No statement balances.", kind: "impossible", by: "implementer-REQ-3", blocks: true });
@@ -115,14 +115,14 @@ describe("session state [REQ-12.1.7]", () => {
     const waited = s.waitFor(builder.id, 1000);
     const again = s.ask({ nodeId: "REQ-3", question: "Still no statement balances.", kind: "impossible", by: "implementer-REQ-3", blocks: true });
     expect(s.queued().map((q) => q.id)).toEqual([session.id, other.id, again.id]);
-    expect((await waited)?.other).toBe("superseded: a newer question on the same box");
+    expect((await waited)?.other).toBe("superseded: a newer question on the same node");
     // the session's newer question replaces the session's own, and no agent's
     const second = s.ask({ nodeId: "REQ-3", question: "Which rule stands now?", header: "Draft" });
     expect(s.queued().map((q) => q.id)).toEqual([other.id, again.id, second.id]);
-    // one author's are withdrawn alone; the human's rewrite withdraws all that is left
+    // one author's are withdrawn alone; the user's rewrite withdraws all that is left
     expect(s.supersede("REQ-3", "its agent settled it", (q) => q.by === "tester-REQ-3")).toBe(1);
     expect(s.queued().map((q) => q.id)).toEqual([again.id, second.id]);
-    expect(s.supersede("REQ-3", "the human rewrote the box")).toBe(2);
+    expect(s.supersede("REQ-3", "the user rewrote the node")).toBe(2);
   });
   it("keeps both authors' questions in the file, so both survive a restart", () => {
     const store = join(mkdtempSync(join(tmpdir(), "headcanon-q-")), "questions.json");
@@ -151,33 +151,33 @@ describe("session state [REQ-12.1.7]", () => {
     s.refresh();
     expect(s.queued().map((q) => q.id)).toEqual(["g1", mine.id, "g3"]);
   });
-  it("the answer to an issue names its author and whether it blocked, so the session knows whose box may go on", () => {
+  it("the answer to an issue names its author and whether it blocked, so the session knows whose node may go on", () => {
     const s = new SessionState();
-    const q = s.ask({ nodeId: "REQ-5", question: "Which way out?", kind: "impossible", by: "implementer-REQ-5", blocks: true, options: [{ label: "Reword the box" }] });
-    s.answer({ questionId: q.id, selected: ["Reword the box"], other: "", terms: [] });
+    const q = s.ask({ nodeId: "REQ-5", question: "Which way out?", kind: "impossible", by: "implementer-REQ-5", blocks: true, options: [{ label: "Reword the node" }] });
+    s.answer({ questionId: q.id, selected: ["Reword the node"], other: "", terms: [] });
     expect(s.changes().entries.at(-1)).toMatchObject({ kind: "answer", id: "REQ-5", by: "implementer-REQ-5", blocks: true });
     const plain = s.ask({ nodeId: "REQ-5", question: "Plain?" });
     s.answer({ questionId: plain.id, selected: ["Drop"], other: "", terms: [] });
     const e = s.changes().entries.at(-1)!;
     expect("by" in e || "blocks" in e).toBe(false);
   });
-  it("what the human asks of a build and decides on a slice are their entries, and each wakes a waiting session", async () => {
+  it("what the user asks of a build and decides on a slice are their entries, and each wakes a waiting session", async () => {
     const kinds: FeedKind[] = ["implement-request", "run-stop", "run-continue", "slice-approved", "slice-discarded", "slice-sent-back"];
     for (const kind of kinds) {
       const s = new SessionState();
-      const waiting = s.waitChanges(s.changes().cursor, 2000, isHumanEntry);
-      // the session's own line does not end the wait; the human's entry does
+      const waiting = s.waitChanges(s.changes().cursor, 2000, isUserEntry);
+      // the session's own line does not end the wait; the user's entry does
       s.push("say", { text: "Building." });
       s.push(kind, { id: "REQ-2.1 REQ-2.2", text: "all" });
       const woke = await waiting;
       expect(woke.entries.map((e) => e.kind)).toEqual(["say", kind]);
-      expect(isHumanEntry(woke.entries[1]!)).toBe(true);
+      expect(isUserEntry(woke.entries[1]!)).toBe(true);
       expect(woke.entries[1]).toMatchObject({ id: "REQ-2.1 REQ-2.2", text: "all" });
     }
   });
-  it("a say that needs the human now keeps its attention flag, which the page chimes for", () => {
+  it("a say that needs the user now keeps its attention flag, which the page chimes for", () => {
     const s = new SessionState();
-    expect(s.push("say", { text: "Three boxes wait on you.", to: "human", attention: true }).attention).toBe(true);
+    expect(s.push("say", { text: "Three nodes wait on you.", to: "user", attention: true }).attention).toBe(true);
     expect("attention" in s.push("say", { text: "Reading is done." })).toBe(false);
   });
 });

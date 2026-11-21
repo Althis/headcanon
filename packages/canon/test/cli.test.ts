@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adoptionComplete, heldBoxes, lastAssistantText, main, stopDecision } from "../src/cli.js";
+import { adoptionComplete, heldNodes, lastAssistantText, main, stopDecision } from "../src/cli.js";
 import { loadCanon } from "../src/load.js";
 
 // The commands a module owns are handed to stand-ins here, so these tests see what the CLI passes and run nothing of
@@ -50,7 +50,7 @@ function canon(root: string): string {
 }
 
 describe("the stop hook's rule [REQ-11.1]", () => {
-  // an unfinished adoption with the viewer up and the human's list still closed: the attend loop's usual state
+  // an unfinished adoption with the viewer up and the user's list still closed: the attend loop's usual state
   const live = { finished: false, viewerAnswers: true, gateOpen: false };
 
   it("allows the stop when no viewer answers or a waiter is armed, finished or not", () => {
@@ -79,10 +79,10 @@ describe("the stop hook's rule [REQ-11.1]", () => {
     expect(stopDecision({ ...live, lastAssistantMessage: "Still attending.", transcriptTail: "stopping attend" }).decision).toBe("block");
     expect(stopDecision({ ...live, lastAssistantMessage: "", transcriptTail: "stopping attend" }).decision).toBe("block");
     expect(stopDecision({ ...live, transcriptTail: "I am stopping attend now." }).decision).toBe("allow");
-    expect(stopDecision({ ...live, transcriptTail: "Next box." }).decision).toBe("block");
+    expect(stopDecision({ ...live, transcriptTail: "Next node." }).decision).toBe("block");
   });
 
-  it("lets a session with a running subagent stop while the human's list is closed, and keeps it attending once the list is open", () => {
+  it("lets a session with a running subagent stop while the user's list is closed, and keeps it attending once the list is open", () => {
     const sub = [{ type: "subagent", status: "running" }];
     expect(stopDecision({ ...live, backgroundTasks: sub }).decision).toBe("allow");
     expect(stopDecision({ ...live, gateOpen: true, backgroundTasks: sub }).decision).toBe("block");
@@ -96,25 +96,25 @@ describe("the stop hook's rule [REQ-11.1]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-transcript-"));
     const path = join(dir, "t.jsonl");
     const line = (type: string, content: unknown[]) => JSON.stringify({ type, message: { content } });
-    writeFileSync(path, [line("assistant", [{ type: "text", text: "stopping attend" }]), line("user", [{ type: "text", text: "go on" }]), "not json", line("assistant", [{ type: "tool_use", name: "x" }, { type: "text", text: "Next box." }])].join("\n") + "\n");
-    expect(lastAssistantText(path)).toBe("Next box.");
+    writeFileSync(path, [line("assistant", [{ type: "text", text: "stopping attend" }]), line("user", [{ type: "text", text: "go on" }]), "not json", line("assistant", [{ type: "tool_use", name: "x" }, { type: "text", text: "Next node." }])].join("\n") + "\n");
+    expect(lastAssistantText(path)).toBe("Next node.");
     expect(lastAssistantText(join(dir, "none.jsonl"))).toBeUndefined();
     expect(lastAssistantText(undefined)).toBeUndefined();
     rmSync(dir, { recursive: true, force: true });
   });
 });
 
-describe("next: the held boxes and the scope check [DEC-024]", () => {
+describe("next: the held nodes and the scope check [DEC-024]", () => {
   const roots: string[] = [];
   afterAll(() => roots.forEach((d) => rmSync(d, { recursive: true, force: true })));
   const fresh = () => { const root = mkdtempSync(join(tmpdir(), "headcanon-cli-")); roots.push(root); return root; };
 
-  it("holds a box from its dispatch record until a later returned record names it, and never from a refused one", () => {
+  it("holds a node from its dispatch record until a later returned record names it, and never from a refused one", () => {
     const rec = (op: string, id?: string) => ({ request: id ? { op, id } : { op } });
-    expect(heldBoxes([rec("dispatch", "REQ-4"), rec("dispatch", "REQ-1"), rec("returned", "REQ-4"), rec("dispatch", "REQ-4"), rec("link"), rec("dispatch", "REQ-2"), rec("returned", "REQ-2"), rec("returned", "REQ-7")])).toEqual(["REQ-1", "REQ-4"]);
+    expect(heldNodes([rec("dispatch", "REQ-4"), rec("dispatch", "REQ-1"), rec("returned", "REQ-4"), rec("dispatch", "REQ-4"), rec("link"), rec("dispatch", "REQ-2"), rec("returned", "REQ-2"), rec("returned", "REQ-7")])).toEqual(["REQ-1", "REQ-4"]);
     // a dispatch the log refused (an id outside the canon) handed nothing to anyone
-    expect(heldBoxes([{ ok: false, request: { op: "dispatch", id: "REQ-9" } }, { ok: true, request: { op: "dispatch", id: "REQ-10" } }])).toEqual(["REQ-10"]);
-    expect(heldBoxes([])).toEqual([]);
+    expect(heldNodes([{ ok: false, request: { op: "dispatch", id: "REQ-9" } }, { ok: true, request: { op: "dispatch", id: "REQ-10" } }])).toEqual(["REQ-10"]);
+    expect(heldNodes([])).toEqual([]);
   });
 
   it("refuses an --under id that is not in the canon instead of printing an order that reads as nothing left", async () => {
@@ -127,7 +127,7 @@ describe("next: the held boxes and the scope check [DEC-024]", () => {
     expect(JSON.parse(one.out)).toMatchObject({ next: { id: "REQ-1" }, frozen: 0, held: [] });
   });
 
-  it("lists the held boxes from the repository's operations log, in JSON and in text", async () => {
+  it("lists the held nodes from the repository's operations log, in JSON and in text", async () => {
     const root = fresh();
     execFileSync("git", ["init", "-q"], { cwd: root, stdio: "ignore" });
     const dir = canon(root);
@@ -163,14 +163,14 @@ function scratch(git = false): string {
   return root;
 }
 
-interface Box { parent?: string; state?: string; kind?: string; binds?: string[]; notBuilt?: string }
+interface NodeSpec { parent?: string; state?: string; kind?: string; binds?: string[]; notBuilt?: string }
 const CLOSE = "implements src/months.ts#closeMonth";
-const BUILT: Box = { kind: "binary", binds: [CLOSE] };
-const page = (id: string, o: Box = {}): string =>
+const BUILT: NodeSpec = { kind: "binary", binds: [CLOSE] };
+const page = (id: string, o: NodeSpec = {}): string =>
   `---\nid: ${id}\n${o.parent ? `parent: ${o.parent}\n` : ""}title: "${id}"\nstate: ${o.state ?? "assumed"}\n${o.kind ? `kind: ${o.kind}\nuid: u${id.replace(/\W/g, "")}\n` : ""}${o.binds ? `binds: [${o.binds.map((b) => `"${b}"`).join(", ")}]\n` : ""}---\n\n# ${id}\n\n## Intent\n\nA closed month takes no new entry.\n${o.kind ? "\n## Check\n\nAn entry dated in a closed month is refused.\n" : ""}${o.notBuilt ? `\n## Implemented by\n\n- not built: ${o.notBuilt}\n` : ""}`;
 
 /** The premise, the capability REQ-1 and the requirements given under it. */
-function ledger(root: string, leaves: Record<string, Box>): string {
+function ledger(root: string, leaves: Record<string, NodeSpec>): string {
   const dir = join(root, "canon"), months = join(dir, "REQ-1-months");
   mkdirSync(months, { recursive: true });
   writeFileSync(join(dir, "README.md"), '---\nid: ROOT\ntitle: "Ledgerline canon"\nstate: resolved\n---\n\n# Ledgerline canon\n\n## Intent\n\nLedgerline keeps the books of a small business.\n');
@@ -228,7 +228,7 @@ describe("the stop hook's test for a finished adoption", () => {
   it("is unfinished while a branch ends without a check, a check does not say where it is built, or nothing is written under the premise", () => {
     expect(adoptionComplete(loadCanon(ledger(scratch(), { "REQ-1.1": BUILT, "REQ-1.2": {} })))).toBe(false);
     expect(adoptionComplete(loadCanon(ledger(scratch(), { "REQ-1.1": BUILT, "REQ-1.2": { kind: "binary" } })))).toBe(false);
-    // the capability alone: a branch that ends in a box with no check
+    // the capability alone: a branch that ends in a node with no check
     expect(adoptionComplete(loadCanon(ledger(scratch(), {})))).toBe(false);
     const premise = join(scratch(), "canon");
     mkdirSync(premise);
@@ -236,7 +236,7 @@ describe("the stop hook's test for a finished adoption", () => {
     expect(adoptionComplete(loadCanon(premise))).toBe(false);
   });
 
-  it("is not held by a red box, nor by what hangs under one: they wait on the human", () => {
+  it("is not held by a red node, nor by what hangs under one: they wait on the user", () => {
     expect(adoptionComplete(loadCanon(ledger(scratch(), { "REQ-1.1": BUILT, "REQ-1.2": { state: "draft" }, "REQ-1.3": { state: "contested", kind: "binary" } })))).toBe(true);
     const dir = ledger(scratch(), { "REQ-1.1": BUILT });
     const statements = join(dir, "REQ-1-months", "REQ-1.2-statements");
@@ -244,7 +244,7 @@ describe("the stop hook's test for a finished adoption", () => {
     writeFileSync(join(statements, "README.md"), page("REQ-1.2", { parent: "REQ-1", state: "draft" }));
     writeFileSync(join(statements, "REQ-1.2.1-x.md"), page("REQ-1.2.1", { parent: "REQ-1.2" }));
     expect(adoptionComplete(loadCanon(dir))).toBe(true);
-    // the same box under a guess holds the adoption open
+    // the same node under a guess holds the adoption open
     writeFileSync(join(statements, "README.md"), page("REQ-1.2", { parent: "REQ-1" }));
     expect(adoptionComplete(loadCanon(dir))).toBe(false);
   });
@@ -334,7 +334,7 @@ describe("the stop hook, with and without a viewer and a waiter [REQ-11.1]", () 
     expect(v.posts).toEqual([]);
   });
 
-  it("lets it stop while a subagent runs and the human's list is closed", async () => {
+  it("lets it stop while a subagent runs and the user's list is closed", async () => {
     const dir = ledger(scratch(true), UNFINISHED);
     const v = await viewer(dir);
     expect((await hook(dir, v.port, { background_tasks: [{ type: "subagent", status: "running" }] })).out).toBe("");
@@ -359,18 +359,18 @@ describe("session-start after a compaction or a resume", () => {
     expect(await context(dir, "compact")).not.toContain(UNFINISHED);
   });
 
-  it("in Guided, names no box next that the human has not approved, and says which ones wait [DEC-025]", async () => {
+  it("in Guided, names no node next that the user has not approved, and says which ones wait [DEC-025]", async () => {
     const dir = ledger(scratch(true), { "REQ-1.1": BUILT, "REQ-1.2": {} });
     expect(await context(dir, "compact")).toContain("Next to refine: REQ-1.2");
     expect((await run(["settings", "guided", "--canon", dir])).code).toBe(0);
     const guided = await context(dir, "compact");
     expect(guided).toContain(UNFINISHED);
     expect(guided).not.toContain("Next to refine");
-    expect(guided).toContain("Guided: 1 box(es) wait for the human's approval, and nothing is drafted under one before it: REQ-1.2.");
+    expect(guided).toContain("Guided: 1 node(s) wait for the user's approval, and nothing is drafted under one before it: REQ-1.2.");
   });
 });
 
-describe("settings: the mode the human changes in the chat [DEC-025]", () => {
+describe("settings: the mode the user changes in the chat [DEC-025]", () => {
   const stored = (root: string) => join(execFileSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8" }).trim(), "headcanon", "settings.json");
 
   it("stores a mode and keeps the cap, prints what is stored, and refuses any other word", async () => {
@@ -395,7 +395,7 @@ describe("settings: the mode the human changes in the chat [DEC-025]", () => {
     expect(await run(["settings", "guided", "--canon", ledger(scratch(), {})])).toEqual({ code: 1, out: "", err: "no git directory to keep the settings in\n" });
   });
 
-  it("next follows the stored mode: in Guided a box that is not approved is gated, never ready, and a pause is not printed as the end", async () => {
+  it("next follows the stored mode: in Guided a node that is not approved is gated, never ready, and a pause is not printed as the end", async () => {
     const root = scratch(true);
     const dir = ledger(root, { "REQ-1.1": BUILT, "REQ-1.2": {} });
     expect((await run(["next", "--canon", dir])).out).toContain("Next to refine: REQ-1.2");
@@ -403,12 +403,12 @@ describe("settings: the mode the human changes in the chat [DEC-025]", () => {
     const t = (await run(["next", "--canon", dir])).out;
     expect(t).not.toContain("Next to refine");
     expect(t).not.toContain("Nothing left to refine");
-    expect(t).toContain("Guided: 1 box(es) wait for the human's approval, and nothing is drafted under one before it: REQ-1.2.");
+    expect(t).toContain("Guided: 1 node(s) wait for the user's approval, and nothing is drafted under one before it: REQ-1.2.");
     const j = JSON.parse((await run(["next", "--json", "--canon", dir])).out) as { next?: unknown; ready: unknown[]; gated: Array<{ id: string }> };
     expect(j.next).toBeUndefined();
     expect(j.ready).toEqual([]);
     expect(j.gated.map((p) => p.id)).toEqual(["REQ-1.2"]);
-    // the human approves it on the page: the box is theirs, and what hangs under it may be drafted
+    // the user approves it on the page: the node is theirs, and what hangs under it may be drafted
     writeFileSync(join(dir, "REQ-1-months", "REQ-1.2-x.md"), page("REQ-1.2", { parent: "REQ-1", state: "stated" }));
     expect((await run(["next", "--canon", dir])).out).toContain("Next to refine: REQ-1.2");
     await run(["settings", "full-auto", "--canon", dir]);
@@ -434,7 +434,7 @@ describe("op and ask read their JSON from stdin", () => {
     expect(await run(["ask", "-", "--canon", dir], "")).toEqual({ code: 2, out: "", err: "ask: the request is not valid JSON: nothing arrived on stdin\n" });
   });
 
-  it("files the issue that arrives on stdin, with who asks and whether the box waits on it", async () => {
+  it("files the issue that arrives on stdin, with who asks and whether the node waits on it", async () => {
     const dir = ledger(scratch(), { "REQ-1.1": BUILT });
     const v = await viewer(dir);
     const q = { question: "Closing a month fails when an entry carries no date. What should happen to such an entry?", kind: "impossible", nodeId: "REQ-1.1", by: "implementer-REQ-1.1", blocks: true };
@@ -442,7 +442,7 @@ describe("op and ask read their JSON from stdin", () => {
     expect(v.posts).toEqual([{ path: "/api/ask", body: q, agent: "cli" }]);
   });
 
-  it("fills in who asks and that the box waits from --by and --blocks, and never over what the JSON says", async () => {
+  it("fills in who asks and that the node waits from --by and --blocks, and never over what the JSON says", async () => {
     const dir = ledger(scratch(), { "REQ-1.1": BUILT });
     const v = await viewer(dir);
     const questions = [{ question: "Does a closed month reopen?", nodeId: "REQ-1.1" }, { question: "Is a statement cut per month?", by: "tester-REQ-1", blocks: false }];
@@ -459,7 +459,7 @@ describe("op and ask read their JSON from stdin", () => {
 });
 
 describe("wait: the idle waiter", () => {
-  it("passes over the session's own entries, moves its cursor past them, and ends on the human's, its marker gone", async () => {
+  it("passes over the session's own entries, moves its cursor past them, and ends on the user's, its marker gone", async () => {
     const root = scratch(true);
     const dir = ledger(root, { "REQ-1.1": BUILT });
     const marker = join(execFileSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8" }).trim(), "headcanon", "waiting");
@@ -475,7 +475,7 @@ describe("wait: the idle waiter", () => {
     });
     const r = await run(["wait", "--since", "5", "--canon", dir, "--port", String(v.port)]);
     expect(r).toEqual({ code: 0, out: '{"cursor":7,"entries":1,"since":6}\n', err: "" });
-    expect(asked).toEqual(["since=5&timeout=25&wake=human", "since=6&timeout=25&wake=human"]);
+    expect(asked).toEqual(["since=5&timeout=25&wake=user", "since=6&timeout=25&wake=user"]);
     // the marker stood while the waiter ran, which is what the Stop hook reads, and is cleared when it ends
     expect(armed).toEqual([true, true]);
     expect(existsSync(marker)).toBe(false);
@@ -497,7 +497,7 @@ describe("the commands a module owns are handed to it with one context", () => {
       [["code", "find", "close a month"], "lookupCli", ["code-find", ["close a month"]]],
       [["reading", "parts", "3"], "lookupCli", ["reading-parts", ["3"]]],
       [["propose", "-", "--why", "it belongs to the statements"], "proposalsCli", ["propose", ["-", "--why", "it belongs to the statements"]]],
-      [["proposals", "reject", "P-2", "--why", "the box is approved"], "proposalsCli", ["proposals", ["reject", "P-2", "--why", "the box is approved"]]],
+      [["proposals", "reject", "P-2", "--why", "the node is approved"], "proposalsCli", ["proposals", ["reject", "P-2", "--why", "the node is approved"]]],
       [["tests", "run", "REQ-1", "--kind", "unit", "--all"], "testsCli", [["run", "REQ-1", "--kind", "unit", "--all"]]],
       [["run", "slice", "REQ-1.1", "building", "--agent", "a1", "--summary", "A closed month refuses a late entry."], "runCli", [["slice", "REQ-1.1", "building", "--agent", "a1", "--summary", "A closed month refuses a late entry."]]],
       [["brief", "REQ-1", "--for", "tester", "--canon-only"], "briefCli", [["REQ-1", "--for", "tester", "--canon-only"]]],
@@ -606,7 +606,7 @@ describe("the hooks and stdin, as the processes they run as", () => {
     const v = await viewer(dir);
     const r = await launch(["prompt-hook", "--canon", dir, "--port", String(v.port)], JSON.stringify({ prompt: "Close March." }));
     expect(r).toEqual({ code: 0, out: "", err: "" });
-    expect(v.posts).toEqual([{ path: "/api/terminal", body: { role: "human", text: "Close March." }, agent: undefined }]);
+    expect(v.posts).toEqual([{ path: "/api/terminal", body: { role: "user", text: "Close March." }, agent: undefined }]);
   }, 60_000);
 
   it.skipIf(!existsSync(tsx))("op reads the operation from the process's own stdin", async () => {

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { loadCanon } from "../src/load.js";
-import { contextText, documentParts, findBoxes, findUnits, lookupCli, type CliCtx } from "../src/lookup.js";
+import { contextText, documentParts, findNodes, findUnits, lookupCli, type CliCtx } from "../src/lookup.js";
 
 /**
  * The fixture is Ledgerline, a bookkeeping tool: three domains (entries, months, statements), one capability
@@ -34,7 +34,7 @@ function under(text: string, head: string): string[] {
 
 /**
  * A canon made to be wide: twenty pages under Books that all say "ledger", seven audits that say "ledger" and
- * "seal", seven reports that say "stamp", and one box, REQ-4, with a long body and fifteen bound units.
+ * "seal", seven reports that say "stamp", and one node, REQ-4, with a long body and fifteen bound units.
  */
 function wideCanon(): string {
   const root = scratch();
@@ -52,11 +52,11 @@ function wideCanon(): string {
   return join(root, "canon");
 }
 
-describe("contextText: one box and what surrounds it", () => {
+describe("contextText: one node and what surrounds it", () => {
   const canon = loadCanon(CANON);
 
-  it("prints the box whole, then its surroundings, each under its heading and each box as id and title", () => {
-    expect(contextText(canon, "REQ-2.1.1", { gitDir: GIT })).toBe(`# Box REQ-2.1.1: A closed month accepts no new entry
+  it("prints the node whole, then its surroundings, each under its heading and each node as id and title", () => {
+    expect(contextText(canon, "REQ-2.1.1", { gitDir: GIT })).toBe(`# Node REQ-2.1.1: A closed month accepts no new entry
 
 file: REQ-2-months/REQ-2.1-closing-a-month/REQ-2.1.1-no-new-entry.md
 state: assumed
@@ -128,15 +128,15 @@ none
 
   it("keeps the order the contract gives and carries no decoration", () => {
     const text = contextText(canon, "REQ-1.1")!;
-    expect(heads(text)).toEqual(["# Box REQ-1.1: Recording entries", "# Path from the premise", "# Siblings", "# Children", "# Links", "# Journeys and decisions that cite it", "# Relatives in other branches", "# Glossary terms its text uses"]);
+    expect(heads(text)).toEqual(["# Node REQ-1.1: Recording entries", "# Path from the premise", "# Siblings", "# Children", "# Links", "# Journeys and decisions that cite it", "# Relatives in other branches", "# Glossary terms its text uses"]);
     expect(under(text, "# Children")).toEqual(["- REQ-1.1.1 An entry keeps its date and amount", "- REQ-1.1.2 An entry in a closed month is refused", "- REQ-1.1.3 Rounding keeps an entry's amount to the cent"]);
     expect(under(text, "# Siblings")).toEqual(["- REQ-1.2 Correcting entries"]);
     expect(under(text, "# Glossary terms its text uses")).toEqual(["- account: the heading money is recorded under, such as rent or sales."]);
-    // plain characters only: no box drawing, no emphasis marks, no table
+    // plain characters only: no node drawing, no emphasis marks, no table
     expect(/[│├└─•→]|\*\*|^\|/m.test(text)).toBe(false);
   });
 
-  it("answers undefined for an id nobody has, and takes a box's uid for its id", () => {
+  it("answers undefined for an id nobody has, and takes a node's uid for its id", () => {
     expect(contextText(canon, "REQ-9")).toBeUndefined();
     expect(contextText(canon, "en0113")).toBe(contextText(canon, "REQ-1.1.3"));
     expect(contextText(loadCanon(join(FIX, "no-such-canon")), "ROOT")).toBeUndefined();
@@ -144,7 +144,7 @@ none
 
   it("ROOT is the premise: its text without the glossary, the domains as children, and only the terms its text uses", () => {
     const text = contextText(canon, "ROOT")!;
-    expect(heads(text)).toEqual(["# Box ROOT: Ledgerline canon (the premise)", "# Children", "# Journeys and decisions that cite it", "# Glossary terms its text uses"]);
+    expect(heads(text)).toEqual(["# Node ROOT: Ledgerline canon (the premise)", "# Children", "# Journeys and decisions that cite it", "# Glossary terms its text uses"]);
     expect(text).toContain("## Intent\n\nLedgerline is a bookkeeping tool");
     expect(text).toContain("**PRN-1 What is closed stays closed**");
     expect(text).not.toContain("## Glossary");
@@ -156,7 +156,7 @@ none
     ]);
   });
 
-  it("gives every ancestor its Intent, or the person's own words where no Intent was written", () => {
+  it("gives every ancestor its Intent, or the user's own words where no Intent was written", () => {
     const text = contextText(canon, "REQ-2.1")!;
     expect(under(text, "# Path from the premise")).toEqual([
       "## ROOT Ledgerline canon (the premise)",
@@ -168,14 +168,14 @@ none
     expect(under(contextText(canon, "REQ-2")!, "# Siblings")).toEqual(["- REQ-1 Entries", "- REQ-3 Statements"]);
   });
 
-  it("lists links in both directions, each with the box's title", () => {
+  it("lists links in both directions, each with the node's title", () => {
     expect(under(contextText(canon, "REQ-1.1.1")!, "# Links")).toEqual(["- required by REQ-2.1.1 A closed month accepts no new entry"]);
     expect(under(contextText(canon, "REQ-1.1.3")!, "# Links")).toEqual(["- conflicted by REQ-3.1.2 Rounding happens once, on a statement's totals"]);
     expect(under(contextText(canon, "REQ-3.1.2")!, "# Links")).toEqual(["- conflicts with REQ-1.1.3 Rounding keeps an entry's amount to the cent"]);
     expect(under(contextText(canon, "REQ-3.1.1")!, "# Links")).toEqual(["- related from REQ-2.1.1 A closed month accepts no new entry"]);
   });
 
-  it("finds a journey by its step table or the box's own steps, a decision by its intents or by the id in its text", () => {
+  it("finds a journey by its step table or the node's own steps, a decision by its intents or by the id in its text", () => {
     expect(under(contextText(canon, "REQ-1.1.1")!, "# Journeys and decisions that cite it")).toEqual(["- JRN-1 Closing March, step S1 Record the entries"]);
     expect(under(contextText(canon, "REQ-1.1.3")!, "# Journeys and decisions that cite it")).toEqual(["- DEC-002 Where rounding happens is still open (2026-03-05)"]);
     // DEC-002 names REQ-1.1.3, which cites neither REQ-1.1 nor REQ-1
@@ -193,7 +193,7 @@ none
     ]);
   });
 
-  it("leaves out of the relatives a box already shown under Links", () => {
+  it("leaves out of the relatives a node already shown under Links", () => {
     // REQ-1.1.3 and REQ-3.1.2 share "rounding" in their titles, and REQ-3.1.2 conflicts with REQ-1.1.3
     expect(under(contextText(canon, "REQ-1.1.3")!, "# Relatives in other branches")).toEqual(["none"]);
     // REQ-1.1.2 shares "closed month" with REQ-2.1.1, which it requires, and with REQ-3.1
@@ -220,7 +220,7 @@ describe("contextText: wide canons and the budget", () => {
   const canon = loadCanon(wideCanon());
 
   it("drops a shared term too wide to mean anything and caps the relatives", () => {
-    // "ledger" is in twenty-seven boxes of two branches: no relative comes from it
+    // "ledger" is in twenty-seven nodes of two branches: no relative comes from it
     expect(under(contextText(canon, "REQ-1.2")!, "# Relatives in other branches")).toEqual(["none"]);
     const rel = under(contextText(canon, "REQ-1.1")!, "# Relatives in other branches");
     expect(rel).toHaveLength(13);
@@ -246,15 +246,15 @@ describe("contextText: wide canons and the budget", () => {
     for (const budget of [100, 300, 600, 1200, 2500, 5000]) for (const id of ["ROOT", "REQ-1", "REQ-1.1", "REQ-4"]) expect(contextText(canon, id, { budget })!.length).toBeLessThanOrEqual(budget);
   });
 
-  it("cuts a box longer than the budget at a line, names its file, and says on the last line what is missing", () => {
+  it("cuts a node longer than the budget at a line, names its file, and says on the last line what is missing", () => {
     const text = contextText(canon, "REQ-4")!;
-    expect(text.startsWith("# Box REQ-4: Archive\n\nfile: REQ-4-archive.md\n")).toBe(true);
-    expect(text).toContain("\n\n(cut here to stay within the budget; the whole box is in REQ-4-archive.md)\n");
+    expect(text.startsWith("# Node REQ-4: Archive\n\nfile: REQ-4-archive.md\n")).toBe(true);
+    expect(text).toContain("\n\n(cut here to stay within the budget; the whole node is in REQ-4-archive.md)\n");
     expect(text).toMatch(/\nLine \d+ of a long note about what the archive holds\.\n\n\(cut here/);
-    expect(text.trimEnd().split("\n").pop()).toMatch(/^Left out to stay within 12000 characters: the rest of the box, .*\. A larger --budget shows them; a heading not named here is whole\.$/);
+    expect(text.trimEnd().split("\n").pop()).toMatch(/^Left out to stay within 12000 characters: the rest of the node, .*\. A larger --budget shows them; a heading not named here is whole\.$/);
   });
 
-  it("gives the budget to the parts in order: the box and the path whole, the list that no longer fits cut with a count", () => {
+  it("gives the budget to the parts in order: the node and the path whole, the list that no longer fits cut with a count", () => {
     const text = contextText(canon, "REQ-1.1", { budget: 900 })!;
     expect(text.length).toBeLessThanOrEqual(900);
     expect(text).toContain("## Intent\n\nThe ledger keeps page 1 under its seal and its stamp.");
@@ -275,17 +275,17 @@ describe("contextText: wide canons and the budget", () => {
   });
 });
 
-describe("findBoxes: boxes, journeys, decisions and terms by a few words", () => {
+describe("findNodes: nodes, journeys, decisions and terms by a few words", () => {
   const canon = loadCanon(CANON);
-  const ids = (words: string, limit?: number) => findBoxes(canon, words, limit).map((h) => h.id);
+  const ids = (words: string, limit?: number) => findNodes(canon, words, limit).map((h) => h.id);
 
   it("puts first what carries every word, a title before an Intent, and gives the line the words are in", () => {
-    const hits = findBoxes(canon, "carry-over entries");
+    const hits = findNodes(canon, "carry-over entries");
     expect(hits.slice(0, 2)).toEqual([
       { id: "REQ-2.1.2", title: "Closing a month totals its entries", where: "intent", line: "Closing a month adds up its entries and hands the carry-over to the next month." },
       { id: "REQ-3.1.1", title: "A statement lists every entry of its month", where: "intent", line: "A statement opens with the carry-over from the month before and lists every entry of its month." },
     ]);
-    // the boxes with one of the two words follow, titles first
+    // the nodes with one of the two words follow, titles first
     expect(hits[2]).toEqual({ id: "REQ-1", title: "Entries", where: "title", line: "Entries" });
   });
 
@@ -296,13 +296,13 @@ describe("findBoxes: boxes, journeys, decisions and terms by a few words", () =>
   });
 
   it("finds a Check, a journey step, a decision's text and a glossary term", () => {
-    expect(findBoxes(canon, "0.333")).toEqual([{ id: "REQ-3.1.2", title: "Rounding happens once, on a statement's totals", where: "check", line: "Three amounts of 0.333 give a statement total of 1.00." }]);
-    expect(findBoxes(canon, "read the statement").find((h) => h.where === "journey")).toEqual({ id: "JRN-1", title: "Closing March", where: "journey", line: "S3 Read the statement" });
-    expect(findBoxes(canon, "reopening")).toEqual([{ id: "DEC-001", title: "A closed month stays closed", where: "decision", line: "Reopening a month would change a statement the owner already sent." }]);
-    expect(findBoxes(canon, "rent")).toEqual([{ id: "TERM-account", title: "account", where: "term", line: "the heading money is recorded under, such as rent or sales." }]);
+    expect(findNodes(canon, "0.333")).toEqual([{ id: "REQ-3.1.2", title: "Rounding happens once, on a statement's totals", where: "check", line: "Three amounts of 0.333 give a statement total of 1.00." }]);
+    expect(findNodes(canon, "read the statement").find((h) => h.where === "journey")).toEqual({ id: "JRN-1", title: "Closing March", where: "journey", line: "S3 Read the statement" });
+    expect(findNodes(canon, "reopening")).toEqual([{ id: "DEC-001", title: "A closed month stays closed", where: "decision", line: "Reopening a month would change a statement the owner already sent." }]);
+    expect(findNodes(canon, "rent")).toEqual([{ id: "TERM-account", title: "account", where: "term", line: "the heading money is recorded under, such as rent or sales." }]);
   });
 
-  it("takes an id or a uid as the box itself, before anything found by words", () => {
+  it("takes an id or a uid as the node itself, before anything found by words", () => {
     expect(ids("REQ-2.1.1")).toEqual(["REQ-2.1.1"]);
     expect(ids("st0312")).toEqual(["REQ-3.1.2"]);
     expect(ids("req-2.1.1 rounding")).toEqual(["REQ-2.1.1", "REQ-1.1.3", "REQ-3.1.2", "DEC-002"]);
@@ -310,8 +310,8 @@ describe("findBoxes: boxes, journeys, decisions and terms by a few words", () =>
   });
 
   it("returns nothing for words nobody uses and no more than the limit", () => {
-    expect(findBoxes(canon, "payroll")).toEqual([]);
-    expect(findBoxes(canon, "   ")).toEqual([]);
+    expect(findNodes(canon, "payroll")).toEqual([]);
+    expect(findNodes(canon, "   ")).toEqual([]);
     expect(ids("entry", 3)).toHaveLength(3);
     expect(ids("entry").length).toBeGreaterThan(3);
   });
@@ -408,7 +408,7 @@ describe("lookupCli: the four commands", () => {
     const a = ctx();
     expect(await lookupCli("context", ["REQ-77"], a.c)).toBe(1);
     expect(a.got.out).toBe("");
-    expect(a.got.err).toContain("no box REQ-77 in the canon");
+    expect(a.got.err).toContain("no node REQ-77 in the canon");
     const b = ctx();
     expect(await lookupCli("context", [], b.c)).toBe(2);
     expect(b.got.err).toContain("usage: headcanon context <id>");
@@ -431,7 +431,7 @@ describe("lookupCli: the four commands", () => {
     expect(b.got.out).toBe(a.got.out);
     const j = ctx();
     expect(await lookupCli("find", ["0.333", "--json"], j.c)).toBe(0);
-    expect(JSON.parse(j.got.out)).toEqual(findBoxes(loadCanon(CANON), "0.333"));
+    expect(JSON.parse(j.got.out)).toEqual(findNodes(loadCanon(CANON), "0.333"));
     const none = ctx();
     expect(await lookupCli("find", ["payroll"], none.c)).toBe(0);
     expect(none.got.out).toBe('No hit for "payroll".\n');

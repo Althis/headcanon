@@ -18,7 +18,7 @@ afterAll(() => roots.forEach((d) => rmSync(d, { recursive: true, force: true }))
 interface Repo { repo: string; canonDir: string; gitDir: string }
 
 /**
- * Ledgerline, a bookkeeping tool. REQ-1.1.1 is not built, requires REQ-2.1.1, and has a box below it (REQ-1.1.1.1)
+ * Ledgerline, a bookkeeping tool. REQ-1.1.1 is not built, requires REQ-2.1.1, and has a node below it (REQ-1.1.1.1)
  * and a draft below it (REQ-1.1.1.2); REQ-1.1.2 is built; REQ-2.1.2 relates to REQ-1.1.1.
  */
 function ledgerline(): Repo {
@@ -56,23 +56,23 @@ function ledgerline(): Repo {
 }
 
 const DATE = "refuses an entry without a date [hc:aaaaa2]";
-/** One accepted test of REQ-1.1.1 that failed in the last run, one rejected test, one accepted test of the box below never run. */
+/** One accepted test of REQ-1.1.1 that failed in the last run, one rejected test, one accepted test of the node below never run. */
 function recordTests(r: Repo): void {
   const base = { id: "", runner: "unit", kind: "unit", pin: "pin", at: "2026-11-18T00:00:00Z" };
   writeFileSync(join(r.canonDir, "tests.json"), JSON.stringify({ runners: {}, tests: [
-    { ...base, box: "aaaaa2", file: "tests/entry-date.test.js", title: DATE, description: "Records an entry with no date and checks that it is refused and the reason is shown", status: "accepted" },
-    { ...base, box: "aaaaa2", file: "tests/entry-old.test.js", title: "an older try [hc:aaaaa2]", description: "A test the reviewer turned down", status: "rejected" },
-    { ...base, kind: "integration", box: "fffff2", file: "tests/cents.test.js", title: "keeps cents [hc:fffff2]", description: "Records 10.50 and reads the stored amount back", status: "accepted" },
+    { ...base, node: "aaaaa2", file: "tests/entry-date.test.js", title: DATE, description: "Records an entry with no date and checks that it is refused and the reason is shown", status: "accepted" },
+    { ...base, node: "aaaaa2", file: "tests/entry-old.test.js", title: "an older try [hc:aaaaa2]", description: "A test the reviewer turned down", status: "rejected" },
+    { ...base, kind: "integration", node: "fffff2", file: "tests/cents.test.js", title: "keeps cents [hc:fffff2]", description: "Records 10.50 and reads the stored amount back", status: "accepted" },
   ] }));
   mkdirSync(join(r.gitDir, "headcanon"), { recursive: true });
   writeFileSync(join(r.gitDir, "headcanon", "results.json"), JSON.stringify({ at: "2026-11-18T00:00:00Z", tree: treeDigest(r.repo), runs: [], results: [
-    { box: "aaaaa2", title: DATE, file: "tests/entry-date.test.js", runner: "unit", outcome: "failed", message: "the entry was accepted\n  at record (src/entries.js:12)" },
+    { node: "aaaaa2", title: DATE, file: "tests/entry-date.test.js", runner: "unit", outcome: "failed", message: "the entry was accepted\n  at record (src/entries.js:12)" },
   ] }));
 }
 
 function started(r: Repo): Run {
   const run = createRun(r.gitDir, loadCanon(r.canonDir), ["REQ-1.1.1"], true, "headcanon/build", "main");
-  expect(run.slices.map((s) => s.box)).toEqual(["REQ-1.1.1.1", "REQ-1.1.1"]);
+  expect(run.slices.map((s) => s.node)).toEqual(["REQ-1.1.1.1", "REQ-1.1.1"]);
   return run;
 }
 
@@ -97,7 +97,7 @@ describe("the shared text", () => {
     expect(shared).not.toContain("Glossary");
   });
 
-  it("is the same text, byte for byte, at the start of every brief of the canon, whatever the box or the role", () => {
+  it("is the same text, byte for byte, at the start of every brief of the canon, whatever the node or the role", () => {
     const r = ledgerline();
     recordTests(r);
     const run = started(r);
@@ -106,8 +106,8 @@ describe("the shared text", () => {
     expect(briefText(r.canonDir, "REQ-2.1", { for: "tester" }).startsWith(shared)).toBe(true);
     expect(briefText(r.canonDir, "REQ-1.1", { for: "refiner" }).startsWith(shared)).toBe(true);
     expect(briefText(r.canonDir, "REQ-2.1", { for: "refiner", budget: 50 }).startsWith(shared)).toBe(true);
-    for (const box of ["REQ-1.1.1", "REQ-1.1.1.1"]) {
-      const brief = briefText(r.canonDir, box, { for: "implementer", runId: run.id });
+    for (const node of ["REQ-1.1.1", "REQ-1.1.1.1"]) {
+      const brief = briefText(r.canonDir, node, { for: "implementer", runId: run.id });
       // an implementer's brief carries its marker first; the shared text follows it whole
       expect(brief.slice(brief.indexOf("\n\n") + 2).startsWith(shared)).toBe(true);
     }
@@ -121,15 +121,15 @@ describe("an implementer's brief", () => {
     const run = started(r);
     const brief = briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id });
     expect(brief.split("\n")[0]).toBe(`headcanon-run: ${run.id} slice: REQ-1.1.1`);
-    expect(markerOf(brief)).toEqual({ run: run.id, box: "REQ-1.1.1" });
+    expect(markerOf(brief)).toEqual({ run: run.id, node: "REQ-1.1.1" });
   });
 
-  it("gives the path, its boxes with Intent and Check, their tests in plain words with the last outcome, and where each is built", () => {
+  it("gives the path, its nodes with Intent and Check, their tests in plain words with the last outcome, and where each is built", () => {
     const r = ledgerline();
     recordTests(r);
     const run = started(r);
     const brief = briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id });
-    expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1.1", "## Your boxes", "## Linked boxes", "## Terms", "## How you work"]);
+    expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1.1", "## Your nodes", "## Linked nodes", "## Terms", "## How you work"]);
     expect(brief).toContain("REQ-1 Entries (domain): The books hold every entry of the business.\nREQ-1.1 Recording entries (capability): An entry is recorded once, with what makes it whole.");
     expect(brief).toContain([
       "### REQ-1.1.1 An entry carries a date and an amount [hc:aaaaa2]",
@@ -139,7 +139,7 @@ describe("an implementer's brief", () => {
       "Tests:",
       "- Records an entry with no date and checks that it is refused and the reason is shown (unit test, tests/entry-date.test.js). Last run: failed: the entry was accepted at record (src/entries.js:12)",
     ].join("\n"));
-    // the box below it that the slice owes, with its test that never ran; the draft below it is not its to build
+    // the node below it that the slice owes, with its test that never ran; the draft below it is not its to build
     expect(brief).toContain([
       "### REQ-1.1.1.1 An amount is kept in cents [hc:fffff2]",
       "Intent: An amount is kept as a whole number of cents.",
@@ -152,11 +152,11 @@ describe("an implementer's brief", () => {
     expect(brief).not.toContain("A test the reviewer turned down");
   });
 
-  it("lists the linked boxes one line each, in both directions, and only the glossary terms its boxes use", () => {
+  it("lists the linked nodes one line each, in both directions, and only the glossary terms its nodes use", () => {
     const r = ledgerline();
     const run = started(r);
     const brief = briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id });
-    expect(brief).toContain("## Linked boxes\n\nREQ-2.1.1 A closed month keeps its totals (REQ-1.1.1 requires it): A closed month keeps the totals it was closed with.\nREQ-2.1.2 A statement lists a month's entries (it relates to REQ-1.1.1): A statement lists each entry of its month.\n");
+    expect(brief).toContain("## Linked nodes\n\nREQ-2.1.1 A closed month keeps its totals (REQ-1.1.1 requires it): A closed month keeps the totals it was closed with.\nREQ-2.1.2 A statement lists a month's entries (it relates to REQ-1.1.1): A statement lists each entry of its month.\n");
     expect(brief).toContain("## Terms\n\nclosed month: A month whose totals are fixed.\nentry: One dated amount recorded in the books.\n");
     expect(brief).not.toContain("statement: The list");
   });
@@ -169,14 +169,14 @@ describe("an implementer's brief", () => {
     expect(rules).toMatch(/`HC` below stands for: node "[^"\\]+\/bin\/headcanon\.js"\n/);
     expect(rules).toContain("You are free in how you build");
     expect(rules).toContain(`Your test command is \`HC tests run --run ${run.id}\`.`);
-    expect(rules).toContain("You may stop when the tests of your boxes pass, or when each box still failing has an issue you filed.");
-    expect(rules).toContain("`Intent: <box id>`");
-    expect(rules).toContain("One commit per box. Leave the tree clean");
+    expect(rules).toContain("You may stop when the tests of your nodes pass, or when each node still failing has an issue you filed.");
+    expect(rules).toContain("`Intent: <node id>`");
+    expect(rules).toContain("One commit per node. Leave the tree clean");
     expect(rules).toContain("| HC op - --by implementer-REQ-1.1.1");
     expect(rules).toContain('"by":"implementer-REQ-1.1.1","blocks":true}\' | HC ask -');
     for (const kind of ["contradiction", "apocrypha", "undefined", "disambiguation", "impossible"]) expect(rules).toContain(`\`${kind}\``);
     expect(rules).toContain("Never change a canon file or a recorded test by hand.");
-    for (const lookup of ["`HC context <box id>`", '`HC find "<words>"`', '`HC code find "<words>"`']) expect(rules).toContain(lookup);
+    for (const lookup of ["`HC context <node id>`", '`HC find "<words>"`', '`HC code find "<words>"`']) expect(rules).toContain(lookup);
     expect(rules).toContain("End with a report in plain words");
     // the commands are examples to fill in, and each parses as JSON once filled
     for (const line of rules.split("\n").filter((l) => l.trimStart().startsWith("echo '"))) expect(() => JSON.parse(line.slice(line.indexOf("'") + 1, line.lastIndexOf("'")))).not.toThrow();
@@ -192,17 +192,17 @@ describe("an implementer's brief", () => {
     expect(briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id, port: 4317 })).not.toContain("--port");
   });
 
-  it("follows what the slice owes by stable id, so a box that moved since is still found and one deleted is not invented", () => {
+  it("follows what the slice owes by stable id, so a node that moved since is still found and one deleted is not invented", () => {
     const r = ledgerline();
     const run = started(r);
-    saveRun(r.gitDir, { ...run, slices: run.slices.map((s) => (s.box === "REQ-1.1.1" ? { ...s, owes: ["aaaaa2", "eeeee2", "gone00"] } : s)) });
+    saveRun(r.gitDir, { ...run, slices: run.slices.map((s) => (s.node === "REQ-1.1.1" ? { ...s, owes: ["aaaaa2", "eeeee2", "gone00"] } : s)) });
     const brief = briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id });
     expect(brief).toContain("### REQ-2.1.1 A closed month keeps its totals [hc:eeeee2]");
     expect(brief).not.toContain("### REQ-1.1.1.1");
     expect(brief).not.toContain("gone00");
   });
 
-  it("finds the active run by itself; with no run it carries no marker and names the box in its test command", () => {
+  it("finds the active run by itself; with no run it carries no marker and names the node in its test command", () => {
     const r = ledgerline();
     const before = briefText(r.canonDir, "REQ-1.1.1", { for: "implementer" });
     expect(before.startsWith("# Ledgerline")).toBe(true);
@@ -210,55 +210,55 @@ describe("an implementer's brief", () => {
     expect(before).toContain("Your test command is `HC tests run REQ-1.1.1`.");
     expect(before).toContain("### REQ-1.1.1.1 An amount is kept in cents [hc:fffff2]");
     const run = started(r);
-    expect(markerOf(briefText(r.canonDir, "REQ-1.1.1", { for: "implementer" }))).toEqual({ run: run.id, box: "REQ-1.1.1" });
+    expect(markerOf(briefText(r.canonDir, "REQ-1.1.1", { for: "implementer" }))).toEqual({ run: run.id, node: "REQ-1.1.1" });
   });
 
-  it("refuses a box, a run or a slice that does not exist", () => {
+  it("refuses a node, a run or a slice that does not exist", () => {
     const r = ledgerline();
     const run = started(r);
-    expect(() => briefText(r.canonDir, "REQ-9", { for: "implementer" })).toThrow(/no box REQ-9/);
+    expect(() => briefText(r.canonDir, "REQ-9", { for: "implementer" })).toThrow(/no node REQ-9/);
     expect(() => briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: "no-such-run" })).toThrow(/no run no-such-run/);
     expect(() => briefText(r.canonDir, "REQ-2.1.1", { for: "implementer", runId: run.id })).toThrow(/has no slice for REQ-2.1.1/);
   });
 
-  it("keeps its boxes and its rules whole under a small budget, and says how many linked boxes and terms it left out", () => {
+  it("keeps its nodes and its rules whole under a small budget, and says how many linked nodes and terms it left out", () => {
     const r = ledgerline();
     const run = started(r);
     const brief = briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id, budget: 100 });
     expect(brief).toContain("Check (binary): An amount of 10.50 reads back as 1050 cents.");
     expect(brief).toContain("End with a report in plain words");
-    expect(brief).toContain("## Linked boxes\n\n(2 more left out for length: `HC context REQ-1.1.1` shows them)\n");
+    expect(brief).toContain("## Linked nodes\n\n(2 more left out for length: `HC context REQ-1.1.1` shows them)\n");
     expect(brief).toContain("## Terms\n\n(2 more left out for length: `HC context REQ-1.1.1` shows them)\n");
     expect(brief).not.toContain("REQ-2.1.2 A statement lists a month's entries (it relates");
   });
 });
 
 describe("a tester's brief", () => {
-  it("with canon only: the capability and every box below with Intent and Check, the linked boxes, the terms, and nothing from the repository", () => {
+  it("with canon only: the capability and every node below with Intent and Check, the linked nodes, the terms, and nothing from the repository", () => {
     const r = ledgerline();
     recordTests(r);
     const brief = briefText(r.canonDir, "REQ-1.1", { for: "tester", canonOnly: true });
-    expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1", "## The capability", "## The boxes below it", "## Linked boxes", "## Terms"]);
+    expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1", "## The capability", "## The nodes below it", "## Linked nodes", "## Terms"]);
     expect(brief).toContain("### REQ-1.1 Recording entries (a guess)\nIntent: An entry is recorded once, with what makes it whole.");
     expect(brief).toContain("### REQ-1.1.1 An entry carries a date and an amount (a guess)\nIntent: An entry carries a date and an amount; one without either is refused, also in a closed month.\nCheck (binary): An entry without a date is refused with the reason shown.");
-    expect(brief).toContain("### REQ-1.1.1.2 An amount names its currency (waits on the person)");
+    expect(brief).toContain("### REQ-1.1.1.2 An amount names its currency (waits on the user)");
     expect(brief).toContain("### REQ-1.1.2 Entries are listed by date (approved)");
     expect(brief).toContain("REQ-2.1.1 A closed month keeps its totals (REQ-1.1.1 requires it)");
     expect(brief).toContain("closed month: A month whose totals are fixed.");
     for (const fromRepository of ["tests/", "src/", "Where it is built", "Last run", "[hc:", "HC ", "headcanon.js", "docs/corrections.md"]) expect(brief, fromRepository).not.toContain(fromRepository);
   });
 
-  it("without it: the stable ids, where each box is built, the tests already recorded, and the lookups", () => {
+  it("without it: the stable ids, where each node is built, the tests already recorded, and the lookups", () => {
     const r = ledgerline();
     recordTests(r);
     const brief = briefText(r.canonDir, "REQ-1.1", { for: "tester" });
-    expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1", "## The capability", "## The boxes below it", "## Linked boxes", "## Terms", "## Lookups"]);
+    expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1", "## The capability", "## The nodes below it", "## Linked nodes", "## Terms", "## Lookups"]);
     expect(brief).toContain("### REQ-1.1.2 Entries are listed by date [hc:bbbbb2] (approved)");
     expect(brief).toContain("Where it is built: built in src/list.ts#listEntries, src/sort.ts#byDate (contributes).");
     expect(brief).toContain("Tests: none recorded.");
     expect(brief).toContain("(unit test, tests/entry-date.test.js). Last run: failed");
     expect(brief).toContain("Your name, for `--by`, is tester-REQ-1.1.");
-    expect(brief).toContain("`HC context <box id>`");
+    expect(brief).toContain("`HC context <node id>`");
     expect(markerOf(brief)).toBeUndefined();
   });
 });
@@ -270,10 +270,10 @@ describe("a refiner's brief", () => {
     expect(headings(brief).slice(5)).toEqual(["## The path to REQ-1.1", "## Your capability", "## Already written below it", "## Lookups"]);
     expect(brief).toContain("### REQ-1.1 Recording entries (capability, a guess; its children answer: what an entry must carry)\nIntent:\n\nAn entry is recorded once, with what makes it whole.\n\nDeferred:\n\n- how an entry is corrected (docs/corrections.md:4)");
     expect(brief).toContain("REQ-1.1.1 An entry carries a date and an amount (requirement, a guess, binary, not built): An entry carries a date and an amount; one without either is refused, also in a closed month. Check: An entry without a date is refused with the reason shown.");
-    expect(brief).toContain("REQ-1.1.1.2 An amount names its currency (requirement, waits on the person, binary, not built)");
+    expect(brief).toContain("REQ-1.1.1.2 An amount names its currency (requirement, waits on the user, binary, not built)");
     expect(brief).toContain("REQ-1.1.2 Entries are listed by date (requirement, approved, binary, built)");
     expect(brief).toContain("Your name, for `--by`, is refiner-REQ-1.1.");
-    for (const lookup of ["`HC context <box id>`", '`HC find "<words>"`', '`HC code find "<words>"`']) expect(brief).toContain(lookup);
+    for (const lookup of ["`HC context <node id>`", '`HC find "<words>"`', '`HC code find "<words>"`']) expect(brief).toContain(lookup);
     expect(brief).not.toContain("How you work");
   });
 
@@ -285,7 +285,7 @@ describe("a refiner's brief", () => {
     expect(cut).toContain("Your name, for `--by`, is refiner-REQ-1.1.");
   });
 
-  it("says a box directly under the premise has no path above it", () => {
+  it("says a node directly under the premise has no path above it", () => {
     const r = ledgerline();
     expect(briefText(r.canonDir, "REQ-1", { for: "refiner" })).toContain("## The path to REQ-1\n\nIt sits directly under the premise.\n");
   });
@@ -315,16 +315,16 @@ describe("headcanon brief", () => {
     expect(out.join("")).toBe(briefText(r.canonDir, "REQ-1.1.1", { for: "implementer", runId: run.id, port: 4400 }));
     const active = ctxOf(r);
     expect(await briefCli(["REQ-1.1.1.1", "--for", "implementer"], active.ctx)).toBe(0);
-    expect(markerOf(active.out.join(""))).toEqual({ run: run.id, box: "REQ-1.1.1.1" });
+    expect(markerOf(active.out.join(""))).toEqual({ run: run.id, node: "REQ-1.1.1.1" });
   });
 
-  it("answers a usage line without a box or a role, and an error for what does not exist", async () => {
+  it("answers a usage line without a node or a role, and an error for what does not exist", async () => {
     const r = ledgerline();
     const { ctx, out, err } = ctxOf(r);
     expect(await briefCli([], ctx)).toBe(2);
     expect(await briefCli(["REQ-1.1"], ctx)).toBe(2);
     expect(await briefCli(["REQ-1.1", "--for", "reviewer"], ctx)).toBe(2);
-    expect(err.join("")).toContain("usage: headcanon brief <box id> --for implementer|tester|refiner");
+    expect(err.join("")).toContain("usage: headcanon brief <node id> --for implementer|tester|refiner");
     expect(await briefCli(["REQ-9", "--for", "refiner"], ctx)).toBe(1);
     expect(await briefCli(["REQ-1.1.1", "--for", "implementer", "--run", "no-such-run"], ctx)).toBe(1);
     expect(err.join("")).toContain("brief: no run no-such-run");

@@ -22,7 +22,7 @@ import { compareIds, loadCanon } from "./load.js";
 import { renderMermaidIndex } from "./render.js";
 import { buildSnapshot } from "./snapshot.js";
 import { serveUi } from "./ui/server.js";
-import { isHumanEntry, type FeedEntry } from "./session.js";
+import { isUserEntry, type FeedEntry } from "./session.js";
 import { readSettings, writeSettings } from "./settings.js";
 import { readJournal, revertTo } from "./journal.js";
 
@@ -30,32 +30,32 @@ const HELP = `headcanon <command> [options]
 
 Commands
   init           Create the canon skeleton and install the commit-msg hook in this repository.
-  check          Validate the canon: structure, links, files and states that need a human. Exit 1 on errors.
+  check          Validate the canon: structure, links, files and states that need a user. Exit 1 on errors.
   summary        Print the requirement tree as plain text.
   render         Write the Mermaid index (canon/INDEX.md by default).
-  attention      What is waiting on the human: approvals, unmerged changes, open and contested items.
-  next [ID]      Which node to refine next and what the human should approve or settle, by impact; with an ID, the path to validate above it.
+  attention      What is waiting on the user: approvals, unmerged changes, open and contested items.
+  next [ID]      Which node to refine next and what the user should approve or settle, by impact; with an ID, the path to validate above it.
   op <JSON|@F|->   Apply one operation to the canon (${OP_NAMES.join(", ")}); checked, logged, rolled back on error. - reads the JSON from stdin.
   op --log [ID]  Print the operations log, or the entries naming ID.  op --stats  Failures per operation, retries per check and per node.
-  ask <JSON|@F|->  File an issue in the running viewer's queue (--port) and return at once; {questions: [...]} files several. Who asks (by) and whether the box waits on the answer (blocks) travel in the JSON; --by and --blocks fill them in.
+  ask <JSON|@F|->  File an issue in the running viewer's queue (--port) and return at once; {questions: [...]} files several. Who asks (by) and whether the node waits on the answer (blocks) travel in the JSON; --by and --blocks fill them in.
   propose <JSON|@F|->  Record an operation outside your own capability for the session to apply: --why "<reason>" --by <name>.
   proposals      List the proposals (--open: those still waiting).  proposals apply <id>  proposals reject <id> --why "<reason>"
-  context <ID>   What a box is read with, within --budget characters: the box whole, its path from the premise, its family, its links, the journeys and decisions that cite it, its relatives in other branches, its terms. ROOT is valid.
-  find "<words>"   The boxes that carry the words in a title, an intent, a check, a journey, a decision or a term; one line per hit.
-  coherence      Candidates for the cross-branch coherence pass: clusters of boxes in different branches that share a term, a file, a required box or a title word.
+  context <ID>   What a node is read with, within --budget characters: the node whole, its path from the premise, its family, its links, the journeys and decisions that cite it, its relatives in other branches, its terms. ROOT is valid.
+  find "<words>"   The nodes that carry the words in a title, an intent, a check, a journey, a decision or a term; one line per hit.
+  coherence      Candidates for the cross-branch coherence pass: clusters of nodes in different branches that share a term, a file, a required node or a title word.
   code <sub>     The code tree: build [--repo dir], show <unit>, find "<words>", todo [--level n] [--limit n], describe <JSON|@F>, stats.
   claims         What the documents and the content claim, as a list.  claims add <JSON|@F>
-  parcel <ID>    The evidence a box is refined from, within --budget tokens.  parcel --check  Exit 1 while a parent's evidence is not covered by its children, or a requirement does not say where it is built.
+  parcel <ID>    The evidence a node is refined from, within --budget tokens.  parcel --check  Exit 1 while a parent's evidence is not covered by its children, or a requirement does not say where it is built.
   reading parts <n>  The repository's documents in n groups balanced by size, as JSON: one reader per group.
   tests <sub>    The record of tests: runner <name> <JSON>, add <JSON|@F|->, review <uid|ID> pass|fail [--note "<text>"], list [ID], run [ID...] [--kind k] [--all] [--run <run id>], results.
   brief <ID>     The brief an agent starts from: --for implementer|tester|refiner, with --run <run id>, --canon-only, --budget <characters>.
-  run <sub>      An Implement/align run: start <ID...> [--single], status, step <name> <status> [--note "<text>"], slice <box> <status> [--agent <agent id>] [--summary "<plain words>"] [--note "<text>"], check <box>, stop.
+  run <sub>      An Implement/align run: start <ID...> [--single], status, step <name> <status> [--note "<text>"], slice <node> <status> [--agent <agent id>] [--summary "<plain words>"] [--note "<text>"], check <node>, stop.
   build <sub>    prepare: switch to the build branch and commit the canon's pending changes there.  tests [ID...]: commit the accepted tests with the record of tests.
-  slice <sub>    The human's decision on what was built for a box: approve <box>, discard <box>.
+  slice <sub>    The user's decision on what was built for a node: approve <node>, discard <node>.
   working <ID...>  Tell the page where a worker is (--by <worker>).  working --off --by <worker>  The worker is done.
-  wait [cursor]  Block until the human acts on the page, then exit; run in the background, it wakes an idle session. --since <cursor> is the same cursor.
+  wait [cursor]  Block until the user acts on the page, then exit; run in the background, it wakes an idle session. --since <cursor> is the same cursor.
   history        The recorded changes to the canon, newest first (--limit).  revert <seq>  Restore the canon to before that change.
-  settings [guided|full-auto]  Print the settings the human chose on the page; with a mode, store that mode first.
+  settings [guided|full-auto]  Print the settings the user chose on the page; with a mode, store that mode first.
   upgrade        Bring an older canon up to this format: states, section names, a uid where one is missing.
   commit-msg F   Validate the commit message in file F (used by the git hook). Exit 1 on errors.
   review-hash    Describe the staged canon diff: its hash and whether it needs a semantic review.
@@ -63,8 +63,8 @@ Commands
   format         Print the canon format: every type, the start sequence, the versions (--out writes it to a file).
   session-start  Print the session context as a Claude Code SessionStart hook result.
   stop-hook      As a Claude Code Stop hook: refuse to end the turn while an adoption is unfinished and the viewer is up, unless a waiter is armed.
-  prompt-hook    As a Claude Code UserPromptSubmit hook: mirror the human's terminal prompt into the page's chat.
-  gate subagent-stop  As a Claude Code SubagentStop hook: let an implementation agent stop only when the tests of its boxes pass, or each box still failing has an issue it filed.
+  prompt-hook    As a Claude Code UserPromptSubmit hook: mirror the user's terminal prompt into the page's chat.
+  gate subagent-stop  As a Claude Code SubagentStop hook: let an implementation agent stop only when the tests of its nodes pass, or each node still failing has an issue it filed.
   ui             Serve the local viewer.
   mcp            Serve the MCP tools for Claude Code over stdio (starts the viewer when none runs).
   terms          List candidate jargon in a draft (--text or stdin) that the glossary does not define.
@@ -75,8 +75,8 @@ Options
   --no-open       For mcp: do not open the browser on the first question
   --text <draft>  For terms: the draft to scan
   --by <who>      Who asks: written to the log for op, to the issue for ask, to the record for propose and tests; the worker for working and parcel
-  --blocks        For ask: the box cannot be built until the human settles the issue
-  --under <ID>    For next: only the boxes under ID, what one agent owns
+  --blocks        For ask: the node cannot be built until the user settles the issue
+  --under <ID>    For next: only the nodes under ID, what one agent owns
   --log, --stats  For op: read the log instead of applying
   --check         For parcel: check the coverage instead of printing a parcel
   --budget <n>    For parcel, context and brief: how much to print
@@ -114,7 +114,7 @@ interface Args {
   limit: number | undefined;
   budget: number | undefined;
   check: boolean;
-  /** `ask --blocks`: the box cannot be built until the human settles the issue */
+  /** `ask --blocks`: the node cannot be built until the user settles the issue */
   blocks: boolean;
   /** Options this parser does not know; a command whose module reads its own arguments expects them */
   unknown: string[];
@@ -277,7 +277,7 @@ export interface StopFacts {
   noCanon?: boolean | undefined;
   /** A viewer serves this canon. */
   viewerAnswers: boolean;
-  /** The human's list is open (the gate): they may be working it, so the session keeps attending. */
+  /** The user's list is open (the gate): they may be working it, so the session keeps attending. */
   gateOpen: boolean;
   /** The session's last words, when the hook input carries them. */
   lastAssistantMessage?: string | undefined;
@@ -285,18 +285,18 @@ export interface StopFacts {
   transcriptTail?: string | undefined;
   /** Claude Code's background tasks, when the hook input carries them; absent means nothing in flight. */
   backgroundTasks?: Array<{ type?: string; status?: string }> | undefined;
-  /** `headcanon wait` is running for this canon: the human's next action wakes the session, so it may stop (DEC-025). */
+  /** `headcanon wait` is running for this canon: the user's next action wakes the session, so it may stop (DEC-025). */
   waiterArmed?: boolean | undefined;
 }
 
-export const STOP_BLOCK_REASON = "The viewer is up and no waiter is armed, so the person's next action on the page (an answer, an edit, Implement) would not reach you. Arm it and end the turn: run `HC wait --port <port> <cursor>` (HC as the attend skill defines it, the cursor the last headcanon_changes returned) with the Bash tool's run_in_background; the human's next action on the page wakes you, your own messages do not. Say the words 'stopping attend' only when the human asked you to stop.";
+export const STOP_BLOCK_REASON = "The viewer is up and no waiter is armed, so the user's next action on the page (an answer, an edit, Implement) would not reach you. Arm it and end the turn: run `HC wait --port <port> <cursor>` (HC as the attend skill defines it, the cursor the last headcanon_changes returned) with the Bash tool's run_in_background; the user's next action on the page wakes you, your own messages do not. Say the words 'stopping attend' only when the user asked you to stop.";
 
 const red = (n: ReqNode): boolean => n.state === "draft" || n.state === "contested";
 
 /**
  * The adoption is finished: the canon holds requirements, every branch ends in a requirement with a check, and each
- * requirement with a check says where it is built or that it is not. A red box, a draft or a contested one, waits on
- * the human and holds nothing, and neither does what hangs under it. No decision record is read: the first one
+ * requirement with a check says where it is built or that it is not. A red node, a draft or a contested one, waits on
+ * the user and holds nothing, and neither does what hangs under it. No decision record is read: the first one
  * written during an adoption would otherwise end the attendance, and an adoption that writes none would never end.
  */
 export function adoptionComplete(canon: Canon): boolean {
@@ -307,19 +307,19 @@ export function adoptionComplete(canon: Canon): boolean {
 
 /**
  * Whether the session may end its turn (REQ-11.1): yes when a waiter is armed, when no viewer is up, when its last
- * words say "stopping attend", or, while the adoption is unfinished, when a subagent runs with the human's list closed,
+ * words say "stopping attend", or, while the adoption is unfinished, when a subagent runs with the user's list closed,
  * since its report wakes the session. Otherwise the session arms the waiter first. A finished adoption does not end
  * the listening: the page's buttons, Implement among them, reach the session only through a waiter (DEC-026).
  * Pure, so the rule is tested apart from stdin and the viewer.
  */
 export function stopDecision(f: StopFacts): { decision: "allow" | "block"; reason: string } {
   if (f.noCanon) return { decision: "allow", reason: "there is no canon to attend" };
-  if (f.waiterArmed) return { decision: "allow", reason: "a waiter is armed: the human's next action wakes the session" };
+  if (f.waiterArmed) return { decision: "allow", reason: "a waiter is armed: the user's next action wakes the session" };
   if (!f.viewerAnswers) return { decision: "allow", reason: "no viewer answers" };
   // the hook's own field is the session's last message; the transcript is the fallback when the field is absent
   if (/stopping attend/i.test(f.lastAssistantMessage ?? f.transcriptTail ?? "")) return { decision: "allow", reason: "the session said it is stopping attend" };
-  // a running refiner wakes the session with its report; while the list is open the human may be working it
-  if (!f.finished && !f.gateOpen && (f.backgroundTasks ?? []).some((t) => t.type === "subagent")) return { decision: "allow", reason: "a subagent is running and the human's list is closed: its report wakes the session" };
+  // a running refiner wakes the session with its report; while the list is open the user may be working it
+  if (!f.finished && !f.gateOpen && (f.backgroundTasks ?? []).some((t) => t.type === "subagent")) return { decision: "allow", reason: "a subagent is running and the user's list is closed: its report wakes the session" };
   return { decision: "block", reason: STOP_BLOCK_REASON };
 }
 
@@ -399,11 +399,11 @@ async function viewerUp(port: number): Promise<boolean> {
 }
 
 /**
- * The boxes whose agents were dispatched and have not reported: a `dispatch` record in the operations log with no
+ * The nodes whose agents were dispatched and have not reported: a `dispatch` record in the operations log with no
  * later `returned` record for the same id. The records are read as `{ op, id }`, whatever kinds the log's types name;
  * a refused attempt (`ok: false`, an id outside the canon) handed nothing to anyone and is passed over.
  */
-export function heldBoxes(records: ReadonlyArray<{ ok?: boolean; request: { op: string; id?: string } }>): string[] {
+export function heldNodes(records: ReadonlyArray<{ ok?: boolean; request: { op: string; id?: string } }>): string[] {
   const held = new Set<string>();
   for (const { ok, request } of records) {
     if (ok === false || !request.id) continue;
@@ -432,7 +432,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
 
   // The three hooks never fail: an exit code other than 0 from a hook reaches the session as a refusal, so whatever
   // goes wrong is written to stderr and the hook lets go.
-  // prompt-hook: the human's terminal prompt is mirrored into the page's chat as a terminal line (DEC-025), so the
+  // prompt-hook: the user's terminal prompt is mirrored into the page's chat as a terminal line (DEC-025), so the
   // page and the terminal read as one conversation; the session does not act on it, it already has the prompt.
   if (args.command === "prompt-hook") {
     try {
@@ -441,7 +441,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       const text = typeof input.prompt === "string" ? input.prompt.trim() : "";
       if (text && !text.startsWith("<")) {
         const port = await viewerFor(resolve(process.env["CLAUDE_PROJECT_DIR"] ?? input.cwd ?? process.cwd(), args.canon ?? "canon"), args.port);
-        if (port !== undefined) await call(port, "/api/terminal", { body: { role: "human", text: text.slice(0, 4000) } });
+        if (port !== undefined) await call(port, "/api/terminal", { body: { role: "user", text: text.slice(0, 4000) } });
       }
     } catch (e) { err(`prompt-hook: ${e instanceof Error ? e.message : String(e)}\n`); }
     return 0;
@@ -449,7 +449,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
 
   // stop-hook: a session that attends an unfinished adoption never ends its turn by accident. It may stop when the
   // adoption is finished, when a waiter is armed, when no viewer serves this canon, when its last words say
-  // "stopping attend", or when a subagent runs while the human's list is closed; the rule is `stopDecision`, this
+  // "stopping attend", or when a subagent runs while the user's list is closed; the rule is `stopDecision`, this
   // gathers what it weighs. Whether the adoption is finished is read from the canon alone (`adoptionComplete`);
   // the viewer and the waiter are asked apart from it, so the terminal mirror works after the adoption too.
   if (args.command === "stop-hook") {
@@ -469,7 +469,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       let finished = noCanon, gateOpen = false;
       if (attending && !finished) {
         try { const canon = loadCanon(canonDir); finished = adoptionComplete(canon); gateOpen = listGate(canon).open; }
-        catch { gateOpen = true; /* an unreadable canon is an unfinished one, and the human may be at the list */ }
+        catch { gateOpen = true; /* an unreadable canon is an unfinished one, and the user may be at the list */ }
       }
       const d = stopDecision({
         finished,
@@ -522,7 +522,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       // record was written by hand or adopted before this loop, and is never sent back into it.
       const canon = (source === "compact" || source === "resume") && existsSync(canonDir) ? loadCanon(canonDir) : undefined;
       if (canon?.root && !adoptionFinished(canon) && !adoptionComplete(canon))
-        context += `\n\n## An adoption is unfinished\n\nThe canon exists and some of its branches do not end in a requirement with a check yet: the attend loop was running before this ${source}. Re-read the attend skill (skills/attend/SKILL.md under the plugin root) and continue from \`headcanon next --json\`: the canon on disk and the operations log are the whole state; nothing in memory is needed. \`headcanon next --json\` lists under \`held\` the boxes whose agents were dispatched and have not reported; do not dispatch those again, their reports arrive as notifications.`;
+        context += `\n\n## An adoption is unfinished\n\nThe canon exists and some of its branches do not end in a requirement with a check yet: the attend loop was running before this ${source}. Re-read the attend skill (skills/attend/SKILL.md under the plugin root) and continue from \`headcanon next --json\`: the canon on disk and the operations log are the whole state; nothing in memory is needed. \`headcanon next --json\` lists under \`held\` the nodes whose agents were dispatched and have not reported; do not dispatch those again, their reports arrive as notifications.`;
     } catch (e) {
       context = `# HeadCanon\n\nThe canon at ${canonDir} could not be read: ${e instanceof Error ? e.message : String(e)}\nRun \`headcanon check\` and fix the file it names before relying on the canon.`;
     }
@@ -711,7 +711,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       return 0;
     }
     case "parcel": {
-      // reading a parcel is the start of a worker's turn on that box: the page shows the worker there from this moment
+      // reading a parcel is the start of a worker's turn on that node: the page shows the worker there from this moment
       if (args.by && args.positional[0] && !args.check) await signalWorking(args.port, [args.positional[0]], args.by);
       const git = gitDirOf(canonDir);
       const canon = loadCanon(canonDir);
@@ -772,7 +772,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       return 0;
     }
     case "settings": {
-      // with a mode, store it: the human changed it in the chat, where the page's card is no longer shown; the cap stays
+      // with a mode, store it: the user changed it in the chat, where the page's card is no longer shown; the cap stays
       const m = args.positional[0];
       if (m === "guided" || m === "full-auto") {
         if (!writeSettings(canonDir, { ...readSettings(canonDir), mode: m, at: new Date().toISOString() })) { err("no git directory to keep the settings in\n"); return 1; }
@@ -802,13 +802,13 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
         while (Date.now() < deadline) {
           let r: { cursor: number; entries: FeedEntry[] } | undefined;
           // the viewer holds a poll for 25 seconds at most; the timeout leaves room for a slow answer
-          try { r = JSON.parse((await call(args.port, `/api/changes?since=${since}&timeout=25&wake=human`, { timeoutMs: 35_000, signal: interrupted.signal }))?.text ?? "") as { cursor: number; entries: FeedEntry[] }; } catch { /* no viewer, or not a viewer's answer */ }
+          try { r = JSON.parse((await call(args.port, `/api/changes?since=${since}&timeout=25&wake=user`, { timeoutMs: 35_000, signal: interrupted.signal }))?.text ?? "") as { cursor: number; entries: FeedEntry[] }; } catch { /* no viewer, or not a viewer's answer */ }
           if (interrupted.signal.aborted) return 130;
           if (!r || !Array.isArray(r.entries)) { await pause(5000); if (interrupted.signal.aborted) return 130; continue; }
-          // only the human wakes the session: its own says and the terminal mirror of its words are skipped (a viewer
-          // from before `wake=human` returns them; the filter here holds either way) and the cursor moves past them
-          const human = r.entries.filter(isHumanEntry);
-          if (human.length) { out(JSON.stringify({ cursor: r.cursor, entries: human.length, since }) + "\n"); clear(); return 0; }
+          // only the user wakes the session: its own says and the terminal mirror of its words are skipped (a viewer
+          // from before `wake=user` returns them; the filter here holds either way) and the cursor moves past them
+          const user = r.entries.filter(isUserEntry);
+          if (user.length) { out(JSON.stringify({ cursor: r.cursor, entries: user.length, since }) + "\n"); clear(); return 0; }
           if (r.entries.length) since = r.cursor;
         }
         out(JSON.stringify({ cursor: since, entries: 0, since, timedOut: true }) + "\n");
@@ -817,8 +817,8 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       } finally { clear(); }
     }
     case "coherence": {
-      // Candidates for the cross-branch coherence pass (DEC-024): clusters of boxes in different branches that share a
-      // glossary term, a cited file, a required box or a rare title word; a reader agent judges them from their full text.
+      // Candidates for the cross-branch coherence pass (DEC-024): clusters of nodes in different branches that share a
+      // glossary term, a cited file, a required node or a rare title word; a reader agent judges them from their full text.
       const c = coherenceClusters(loadCanon(canonDir));
       out(args.json ? JSON.stringify(c, null, 2) + "\n" : describeCoherence(c) + "\n");
       return 0;
@@ -832,7 +832,7 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       try { body = JSON.parse(jsonText(raw, stdin)) as typeof body; }
       catch (e) { err(`ask: the request is not valid JSON: ${(e as Error).message}\n`); return 2; }
       const items = Array.isArray(body?.questions) ? body.questions : [body];
-      // who asks and whether the box waits on the answer travel with each question; the options fill in what it leaves out
+      // who asks and whether the node waits on the answer travel with each question; the options fill in what it leaves out
       const named = { ...(args.by ? { by: args.by } : {}), ...(args.blocks ? { blocks: true } : {}) };
       const ids: string[] = [];
       for (const q of items) {
@@ -859,14 +859,14 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       catch (e) { err(`op: the operation is not valid JSON: ${(e as Error).message}\n`); return 2; }
       const r = applyOp(canonDir, op, args.by ? { by: args.by } : {});
       out(JSON.stringify(r, null, 2) + "\n");
-      // the worker's position is the box being refined, the parent of a turn: a parcel read sets it, a create confirms
+      // the worker's position is the node being refined, the parent of a turn: a parcel read sets it, a create confirms
       // it through `under`, a review sets it to the set's parent; operations on the children never move it
       { const o = op as { op?: string; id?: string; under?: string }; const at = o.op === "create" ? o.under : o.op === "review" ? o.id : undefined; if (at && args.by) await signalWorking(args.port, [at], args.by); }
       return r.ok ? 0 : 1;
     }
     case "next": {
       const canon = loadCanon(canonDir);
-      // `next <ID>`: the unapproved boxes on the path down to that node, what the human validates before work under it
+      // `next <ID>`: the unapproved nodes on the path down to that node, what the user validates before work under it
       if (args.positional[0]) {
         const path = pathToValidate(canon, args.positional[0]);
         out(args.json ? JSON.stringify({ id: args.positional[0], path: path ?? null }, null, 2) + "\n" : describePath(args.positional[0], path) + "\n");
@@ -876,9 +876,9 @@ export async function main(argv: string[], io: MainIo = {}): Promise<number> {
       // never an empty order that reads as nothing left
       if (args.under && args.under !== "ROOT" && !canon.nodes[args.under]) { err(`${args.under} is not in the canon\n`); return 1; }
       const order = refinementOrder(canon, args.under, { guided: readSettings(canonDir).mode === "guided" });
-      // the boxes whose agents were dispatched and have not reported, from the operations log: not to be dispatched again
+      // the nodes whose agents were dispatched and have not reported, from the operations log: not to be dispatched again
       const git = gitDirOf(canonDir);
-      const held = heldBoxes(git ? readOps(join(git, "headcanon", "ops.jsonl")) : []);
+      const held = heldNodes(git ? readOps(join(git, "headcanon", "ops.jsonl")) : []);
       if (args.json) out(JSON.stringify({ ...order, held }, null, 2) + "\n");
       else out(describeNext(order, canon) + (held.length ? `\nHeld by running agents: ${held.join(", ")}.` : "") + "\n");
       return order.cycles.length ? 1 : 0;

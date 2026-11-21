@@ -11,7 +11,7 @@ files: [packages/canon/src/check.ts]
 
 ## Intent
 
-`headcanon check` reports findings at three levels. Errors are broken structure the canon cannot be read through: a duplicate ID, a parent that does not exist, a link from a node, step or decision to an ID that does not exist. Warnings need a decision from the human: a file without an id, a dotted ID whose parent does not match, a listed file missing from the repository, a contested node or section, an assumed node that two or more decisions rest on, a journey with no step table, a step linked to nothing, a decision serving no intent, an unknown origin value, and a branch where unconfirmed nodes outnumber confirmed ones. Notes are things to know: open questions, unconfirmed decisions, a journey without a graph. The command exits non-zero only on errors.
+`headcanon check` reports findings at three levels. Errors are broken structure the canon cannot be read through: a duplicate ID, a parent that does not exist, a link from a node, step or decision to an ID that does not exist. Warnings need a decision from the user: a file without an id, a dotted ID whose parent does not match, a listed file missing from the repository, a contested node or section, an assumed node that two or more decisions rest on, a journey with no step table, a step linked to nothing, a decision serving no intent, an unknown origin value, and a branch where unconfirmed nodes outnumber confirmed ones. Notes are things to know: open questions, unconfirmed decisions, a journey without a graph. The command exits non-zero only on errors.
 
 ## Not this
 

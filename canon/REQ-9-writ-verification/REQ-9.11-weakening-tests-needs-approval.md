@@ -1,12 +1,12 @@
 ---
 id: REQ-9.11
 parent: REQ-9
-title: "Weakening a test needs an intent change and human approval; an explicit request in the session counts"
+title: "Weakening a test needs an intent change and user approval; an explicit request in the session counts"
 state: stated
 source: "docs/design-brief-v0.md:96"
 ---
 
-# Weakening a test needs an intent change and human approval; an explicit request in the session counts
+# Weakening a test needs an intent change and user approval; an explicit request in the session counts
 
 ## Stated
 

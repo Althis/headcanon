@@ -1,7 +1,7 @@
 /**
  * The journal of every change to the canon's files (DEC-025: everything is an operation, so History can show and
  * undo it): one entry per change with the files it touched and their text before and after. Operations append here
- * when they commit, the page appends when the human edits through it, and a revert restores the "before" texts of
+ * when they commit, the page appends when the user edits through it, and a revert restores the "before" texts of
  * every entry after a point, as a new entry that can itself be reverted. Lives beside the ops log in the git dir.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";

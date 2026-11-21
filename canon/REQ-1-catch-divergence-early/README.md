@@ -1,11 +1,11 @@
 ---
 id: REQ-1
-title: "Divergence from intent is caught early, where the human sees it"
+title: "Divergence from intent is caught early, where the user sees it"
 state: stated
 source: "docs/design-brief-v0.md:22"
 ---
 
-# Divergence from intent is caught early, where the human sees it
+# Divergence from intent is caught early, where the user sees it
 
 ## Stated
 

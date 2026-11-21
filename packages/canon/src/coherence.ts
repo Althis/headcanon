@@ -3,7 +3,7 @@ import { branchOf, compareIds } from "./load.js";
 import type { Canon, ReqNode } from "./types.js";
 
 /**
- * Candidates for the cross-branch coherence pass (DEC-024). A refiner reads its own branch, so two boxes in
+ * Candidates for the cross-branch coherence pass (DEC-024). A refiner reads its own branch, so two nodes in
  * different top-level branches can say one thing twice, or contradict each other, and nobody is placed to notice.
  * Nothing is judged from a summary here: this finds the clusters of nodes across branches that visibly share
  * something, a glossary term in their Intent or Check, a code file cited under As built, a node they both require,

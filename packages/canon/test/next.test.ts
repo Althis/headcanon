@@ -61,7 +61,7 @@ describe("refinement order [REQ-3.15]", () => {
     expect(checkCanon(canon).some((f) => f.code === "requires-cycle" || f.code === "refine-deadlock")).toBe(false);
   });
 
-  it("never waits for an approval: a deep chain of guesses is refined to the leaves, boxes under approved parents first [DEC-024]", () => {
+  it("never waits for an approval: a deep chain of guesses is refined to the leaves, nodes under approved parents first [DEC-024]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-deep-"));
     dirs.push(dir);
     readme(dir, "assumed");
@@ -76,12 +76,12 @@ describe("refinement order [REQ-3.15]", () => {
     // the premise is a guess, and still every leaf without a kind is ready: the one under the approved REQ-1.1.1 first
     expect(order.ready.map((p) => `${p.id}${p.parentApproved ? "*" : ""}`)).toEqual(["REQ-1.1.1.1*", "REQ-2", "REQ-1.1.2"]);
     expect(order.deadlock).toBe(false);
-    expect(describeNext(order, canon)).toContain("Next to refine: REQ-1.1.1.1 REQ-1.1.1.1 (depth 3; nothing requires it yet; prerequisites met; under an approved box)");
+    expect(describeNext(order, canon)).toContain("Next to refine: REQ-1.1.1.1 REQ-1.1.1.1 (depth 3; nothing requires it yet; prerequisites met; under an approved node)");
     expect(checkCanon(canon).some((f) => f.code === "refine-deadlock")).toBe(false);
   });
 
-  it("ranks what the human can do by impact: the premise first, then the frontier by what hangs below it, red boxes by what they hide [DEC-024]", () => {
-    const dir = mkdtempSync(join(tmpdir(), "headcanon-human-"));
+  it("ranks what the user can do by impact: the premise first, then the frontier by what hangs below it, red nodes by what they hide [DEC-024]", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headcanon-user-"));
     dirs.push(dir);
     readme(dir, "assumed");
     file(dir, "REQ-1-a/README.md", "REQ-1", "assumed");
@@ -96,29 +96,29 @@ describe("refinement order [REQ-3.15]", () => {
     file(dir, "REQ-4-j.md", "REQ-4", "assumed", undefined, "requires: [REQ-3]\n");
     let canon = loadCanon(dir);
     let order = refinementOrder(canon);
-    // while the premise is a guess, it is the only approval offered: everything hangs on it; the red boxes stand beside it
-    expect(order.human.map((h) => `${h.action} ${h.id}`)).toEqual(["approve ROOT", "settle REQ-3", "settle REQ-1.2"]);
-    expect(order.human[0]).toMatchObject({ below: 10, redBelow: 2, score: 11, why: "validates the path for 10 boxes below it, 2 of them red" });
-    // REQ-3 is a red leaf at depth 0, where a refined box holds 3 below on average (REQ-1: 4, REQ-2: 2); REQ-4 waits on it
-    expect(order.human[1]).toMatchObject({ state: "contested", hidden: 3, unblocks: ["REQ-4"], score: 5, why: "contested; hides about 3 boxes; 1 wait on it" });
-    // REQ-1.2 is a draft at depth 1, where the refined boxes (REQ-1.1 with 2 below, two leaves with none) hold 1 below on average
-    expect(order.human[2]).toMatchObject({ state: "draft", hidden: 1, score: 2, why: "draft; hides about 1 box" });
-    expect(describeNext(order, canon)).toContain("For the human: approve ROOT (validates the path for 10 boxes below it, 2 of them red); settle REQ-3 (contested; hides about 3 boxes; 1 wait on it); settle REQ-1.2 (draft; hides about 1 box).");
-    // the premise approved: the frontier is the top level, ranked with the red boxes by impact, a red box first on a tie
+    // while the premise is a guess, it is the only approval offered: everything hangs on it; the red nodes stand beside it
+    expect(order.user.map((h) => `${h.action} ${h.id}`)).toEqual(["approve ROOT", "settle REQ-3", "settle REQ-1.2"]);
+    expect(order.user[0]).toMatchObject({ below: 10, redBelow: 2, score: 11, why: "validates the path for 10 nodes below it, 2 of them red" });
+    // REQ-3 is a red leaf at depth 0, where a refined node holds 3 below on average (REQ-1: 4, REQ-2: 2); REQ-4 waits on it
+    expect(order.user[1]).toMatchObject({ state: "contested", undrafted: 3, unblocks: ["REQ-4"], score: 5, why: "contested; about 3 nodes not drafted yet; 1 wait on it" });
+    // REQ-1.2 is a draft at depth 1, where the refined nodes (REQ-1.1 with 2 below, two leaves with none) hold 1 below on average
+    expect(order.user[2]).toMatchObject({ state: "draft", undrafted: 1, score: 2, why: "draft; about 1 node not drafted yet" });
+    expect(describeNext(order, canon)).toContain("For the user: approve ROOT (validates the path for 10 nodes below it, 2 of them red); settle REQ-3 (contested; about 3 nodes not drafted yet; 1 wait on it); settle REQ-1.2 (draft; about 1 node not drafted yet).");
+    // the premise approved: the frontier is the top level, ranked with the red nodes by impact, a red node first on a tie
     readme(dir, "resolved");
     canon = loadCanon(dir);
     order = refinementOrder(canon);
-    expect(order.human.map((h) => `${h.action} ${h.id} ${h.score}`)).toEqual(["settle REQ-3 5", "approve REQ-1 5", "approve REQ-2 3", "settle REQ-1.2 2", "approve REQ-4 1"]);
-    expect(order.human[1]?.why).toBe("validates the path for 4 boxes below it, 1 of them red");
-    expect(order.human[4]?.why).toBe("nothing below it");
-    // REQ-1 approved: its children join the frontier; REQ-1.1 validates two leaves, and the shallower box wins a tie
+    expect(order.user.map((h) => `${h.action} ${h.id} ${h.score}`)).toEqual(["settle REQ-3 5", "approve REQ-1 5", "approve REQ-2 3", "settle REQ-1.2 2", "approve REQ-4 1"]);
+    expect(order.user[1]?.why).toBe("validates the path for 4 nodes below it, 1 of them red");
+    expect(order.user[4]?.why).toBe("nothing below it");
+    // REQ-1 approved: its children join the frontier; REQ-1.1 validates two leaves, and the shallower node wins a tie
     file(dir, "REQ-1-a/README.md", "REQ-1", "stated");
     order = refinementOrder(loadCanon(dir));
-    expect(order.human.map((h) => `${h.action} ${h.id}`)).toEqual(["settle REQ-3", "approve REQ-2", "approve REQ-1.1", "settle REQ-1.2", "approve REQ-4"]);
-    expect(order.human[2]).toMatchObject({ below: 2, score: 3 });
+    expect(order.user.map((h) => `${h.action} ${h.id}`)).toEqual(["settle REQ-3", "approve REQ-2", "approve REQ-1.1", "settle REQ-1.2", "approve REQ-4"]);
+    expect(order.user[2]).toMatchObject({ below: 2, score: 3 });
   });
 
-  it("names the path to validate above a box: the unapproved ancestors, the premise first [DEC-024]", () => {
+  it("names the path to validate above a node: the unapproved ancestors, the premise first [DEC-024]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-path-"));
     dirs.push(dir);
     readme(dir, "assumed");
@@ -127,7 +127,7 @@ describe("refinement order [REQ-3.15]", () => {
     file(dir, "REQ-1-a/REQ-1.1-b/REQ-1.1.1-c.md", "REQ-1.1.1", "assumed", "REQ-1.1", "kind: binary\n");
     const canon = loadCanon(dir);
     expect(pathToValidate(canon, "REQ-1.1.1")?.map((h) => `${h.action} ${h.id}`)).toEqual(["approve ROOT", "approve REQ-1.1", "approve REQ-1.1.1"]);
-    expect(describePath("REQ-1.1.1", pathToValidate(canon, "REQ-1.1.1"))).toBe("To validate the path to REQ-1.1.1: approve ROOT (validates the path for 3 boxes below it); approve REQ-1.1 (validates the path for 1 box below it); approve REQ-1.1.1 (nothing below it).");
+    expect(describePath("REQ-1.1.1", pathToValidate(canon, "REQ-1.1.1"))).toBe("To validate the path to REQ-1.1.1: approve ROOT (validates the path for 3 nodes below it); approve REQ-1.1 (validates the path for 1 node below it); approve REQ-1.1.1 (nothing below it).");
     expect(pathToValidate(canon, "REQ-9")).toBeUndefined();
     expect(describePath("REQ-9", undefined)).toBe("REQ-9 is not in the canon.");
     readme(dir, "resolved");
@@ -149,22 +149,22 @@ describe("refinement order [REQ-3.15]", () => {
     expect(under.ready).toEqual([]);
     expect(under.blocked).toEqual([]);
     expect(under.deadlock).toBe(false);
-    expect(under.human.map((h) => h.id)).toEqual(["REQ-2"]);
+    expect(under.user.map((h) => h.id)).toEqual(["REQ-2"]);
     expect(under.gate).toEqual(whole.gate);
     const one = refinementOrder(canon, "REQ-1");
     expect(one.ready.map((p) => p.id)).toEqual(["REQ-1.1", "REQ-1.2"]);
     expect(one.blocked).toEqual([]);
   });
 
-  it("opens the list for good once adoption is finished, counts an approved box as refined, and has no gate without domains or capabilities [DEC-024]", () => {
-    // the adoption's end opens the list whatever is still uncut: the human validates the canon by it when they return
+  it("opens the list for good once adoption is finished, counts an approved node as refined, and has no gate without domains or capabilities [DEC-024]", () => {
+    // the adoption's end opens the list whatever is still uncut: the user validates the canon by it when they return
     const dir = mkdtempSync(join(tmpdir(), "headcanon-gate-"));
     dirs.push(dir);
     gateCanon(dir);
     mkdirSync(join(dir, "decisions"));
     writeFileSync(join(dir, "decisions", "DEC-001-adoption-scope.md"), '---\nid: DEC-001\ntitle: "Adoption scope"\nstate: resolved\nintents: [REQ-1]\n---\n\n# Adoption scope\n');
     expect(refinementOrder(loadCanon(dir)).gate).toEqual({ open: true, refined: 3, total: 5, what: "every domain and capability" });
-    // a stated capability is the human's: cut whether or not anything hangs under it; REQ-1.1 still holds the gate
+    // a stated capability is the user's: cut whether or not anything hangs under it; REQ-1.1 still holds the gate
     const two = mkdtempSync(join(tmpdir(), "headcanon-gate-"));
     dirs.push(two);
     gateCanon(two);
@@ -183,7 +183,7 @@ describe("refinement order [REQ-3.15]", () => {
     expect(refinementOrder(loadCanon(empty)).gate.open).toBe(false);
   });
 
-  it("freezes what hangs under a red box: nothing there is ready or blocked until the human settles it [DEC-024]", () => {
+  it("freezes what hangs under a red node: nothing there is ready or blocked until the user settles it [DEC-024]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-frozen-"));
     dirs.push(dir);
     readme(dir, "resolved");
@@ -193,12 +193,12 @@ describe("refinement order [REQ-3.15]", () => {
     file(dir, "REQ-2-d.md", "REQ-2", "assumed");
     const canon = loadCanon(dir);
     const order = refinementOrder(canon);
-    // REQ-1.1 is refined, so only its unrefined child is frozen; the box beside the red branch is refined as usual
+    // REQ-1.1 is refined, so only its unrefined child is frozen; the node beside the red branch is refined as usual
     expect(order.ready.map((p) => p.id)).toEqual(["REQ-2"]);
     expect(order.blocked).toEqual([]);
     expect(order.frozen).toBe(1);
     expect(order.deadlock).toBe(false);
-    expect(describeNext(order, canon)).toContain("1 box(es) are frozen under red boxes.");
+    expect(describeNext(order, canon)).toContain("1 node(s) are frozen under red nodes.");
     expect(checkCanon(canon).some((f) => f.code === "refine-deadlock")).toBe(false);
     // the red branch's own order: nothing to cut, nothing waiting, no deadlock
     const under = refinementOrder(canon, "REQ-1");
@@ -207,7 +207,7 @@ describe("refinement order [REQ-3.15]", () => {
     expect(refinementOrder(canon, "REQ-2").frozen).toBe(0);
   });
 
-  it("a branch whose blocked boxes wait on a red box in another branch is waiting, not deadlocked [DEC-024, DEC-025]", () => {
+  it("a branch whose blocked nodes wait on a red node in another branch is waiting, not deadlocked [DEC-024, DEC-025]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-wait-"));
     dirs.push(dir);
     readme(dir, "resolved");
@@ -220,16 +220,16 @@ describe("refinement order [REQ-3.15]", () => {
     expect(under.next).toBeUndefined();
     expect(under.blocked.map((b) => `${b.id}<${b.waitingOn.join("+")}`)).toEqual(["REQ-2.1<REQ-1.1"]);
     expect(under.deadlock).toBe(false);
-    expect(describeNext(under, canon)).toContain("Nothing ready here: 1 box(es) wait on boxes outside this scope.");
-    expect(refinementOrder(canon).deadlock).toBe(true); // nothing ready and one box waiting on a red one: waiting on the human (DEC-025)
-    // when every unrefined box waits on a red one, the whole canon waits on the human; a branch waiting outside itself does not
+    expect(describeNext(under, canon)).toContain("Nothing ready here: 1 node(s) wait on nodes outside this scope.");
+    expect(refinementOrder(canon).deadlock).toBe(true); // nothing ready and one node waiting on a red one: waiting on the user (DEC-025)
+    // when every unrefined node waits on a red one, the whole canon waits on the user; a branch waiting outside itself does not
     file(dir, "REQ-1-a/REQ-1.1-b.md", "REQ-1.1", "contested", "REQ-1", "requires: [REQ-2.1]\n");
     const stuck = loadCanon(dir);
     expect(refinementOrder(stuck).deadlock).toBe(true);
-    expect(refinementOrder(stuck, "REQ-2").deadlock).toBe(false); // its wait is on the other branch's red box
+    expect(refinementOrder(stuck, "REQ-2").deadlock).toBe(false); // its wait is on the other branch's red node
   });
 
-  it("a box whose prerequisite is unrefined is ready after it, not blocked [DEC-025]", () => {
+  it("a node whose prerequisite is unrefined is ready after it, not blocked [DEC-025]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-blocked-"));
     dirs.push(dir);
     writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"R\"\nstate: resolved\n---\n\n# R\n");
@@ -243,19 +243,19 @@ describe("refinement order [REQ-3.15]", () => {
     expect(checkCanon(canon).some((f) => f.code === "refine-deadlock")).toBe(false);
   });
 
-  it("Guided opens a box on its own approval, one rung at a time, and never prints a pause as the end [DEC-025]", () => {
+  it("Guided opens a node on its own approval, one rung at a time, and never prints a pause as the end [DEC-025]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-guided-"));
     dirs.push(dir);
     readme(dir, "resolved");
     for (const id of ["REQ-1", "REQ-2", "REQ-3"]) file(dir, `${id}-x/README.md`, id, "assumed");
     // the domains are drafted under the approved premise and none is approved: Full-Auto goes on, Guided waits
     const drafted = loadCanon(dir);
-    expect(describeNext(refinementOrder(drafted), drafted)).toContain("Next to refine: REQ-1 REQ-1 (depth 0; nothing requires it yet; prerequisites met; under an approved box).\nThen: REQ-2, REQ-3.");
+    expect(describeNext(refinementOrder(drafted), drafted)).toContain("Next to refine: REQ-1 REQ-1 (depth 0; nothing requires it yet; prerequisites met; under an approved node).\nThen: REQ-2, REQ-3.");
     const pause = refinementOrder(drafted, undefined, { guided: true });
     expect([pause.next, pause.ready, pause.deadlock]).toEqual([undefined, [], false]);
     expect(pause.gated.map((p) => p.id)).toEqual(["REQ-1", "REQ-2", "REQ-3"]);
-    expect(describeNext(pause, drafted).split("\n")[0]).toBe("Guided: 3 box(es) wait for the human's approval, and nothing is drafted under one before it: REQ-1, REQ-2, REQ-3.");
-    // the human approves the second domain: it alone is next, whatever the id order says
+    expect(describeNext(pause, drafted).split("\n")[0]).toBe("Guided: 3 node(s) wait for the user's approval, and nothing is drafted under one before it: REQ-1, REQ-2, REQ-3.");
+    // the user approves the second domain: it alone is next, whatever the id order says
     file(dir, "REQ-2-x/README.md", "REQ-2", "stated");
     const approved = loadCanon(dir);
     const one = refinementOrder(approved, undefined, { guided: true });
@@ -275,7 +275,7 @@ describe("refinement order [REQ-3.15]", () => {
     expect(refinementOrder(rung).ready.map((p) => p.id)).toEqual(["REQ-1", "REQ-3", "REQ-2.1", "REQ-2.2"]);
   });
 
-  it("reports a cycle as an error; unrefined boxes in a cycle still order [DEC-025]", () => {
+  it("reports a cycle as an error; unrefined nodes in a cycle still order [DEC-025]", () => {
     const dir = mkdtempSync(join(tmpdir(), "headcanon-cycle-"));
     dirs.push(dir);
     node(dir, "REQ-1", "requires: [REQ-2]\n");
@@ -283,7 +283,7 @@ describe("refinement order [REQ-3.15]", () => {
     const canon = loadCanon(dir);
     const order = refinementOrder(canon);
     expect(order.cycles).toEqual([["REQ-1", "REQ-2", "REQ-1"]]);
-    expect(order.deadlock).toBe(false); // a cycle between unrefined boxes is an error, not a wait (DEC-025)
+    expect(order.deadlock).toBe(false); // a cycle between unrefined nodes is an error, not a wait (DEC-025)
     expect(order.next?.id).toBe("REQ-1");
     const codes = checkCanon(canon).map((f) => `${f.level}:${f.code}`);
     expect(codes).toContain("error:requires-cycle");

@@ -21,7 +21,7 @@ Source: The Valley adopt session, 2026-10-11, correcting the Condition definitio
 
 ## Intent [assumed]
 
-Every glossary definition states what the term is, in one or two sentences, as a dictionary entry does. It carries no "not" clause and no contrast with another term. Each entry covers one concept; when a definition needs another concept to be understood, that concept gets its own entry, and a related term is never bundled into another term's definition. A disambiguation, for a term that genuinely collides with another meaning in the same codebase, is a separate sentence after the definition and is added only at the human's request.
+Every glossary definition states what the term is, in one or two sentences, as a dictionary entry does. It carries no "not" clause and no contrast with another term. Each entry covers one concept; when a definition needs another concept to be understood, that concept gets its own entry, and a related term is never bundled into another term's definition. A disambiguation, for a term that genuinely collides with another meaning in the same codebase, is a separate sentence after the definition and is added only at the user's request.
 
 ## Not this [assumed]
 
@@ -29,5 +29,5 @@ The brief's wording that the Glossary records "what X does not mean" (docs/desig
 
 ## Assumptions
 
-- This narrows REQ-5.1's reading of the brief rather than contradicting it: terms are still the human's, and ambiguity is still resolved against the Glossary. (model assumption)
+- This narrows REQ-5.1's reading of the brief rather than contradicting it: terms are still the user's, and ambiguity is still resolved against the Glossary. (model assumption)
 - HeadCanon's own glossary was edited to follow the rule in the same change. (model assumption)

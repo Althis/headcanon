@@ -1,7 +1,7 @@
 ---
 id: REQ-11.6.3
 parent: REQ-11.6
-title: "Adoption drafts the canon to its leaves as guesses and questions, then the human reviews it on the canvas by impact"
+title: "Adoption drafts the canon to its leaves as guesses and questions, then the user reviews it on the canvas by impact"
 state: stated
 layer: requirement
 source: "Claude Code session, 2026-10-17"
@@ -9,7 +9,7 @@ files: [skills/adopt/SKILL.md, skills/attend/SKILL.md, skills/refine/SKILL.md, a
 requires: [REQ-12.1.8]
 ---
 
-# Adoption drafts the canon to its leaves as guesses and questions, then the human reviews it on the canvas by impact
+# Adoption drafts the canon to its leaves as guesses and questions, then the user reviews it on the canvas by impact
 
 ## Stated
 
@@ -37,16 +37,16 @@ Source: Claude Code session, 2026-10-17, after the fifth adopt run; the last thr
 
 ## Intent [assumed]
 
-The agent drafts the root README, opens the canvas with the briefing, and from then on refines in two kinds of context: one context, the agent `top`, takes the premise to its domains and every domain to its capabilities, and one refiner per capability, each in a fresh context, takes that capability to the leaves, started once the capabilities of its domain passed review and none under a red box, with nobody waiting on the human (DEC-024, DEC-026). An entry whose line rests on its chain to the parent plus a thread, the code or the archetype is written as assumed, and a requirement says where it is built: the code bound to it under Implemented by, or a line that it is not built with what exists instead; an entry that rests on the chain alone, or on two sources that disagree where precedence does not decide, is a draft with its question filed as an issue and left. A guess is preferred whenever a thread speaks to the entry at all. The reviewer and the builder test run on a capability when its refiner reports, and the reviewer's global check on a domain when all its capabilities are done: a contradiction between two threads stays contested, one the draft itself introduced is fixed in the draft, reiterations are merged or questioned, and a gap the builder test found is closed from the evidence, a costly one the evidence does not settle becoming a draft with its question.
+The agent drafts the root README, opens the canvas with the briefing, and from then on refines in two kinds of context: one context, the agent `top`, takes the premise to its domains and every domain to its capabilities, and one refiner per capability, each in a fresh context, takes that capability to the leaves, started once the capabilities of its domain passed review and none under a red node, with nobody waiting on the user (DEC-024, DEC-026). An entry whose line rests on its chain to the parent plus a thread, the code or the archetype is written as assumed, and a requirement says where it is built: the code bound to it under Implemented by, or a line that it is not built with what exists instead; an entry that rests on the chain alone, or on two sources that disagree where precedence does not decide, is a draft with its question filed as an issue and left. A guess is preferred whenever a thread speaks to the entry at all. The reviewer and the builder test run on a capability when its refiner reports, and the reviewer's global check on a domain when all its capabilities are done: a contradiction between two threads stays contested, one the draft itself introduced is fixed in the draft, reiterations are merged or questioned, and a gap the builder test found is closed from the evidence, a costly one the evidence does not settle becoming a draft with its question.
 
-The human reviews on the canvas (REQ-12.1.8) down the list the next command ranks by impact, approving, rewriting or deleting one box at a time, and the attend skill reworks what hangs from each change: children an approved or rewritten text no longer implies become open, children it words differently are rewritten as assumed, a node left without children is cut again, the parent's line is kept describing its children, and nodes that require a changed one are re-read. After each change the agent says in the chat what it changed and which box is next on their list. The human's session takes about a quarter of an hour; the drafting done, a new red box and a thread that contradicts an approval are the key points at which they are called, in the chat. Adoption is complete when every branch ends in a requirement with a check that says where it is built; red boxes wait on the human and hold nothing else, and the session then says that Implement/align is ready (DEC-026). Finish ends the human's session whatever is red (DEC-020) and sweeps the unused threads; the canon is committed in the intent format, with the review record of the adoption's own reviews, when the first build round starts; the list stands for their next visit, and what their answers re-opened is refined again as assumed.
+The user reviews on the canvas (REQ-12.1.8) down the list the next command ranks by impact, approving, rewriting or deleting one node at a time, and the attend skill reworks what hangs from each change: children an approved or rewritten text no longer implies become open, children it words differently are rewritten as assumed, a node left without children is cut again, the parent's line is kept describing its children, and nodes that require a changed one are re-read. After each change the agent says in the chat what it changed and which node is next on their list. The user's session takes about a quarter of an hour; the drafting done, a new red node and a thread that contradicts an approval are the key points at which they are called, in the chat. Adoption is complete when every branch ends in a requirement with a check that says where it is built; red nodes wait on the user and hold nothing else, and the session then says that Implement/align is ready (DEC-026). Finish ends the user's session whatever is red (DEC-020) and sweeps the unused threads; the canon is committed in the intent format, with the review record of the adoption's own reviews, when the first build round starts; the list stands for their next visit, and what their answers re-opened is refined again as assumed.
 
 An adoption stops and resumes without ceremony: the canon on disk is the state. Starting the adopt skill on a canon whose adoption is not complete resumes at the canvas, and the attend skill works on any canon the page shows.
 
 ## Assumptions
 
-- During adoption, deleting a box removes its file and its children's files; nothing was committed yet, so there is nothing to retire. (model assumption)
-- The sixth run tests the hypothesis: whether approving and rewriting the upper layers lets the agent define the lower ones well enough that the human need not open them. (model assumption)
+- During adoption, deleting a node removes its file and its children's files; nothing was committed yet, so there is nothing to retire. (model assumption)
+- The sixth run tests the hypothesis: whether approving and rewriting the upper layers lets the agent define the lower ones well enough that the user need not open them. (model assumption)
 - One capability per refiner is the unit of drafting below the map, and one context holds the map (DEC-026). A canon of thousands of nodes fits no single context, and the sixth run, told to refine each node in its own context, drafted all 187 nodes in one output instead; the tenth run, with one context per domain, saw a refiner's context peak between 167k and 365k tokens (docs/research/2026-11-18-alpha-proposal.md, section 1). (model assumption, 2026-11-18)
 
 ## Open

@@ -14,33 +14,33 @@ Each is one JSON object given to `HC op - --by <your name>` on stdin. The answer
 
 | Operation | Fields | What the tool does, and what it refuses |
 |---|---|---|
-| `create` | `under` (a box id, or `ROOT`), `title`, `intent`; for a requirement `check` and `kind` (`binary`, `numeric`); `source`; `binds`, a list of `"<relation> <unit id>"`; `implementedBy`, a list of lines; `layer` when it is not the one the depth gives; `state: "draft"` for a draft | Writes the box under its parent with the next free id, and answers that id. Refuses an unknown parent, a missing title, a missing Intent. |
-| `bind` | `id`, `unit`, `relation` (`implements`, `contributes`, `contradicts`) | Binds a function, a cluster or a claim to a box. Binding a unit again changes its relation. |
+| `create` | `under` (a node id, or `ROOT`), `title`, `intent`; for a requirement `check` and `kind` (`binary`, `numeric`); `source`; `binds`, a list of `"<relation> <unit id>"`; `implementedBy`, a list of lines; `layer` when it is not the one the depth gives; `state: "draft"` for a draft | Writes the node under its parent with the next free id, and answers that id. Refuses an unknown parent, a missing title, a missing Intent. |
+| `bind` | `id`, `unit`, `relation` (`implements`, `contributes`, `contradicts`) | Binds a function, a cluster or a claim to a node. Binding a unit again changes its relation. |
 | `unbind` | `id`, `unit` | Removes a binding. |
-| `link`, `unlink` | `from` (the box that needs), `to` (the box needed), `kind` (`requires`; also `relates`, `conflicts`) | Writes the edge on `from`. Refuses a `requires` that would close a cycle. |
-| `move-edge` | `on`, `from`, `to` | On the box `on`, the `requires` edge to `from` now points at `to`, a box under `from`: the edge goes down to the child that holds the concept. |
-| `contest` | `id`, `summary`, `statements` (two or more of `{"text","source"}`); `other` when the conflict is with a second box | Makes the box contested and writes both sides under Contested, where the page reads them. |
-| `note` | `id`, `text` | A dated line under Open. Refused on a box the human approved: say it in your report instead. |
-| `reword` | `id`, `from`, `to` | Replaces the words `from` with `to` wherever they stand whole in the title and the body. Refused when they do not occur, and on a box the human approved. |
+| `link`, `unlink` | `from` (the node that needs), `to` (the node needed), `kind` (`requires`; also `relates`, `conflicts`) | Writes the edge on `from`. Refuses a `requires` that would close a cycle. |
+| `move-edge` | `on`, `from`, `to` | On the node `on`, the `requires` edge to `from` now points at `to`, a node under `from`: the edge goes down to the child that holds the concept. |
+| `contest` | `id`, `summary`, `statements` (two or more of `{"text","source"}`); `other` when the conflict is with a second node | Makes the node contested and writes both sides under Contested, where the page reads them. |
+| `note` | `id`, `text` | A dated line under Open. Refused on a node the user approved: say it in your report instead. |
+| `reword` | `id`, `from`, `to` | Replaces the words `from` with `to` wherever they stand whole in the title and the body. Refused when they do not occur, and on a node the user approved. |
 | `draft` | `id`, `why` (the diagnosis) | A guess that cannot be made right becomes a draft. Its question goes in your report. |
-| `delete` | `id`; `subtree: true` when it has children | Removes a guessed box and the edges that named it. Refused on a box the human approved. |
+| `delete` | `id`; `subtree: true` when it has children | Removes a guessed node and the edges that named it. Refused on a node the user approved. |
 | `move` | `id`, `under` | Puts a subtree under another parent. Its ids are renumbered and every reference follows. |
-| `merge` | `from`, `to` | `from` said what `to` says: `to` takes its evidence and its edges, and `from` goes. Refused when `from` has children or the human approved it. |
-| `term` | `term`, `definition` | Adds a guessed glossary term, or redefines one. Refused on a term the human approved. |
+| `merge` | `from`, `to` | `from` said what `to` says: `to` takes its evidence and its edges, and `from` goes. Refused when `from` has children or the user approved it. |
+| `term` | `term`, `definition` | Adds a guessed glossary term, or redefines one. Refused on a term the user approved. |
 | `journey` | `title`; `steps`, each `{"label","requirements":[ids],"given","does","sees"}`; `source`; `id` to rewrite the steps of a guessed journey | Writes a guessed journey. An approved one is never rewritten. |
 | `review` | `id` (the parent), `verdict` (`pass`, `fail`), `findings`, each `{"check","child","text"}` | Records a verdict. The answer says `exhausted: true` when the set's corrections are spent. |
 
-The `kind` of a box is not changed by an operation: delete the box and create it again.
+The `kind` of a node is not changed by an operation: delete the node and create it again.
 
 ## 2. What lies outside your border
 
-A refiner's name carries its border: `refiner-REQ-2.1` writes on `REQ-2.1` and under it. An operation anywhere else is refused with `outside refiner-REQ-2.1's capability (REQ-2.1): record it with HC propose`. Record it, and go on with your own boxes:
+A refiner's name carries its border: `refiner-REQ-2.1` writes on `REQ-2.1` and under it. An operation anywhere else is refused with `outside refiner-REQ-2.1's capability (REQ-2.1): record it with HC propose`. Record it, and go on with your own nodes:
 
 ```
 HC propose '{"op":"bind","id":"REQ-3.1","unit":"claim:5d0c2a91e7","relation":"contributes"}' --why "how a statement lists its entries is a rule of the statement, not of closing" --by refiner-REQ-2.1
 ```
 
-`HC propose - --why "<reason>" --by <your name>` reads the operation from stdin, which a text holding an apostrophe needs. The session applies proposals as they come and asks the human only when a box involved is approved. You write yourself, although they name another capability, a `requires` link from one of your boxes to any box, and a `term`.
+`HC propose - --why "<reason>" --by <your name>` reads the operation from stdin, which a text holding an apostrophe needs. The session applies proposals as they come and asks the user only when a node involved is approved. You write yourself, although they name another capability, a `requires` link from one of your nodes to any node, and a `term`.
 
 ## 3. A capability, worked
 
@@ -70,7 +70,7 @@ The refiner is `refiner-REQ-2.1`. Its brief shows the map: `REQ-1 Entries` with 
 
 **The four questions.**
 
-- What must exist first? Every entry of the month names an account, as the first claim says. `HC find "entry names account"` answers `REQ-1.2.1  Every entry names one account  [title]`. The box exists: the child here requires it and does not say it again.
+- What must exist first? Every entry of the month names an account, as the first claim says. `HC find "entry names account"` answers `REQ-1.2.1  Every entry names one account  [title]`. The node exists: the child here requires it and does not say it again.
 - What follows once it holds? A closed month takes no new entry, and the month has its statement.
 - How does it fail, and what must prevent that? A closing that stops halfway, between marking the month and building its statement, leaves a closed month with no statement. No document speaks of it; the node's words "stand as recorded" make it necessary. `HC code show src/months/close.ts#closeMonth` shows the mark is set first and never undone.
 - What does every system of its kind have at this point? A way back from a closing made in error. The roadmap plans it, so it is a child that says not built. A notice to the accountant on closing traces to nothing, and is dropped.
@@ -83,7 +83,7 @@ The refiner is `refiner-REQ-2.1`. Its brief shows the map: `REQ-1 Entries` with 
 - The two claims on the day a month may be closed are two documents that disagree. The newer one stands; a note names the older.
 - The claim on how a statement lists its entries belongs to `REQ-3.1`: the proposal of section 2, then an `unbind` here.
 
-**The creates,** each on stdin to its own `HC op - --by refiner-REQ-2.1`, the box the others need before them:
+**The creates,** each on stdin to its own `HC op - --by refiner-REQ-2.1`, the node the others need before them:
 
 ```json
 {"op":"create","under":"REQ-2.1","title":"A month closes only when every entry in it names an account","intent":"Ledgerline refuses to close a month while an entry in it names no account.","check":"Closing a month that holds an entry with no account is refused, and the month is observed open afterwards.","kind":"binary","source":"docs/guide.md:40","binds":["implements claim:1f3a9c0b77","contributes src/months/close.ts#entriesWithoutAccount","contradicts src/months/close.ts#closeMonth"],"why":"axis: what closing guarantees, in the order it happens"}
@@ -107,7 +107,7 @@ Every requirement says where it is built: three bind the functions that implemen
 {"op":"unbind","id":"REQ-2.1","unit":"claim:5d0c2a91e7"}
 ```
 
-**The checks.** `HC parcel --check` prints no line that names `REQ-2.1` or a box under it. `HC check | grep -E "REQ-2.1|errors,"` prints the contested box and, on the last line, no error.
+**The checks.** `HC parcel --check` prints no line that names `REQ-2.1` or a node under it. `HC check | grep -E "REQ-2.1|errors,"` prints the contested node and, on the last line, no error.
 
 **The report.**
 

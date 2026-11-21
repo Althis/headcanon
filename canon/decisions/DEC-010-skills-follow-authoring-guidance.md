@@ -10,7 +10,7 @@ intents: [REQ-11.2.1, REQ-11.1, REQ-11.6]
 
 ## Why
 
-The injected session context had grown to 9,400 characters against Claude Code's 10,000 cap, and the adopt skill had grown by appending a fix per Valley run. The human asked for consolidation by known-good structure rather than more appending.
+The injected session context had grown to 9,400 characters against Claude Code's 10,000 cap, and the adopt skill had grown by appending a fix per Valley run. The user asked for consolidation by known-good structure rather than more appending.
 
 The structure adopted, from Anthropic's skill authoring best practices, the Claude Code skills and memory pages, and the prompting best practices:
 
@@ -25,4 +25,4 @@ Rules are context, not enforcement; behavior that must happen stays in hooks (th
 
 ## Consolidation trigger, added the same evening
 
-The first consolidation was followed by five appends in one afternoon, and the human asked whether consolidation was happening regularly. It was not. The trigger is now explicit: the injected rules stay under 2,000 characters and each skill's SKILL.md at 130 lines or fewer, the refine skill included since it joined, and either limit being crossed means consolidate before adding. The first pass of that evening reached 2,541 characters and 149 lines and was wrongly described as under the limits; a second pass the same evening moved the briefing block into the reference file and tightened every rule, bringing both under their limits with every instruction kept.
+The first consolidation was followed by five appends in one afternoon, and the user asked whether consolidation was happening regularly. It was not. The trigger is now explicit: the injected rules stay under 2,000 characters and each skill's SKILL.md at 130 lines or fewer, the refine skill included since it joined, and either limit being crossed means consolidate before adding. The first pass of that evening reached 2,541 characters and 149 lines and was wrongly described as under the limits; a second pass the same evening moved the briefing block into the reference file and tightened every rule, bringing both under their limits with every instruction kept.

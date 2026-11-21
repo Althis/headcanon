@@ -1,13 +1,13 @@
 ---
 id: REQ-5.5
 parent: REQ-5
-title: "The human's latest approval outranks every artifact; artifacts pre-fill and validate, and inconsistencies are raised before moving on"
+title: "The user's latest approval outranks every artifact; artifacts pre-fill and validate, and inconsistencies are raised before moving on"
 state: stated
 source: "Claude Code session, 2026-10-11"
 files: [packages/canon/src/rules.ts, skills/adopt/SKILL.md]
 ---
 
-# The human's latest approval outranks every artifact; artifacts pre-fill and validate, and inconsistencies are raised before moving on
+# The user's latest approval outranks every artifact; artifacts pre-fill and validate, and inconsistencies are raised before moving on
 
 ## Stated
 
@@ -18,7 +18,7 @@ Source: Claude Code session, 2026-10-11.
 
 ## Intent [assumed]
 
-Intent flows down the layers. At each layer the primary source is what the human approved or typed in the layer above, because it is the most current statement of intent. Artifacts found in the repository have exactly two roles: they pre-fill a draft where the layers above leave it open, and they are the evidence a draft is checked against and footnoted with. They never decide. Precedence when sources disagree: the human's approval in this run, the human's typed words, the newest artifact, older artifacts.
+Intent flows down the layers. At each layer the primary source is what the user approved or typed in the layer above, because it is the most current statement of intent. Artifacts found in the repository have exactly two roles: they pre-fill a draft where the layers above leave it open, and they are the evidence a draft is checked against and footnoted with. They never decide. Precedence when sources disagree: the user's approval in this run, the user's typed words, the newest artifact, older artifacts.
 
 When an artifact disagrees with an approval or with a draft derived from one, the agent neither resolves it nor proceeds. It asks which stands, offering the approval and the document as the two options and taking a third version through the free-text field, then records the outcome: the entry follows the answer, and an overruled document is noted as superseded on that point so the question is not raised again.
 

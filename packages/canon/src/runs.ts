@@ -3,27 +3,27 @@ import { randomBytes } from "node:crypto";
 import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { prepareBuild } from "./approve.js";
-import { marksOf, type BoxMark } from "./built.js";
+import { marksOf, type NodeMark } from "./built.js";
 import { compareIds, descendants, loadCanon } from "./load.js";
 import { loadManifest, loadResults, runTests, type TestManifest, type TestResults } from "./testing.js";
 import type { Canon, ReqNode } from "./types.js";
 
 /**
- * A run of Implement/align: the boxes in scope that are not built or out of sync, one slice each, built by one
- * implementation agent at a time and decided by the person at the end. The record lives under the git directory,
+ * A run of Implement/align: the nodes in scope that are not built or out of sync, one slice each, built by one
+ * implementation agent at a time and decided by the user at the end. The record lives under the git directory,
  * one file per run, so the session, the page, the gate behind SubagentStop and a session that compacts all read
  * the same state. A slice records what its agent owes when it starts, by stable id, so rewording, moving or
- * deleting a failing box does not clear the debt.
+ * deleting a failing node does not clear the debt.
  */
 
 export interface CliCtx { canonDir: string; repo: string; gitDir: string | undefined; port: number; by: string | undefined; json: boolean; out: (s: string) => void; err: (s: string) => void; stdin: () => string }
 
 export type SliceStatus = "queued" | "building" | "passed" | "blocked" | "review" | "approved" | "discarded" | "sent-back" | "stopped";
-export interface Slice { box: string; uid: string; title: string; status: SliceStatus; agent?: string; agentName?: string; owes: string[] /* uids */; attempts: number; lastFailing: string[]; commits: string[]; issues: string[]; summary?: string; note?: string; startedAt?: string; endedAt?: string; baseSha?: string }
+export interface Slice { node: string; uid: string; title: string; status: SliceStatus; agent?: string; agentName?: string; owes: string[] /* uids */; attempts: number; lastFailing: string[]; commits: string[]; issues: string[]; summary?: string; note?: string; startedAt?: string; endedAt?: string; baseSha?: string }
 export interface RunStep { name: "prepare" | "readiness" | "tests" | "first-run" | "build" | "review"; status: "waiting" | "running" | "done" | "blocked"; note?: string; at?: string }
-export interface Run { id: string; startedAt: string; scope: string[]; single: boolean; branch: string; base: string; status: "running" | "waiting" | "review" | "done" | "stopped"; steps: RunStep[]; slices: Slice[]; firstRun?: { passing: string[] /* titles */ }; endedAt?: string; /** Untracked files outside the canon that were there before the run began: the person's own, which no gate counts as work left uncommitted. */ preexisting?: string[] }
+export interface Run { id: string; startedAt: string; scope: string[]; single: boolean; branch: string; base: string; status: "running" | "waiting" | "review" | "done" | "stopped"; steps: RunStep[]; slices: Slice[]; firstRun?: { passing: string[] /* titles */ }; endedAt?: string; /** Untracked files outside the canon that were there before the run began: the user's own, which no gate counts as work left uncommitted. */ preexisting?: string[] }
 
-/** The brief's first line is `headcanon-run: <run id> slice: <box id>`. */
+/** The brief's first line is `headcanon-run: <run id> slice: <node id>`. */
 export const BRIEF_MARKER = "headcanon-run:";
 
 /** Files outside the canon folder with uncommitted work: tracked ones that changed, and untracked ones. */
@@ -62,41 +62,41 @@ export function runsDir(gitDir: string): string {
   return join(gitDir, "headcanon", "runs");
 }
 
-/** Every box the scope names and every box under one; an empty scope, or ROOT, is the whole tree. */
-export function boxesInScope(canon: Canon, scope: string[]): string[] {
+/** Every node the scope names and every node under one; an empty scope, or ROOT, is the whole tree. */
+export function nodesInScope(canon: Canon, scope: string[]): string[] {
   const ids = new Set<string>();
   if (scope.length === 0 || scope.includes("ROOT")) for (const id of Object.keys(canon.nodes)) ids.add(id);
   else for (const id of scope) if (canon.nodes[id]) { ids.add(id); for (const d of descendants(canon, id)) ids.add(d); }
   return [...ids].sort(compareIds);
 }
 
-// keyed by box id; a table keyed by stable id is read the same way
-const markOf = (marks: Record<string, BoxMark>, n: ReqNode): BoxMark | undefined => marks[n.id] ?? (n.uid ? marks[n.uid] : undefined);
+// keyed by node id; a table keyed by stable id is read the same way
+const markOf = (marks: Record<string, NodeMark>, n: ReqNode): NodeMark | undefined => marks[n.id] ?? (n.uid ? marks[n.uid] : undefined);
 
-/** The boxes of a scope that get a slice: they carry a kind, are not red, and are not built or out of sync. */
-function candidates(canon: Canon, scope: string[], marks: Record<string, BoxMark>): ReqNode[] {
-  return boxesInScope(canon, scope).map((id) => canon.nodes[id]!).filter((n) => n.kind !== undefined && !red(n) && markOf(marks, n)?.mark !== undefined);
+/** The nodes of a scope that get a slice: they carry a kind, are not red, and are not built or out of sync. */
+function candidates(canon: Canon, scope: string[], marks: Record<string, NodeMark>): ReqNode[] {
+  return nodesInScope(canon, scope).map((id) => canon.nodes[id]!).filter((n) => n.kind !== undefined && !red(n) && markOf(marks, n)?.mark !== undefined);
 }
 
-/** What a slice's agent owes: its box and the boxes below it, by stable id. A red box below waits on the person and is not owed. */
+/** What a slice's agent owes: its node and the nodes below it, by stable id. A red node below waits on the user and is not owed. */
 function owedBy(canon: Canon, n: ReqNode): string[] {
   const under = descendants(canon, n.id).map((id) => canon.nodes[id]!).filter((d) => !red(d));
   return [...new Set([n, ...under].map((x) => x.uid).filter((u): u is string => Boolean(u)))];
 }
 
 /**
- * Build order: a box comes after the boxes it requires, after those the boxes above it require, and after its own
- * boxes below; the lowest id first among those that are free. A knot of links that leaves nothing free is cut at
+ * Build order: a node comes after the nodes it requires, after those the nodes above it require, and after its own
+ * nodes below; the lowest id first among those that are free. A knot of links that leaves nothing free is cut at
  * the lowest id, so the order is always whole.
  */
 function ordered(canon: Canon, slices: Slice[]): Slice[] {
   const needs = new Map<Slice, Slice[]>();
   for (const s of slices) {
     const required: string[] = [];
-    for (let n = canon.nodes[s.box]; n; n = n.parent ? canon.nodes[n.parent] : undefined) required.push(...n.requires);
-    needs.set(s, slices.filter((t) => t !== s && !below(s.box, t.box) && (below(t.box, s.box) || required.some((r) => below(t.box, r)))));
+    for (let n = canon.nodes[s.node]; n; n = n.parent ? canon.nodes[n.parent] : undefined) required.push(...n.requires);
+    needs.set(s, slices.filter((t) => t !== s && !below(s.node, t.node) && (below(t.node, s.node) || required.some((r) => below(t.node, r)))));
   }
-  const left = [...slices].sort((a, b) => compareIds(a.box, b.box));
+  const left = [...slices].sort((a, b) => compareIds(a.node, b.node));
   const done = new Set<Slice>();
   const out: Slice[] = [];
   while (left.length) {
@@ -108,9 +108,9 @@ function ordered(canon: Canon, slices: Slice[]): Slice[] {
   return out;
 }
 
-const newSlice = (canon: Canon, n: ReqNode): Slice => ({ box: n.id, uid: n.uid ?? "", title: n.title, status: "queued", owes: owedBy(canon, n), attempts: 0, lastFailing: [], commits: [], issues: [] });
+const newSlice = (canon: Canon, n: ReqNode): Slice => ({ node: n.id, uid: n.uid ?? "", title: n.title, status: "queued", owes: owedBy(canon, n), attempts: 0, lastFailing: [], commits: [], issues: [] });
 
-/** One slice per box in scope that carries a kind, is not red and is not built or out of sync; the run is stored at once. */
+/** One slice per node in scope that carries a kind, is not red and is not built or out of sync; the run is stored at once. */
 export function createRun(gitDir: string, canon: Canon, scope: string[], single: boolean, branch: string, base: string): Run {
   const marks = marksOf(canon, loadResults(gitDir), loadManifest(canon.dir));
   const at = now();
@@ -169,8 +169,8 @@ export function saveRun(gitDir: string, run: Run): void {
 /**
  * What the steps and the slices together say about the run. The session sets steps and slices; the build and
  * review steps and the run's status follow from the slices, so the page is right when the session forgets a step.
- * A run waits when a step is blocked or every slice left needs an answer from the person; it is in review when
- * what is left is the person's decision; it is done when every slice is decided.
+ * A run waits when a step is blocked or every slice left needs an answer from the user; it is in review when
+ * what is left is the user's decision; it is done when every slice is decided.
  */
 function settle(run: Run): Run {
   if (run.status === "stopped" || run.status === "done") return run;
@@ -213,11 +213,11 @@ export function setStep(gitDir: string, runId: string, name: RunStep["name"], st
   return run;
 }
 
-/** Change one slice, found by its box id or its stable id; a slice that starts building gets its start time, one that ends its end time. */
-export function updateSlice(gitDir: string, runId: string, box: string, patch: Partial<Slice>): Run {
+/** Change one slice, found by its node id or its stable id; a slice that starts building gets its start time, one that ends its end time. */
+export function updateSlice(gitDir: string, runId: string, node: string, patch: Partial<Slice>): Run {
   const run = mustLoad(gitDir, runId);
-  const slice = run.slices.find((s) => s.box === box) ?? run.slices.find((s) => s.uid !== "" && s.uid === box);
-  if (!slice) throw new Error(`run ${runId} has no slice for ${box}`);
+  const slice = run.slices.find((s) => s.node === node) ?? run.slices.find((s) => s.uid !== "" && s.uid === node);
+  if (!slice) throw new Error(`run ${runId} has no slice for ${node}`);
   const before = slice.status;
   for (const [k, v] of Object.entries(patch)) if (v !== undefined) (slice as unknown as Record<string, unknown>)[k] = v;
   if (slice.status !== before) {
@@ -230,7 +230,7 @@ export function updateSlice(gitDir: string, runId: string, box: string, patch: P
 
 /**
  * After the first run of the tests the marks are known in full: the titles that pass are kept, to tell later what a
- * builder broke, and the slices follow the marks: a queued slice whose box turned out fine goes, a box the tests
+ * builder broke, and the slices follow the marks: a queued slice whose node turned out fine goes, a node the tests
  * showed out of sync gets one.
  */
 export function afterFirstRun(gitDir: string, runId: string, canon: Canon): Run {
@@ -239,8 +239,8 @@ export function afterFirstRun(gitDir: string, runId: string, canon: Canon): Run 
   if (results) run.firstRun = { passing: [...new Set(results.results.filter((r) => r.outcome === "passed").map((r) => r.title))].sort() };
   const wanted = candidates(canon, run.scope, marksOf(canon, results, loadManifest(canon.dir)));
   const wantedIds = new Set(wanted.map((n) => n.id));
-  const kept = run.slices.filter((s) => s.status !== "queued" || wantedIds.has(s.box));
-  const have = new Set(kept.map((s) => s.box));
+  const kept = run.slices.filter((s) => s.status !== "queued" || wantedIds.has(s.node));
+  const have = new Set(kept.map((s) => s.node));
   run.slices = ordered(canon, [...kept, ...wanted.filter((n) => !have.has(n.id)).map((n) => newSlice(canon, n))]);
   saveRun(gitDir, settle(run));
   return run;
@@ -272,12 +272,12 @@ function firstUserText(transcriptPath: string): string | undefined {
   return undefined;
 }
 
-/** The run and the box a brief names on its first line. */
-export function markerOf(text: string): { run: string; box: string } | undefined {
+/** The run and the node a brief names on its first line. */
+export function markerOf(text: string): { run: string; node: string } | undefined {
   const first = text.replace(/^﻿/, "").split(/\r?\n/).find((l) => l.trim() !== "")?.trim();
   if (!first || !first.startsWith(BRIEF_MARKER)) return undefined;
   const m = /^(\S+)\s+slice:\s*(\S+)$/.exec(first.slice(BRIEF_MARKER.length).trim());
-  return m ? { run: m[1]!, box: m[2]! } : undefined;
+  return m ? { run: m[1]!, node: m[2]! } : undefined;
 }
 
 /** The slice an agent builds: by its agent id in the active run, else by the marker line in the first message of its transcript. */
@@ -291,7 +291,7 @@ export function sliceOfAgent(gitDir: string, agentId: string | undefined, transc
   const mark = text ? markerOf(text) : undefined;
   if (!mark) return undefined;
   const run = loadRun(gitDir, mark.run);
-  const slice = run?.slices.find((s) => s.box === mark.box);
+  const slice = run?.slices.find((s) => s.node === mark.node);
   return run && slice ? { run, slice } : undefined;
 }
 
@@ -317,28 +317,28 @@ const text = (v: string | true | undefined): string | undefined => (typeof v ===
 
 export interface ScopeCounts { measurable: number; toTest: number; toBuild: number; toAlign: number; leftOut: number }
 
-/** What a scope holds, as the run card counts it: boxes with a check, those without an accepted test, to build, to align, and the red ones left out. */
-export function scopeCounts(canon: Canon, scope: string[], marks: Record<string, BoxMark>, manifest: TestManifest): ScopeCounts {
-  const boxes = boxesInScope(canon, scope).map((id) => canon.nodes[id]!);
-  const measurable = boxes.filter((n) => n.kind !== undefined && !red(n));
-  const tested = new Set(manifest.tests.filter((t) => t.status === "accepted").map((t) => t.box));
+/** What a scope holds, as the run card counts it: nodes with a check, those without an accepted test, to build, to align, and the red ones left out. */
+export function scopeCounts(canon: Canon, scope: string[], marks: Record<string, NodeMark>, manifest: TestManifest): ScopeCounts {
+  const nodes = nodesInScope(canon, scope).map((id) => canon.nodes[id]!);
+  const measurable = nodes.filter((n) => n.kind !== undefined && !red(n));
+  const tested = new Set(manifest.tests.filter((t) => t.status === "accepted").map((t) => t.node));
   return {
     measurable: measurable.length,
     toTest: measurable.filter((n) => !n.uid || !tested.has(n.uid)).length,
     toBuild: measurable.filter((n) => markOf(marks, n)?.mark === "not-built").length,
     toAlign: measurable.filter((n) => markOf(marks, n)?.mark === "out-of-sync").length,
-    leftOut: boxes.filter(red).length,
+    leftOut: nodes.filter(red).length,
   };
 }
 
 const stepLine = (s: RunStep): string => `  ${s.name}: ${s.status}${s.note ? ` (${s.note})` : ""}`;
 function sliceLine(s: Slice): string {
   const more = [s.agentName, s.attempts ? `stops sent back ${s.attempts}` : "", s.lastFailing.length ? `failing ${s.lastFailing.length}` : "", s.issues.length ? `issues ${s.issues.length}` : "", s.commits.length ? `commits ${s.commits.length}` : ""].filter(Boolean).join(", ");
-  return `  ${s.box} ${s.title}: ${s.status}${more ? ` (${more})` : ""}${s.summary ? `\n    ${s.summary}` : ""}${s.note ? `\n    note: ${s.note}` : ""}`;
+  return `  ${s.node} ${s.title}: ${s.status}${more ? ` (${more})` : ""}${s.summary ? `\n    ${s.summary}` : ""}${s.note ? `\n    note: ${s.note}` : ""}`;
 }
 
 export function describeRun(run: Run): string {
-  const lines = [`Run ${run.id}: ${run.status}. Branch ${run.branch}. Scope: ${run.scope.length ? run.scope.join(" ") : "everything"}${run.single ? " (one box)" : ""}.`, "Steps:", ...run.steps.map(stepLine)];
+  const lines = [`Run ${run.id}: ${run.status}. Branch ${run.branch}. Scope: ${run.scope.length ? run.scope.join(" ") : "everything"}${run.single ? " (one node)" : ""}.`, "Steps:", ...run.steps.map(stepLine)];
   lines.push(run.slices.length ? "Slices, in build order:" : "Slices: none.", ...run.slices.map(sliceLine));
   return lines.join("\n") + "\n";
 }
@@ -352,8 +352,8 @@ const USAGE = `usage: headcanon run <subcommand>
   start <id...> [--single] [--json]     prepare the build branch and create the run and its slices
   status [--json]                       the active run, or the last one
   step <name> <status> [--note "<text>"]    name: ${STEP_NAMES.join(", ")}; status: ${STEP_STATUSES.join(", ")}
-  slice <box> <status> [--agent <agent id>] [--summary "<plain words>"] [--note "<text>"]    status: ${SLICE_STATUSES.join(", ")}
-  check <box> [--json]                  after an agent returns: rerun the tests it owes, list its commits, say pass or what fails
+  slice <node> <status> [--agent <agent id>] [--summary "<plain words>"] [--note "<text>"]    status: ${SLICE_STATUSES.join(", ")}
+  check <node> [--json]                  after an agent returns: rerun the tests it owes, list its commits, say pass or what fails
   stop                                  end the active run
 `;
 
@@ -371,13 +371,13 @@ export async function runCli(rest: string[], ctx: CliCtx): Promise<number> {
       if (!canon.root && !Object.keys(canon.nodes).length) { ctx.err(`run start: no canon at ${ctx.canonDir}\n`); return 1; }
       const scope = words.slice(1);
       const unknown = scope.filter((id) => id !== "ROOT" && !canon.nodes[id]);
-      if (unknown.length) { ctx.err(`run start: no box ${unknown.join(", ")}\n`); return 1; }
+      if (unknown.length) { ctx.err(`run start: no node ${unknown.join(", ")}\n`); return 1; }
       const active = activeRun(gitDir);
       if (active) { ctx.err(`run start: run ${active.id} is still ${active.status}. See it with \`headcanon run status\`; end it with \`headcanon run stop\`.\n`); return 1; }
       const manifest = loadManifest(canon.dir);
       const counts = scopeCounts(canon, scope, marksOf(canon, loadResults(gitDir), manifest), manifest);
-      if (!counts.measurable) { ctx.err(`run start: nothing in scope can be built: ${counts.leftOut ? `${counts.leftOut} box(es) wait on the person` : "no box there carries a check"}\n`); return 1; }
-      // what is uncommitted before the run begins is the person's: a changed tracked file would be swept into the build, so it stops the start; an untracked one is left alone and remembered
+      if (!counts.measurable) { ctx.err(`run start: nothing in scope can be built: ${counts.leftOut ? `${counts.leftOut} node(s) wait on the user` : "no node there carries a check"}\n`); return 1; }
+      // what is uncommitted before the run begins is the user's: a changed tracked file would be swept into the build, so it stops the start; an untracked one is left alone and remembered
       const before = uncommittedOutside(ctx.repo, ctx.canonDir);
       if (before.changed.length) { ctx.err(`run start: ${before.changed.length} file(s) outside the canon have uncommitted changes and would be swept into the build: ${before.changed.slice(0, 8).join(", ")}${before.changed.length > 8 ? ", ..." : ""}. Commit them or set them aside, then start again.\n`); return 1; }
       const prep = prepareBuild(ctx.repo, ctx.canonDir);
@@ -385,7 +385,7 @@ export async function runCli(rest: string[], ctx: CliCtx): Promise<number> {
       const created = createRun(gitDir, loadCanon(ctx.canonDir), scope, flags["single"] === true, prep.branch, prep.base);
       if (before.untracked.length) { created.preexisting = before.untracked; saveRun(gitDir, created); }
       const run = setStep(gitDir, created.id, "prepare", "done", `branch ${prep.branch}${prep.canonCommit ? `, canon committed in ${prep.canonCommit.slice(0, 7)}` : ""}`);
-      print({ run, counts }, `${describeRun(run)}In scope: ${counts.measurable} box(es) with a check. To test: ${counts.toTest}. To build: ${counts.toBuild}. To align: ${counts.toAlign}. Left out because they need the person: ${counts.leftOut}.\n`);
+      print({ run, counts }, `${describeRun(run)}In scope: ${counts.measurable} node(s) with a check. To test: ${counts.toTest}. To build: ${counts.toBuild}. To align: ${counts.toAlign}. Left out because they need the user: ${counts.leftOut}.\n`);
       return 0;
     }
     if (sub === "status") {
@@ -413,13 +413,13 @@ export async function runCli(rest: string[], ctx: CliCtx): Promise<number> {
       print({ run: next }, describeRun(next));
       return 0;
     }
-    const box = words[1];
-    const slice = box ? run.slices.find((s) => s.box === box) ?? run.slices.find((s) => s.uid !== "" && s.uid === box) : undefined;
-    if (!box || !slice) { ctx.err(box ? `run ${sub}: run ${run.id} has no slice for ${box}\n` : USAGE); return box ? 1 : 2; }
+    const node = words[1];
+    const slice = node ? run.slices.find((s) => s.node === node) ?? run.slices.find((s) => s.uid !== "" && s.uid === node) : undefined;
+    if (!node || !slice) { ctx.err(node ? `run ${sub}: run ${run.id} has no slice for ${node}\n` : USAGE); return node ? 1 : 2; }
     if (sub === "slice") {
       const status = words[2] as SliceStatus | undefined;
       if (!status || !SLICE_STATUSES.includes(status)) { ctx.err(USAGE); return 2; }
-      // the person's decision stands: a slice they approved or discarded is never put back before them, though its words may still be filled in
+      // the user's decision stands: a slice they approved or discarded is never put back before them, though its words may still be filled in
       const decided = (slice.status === "approved" || slice.status === "discarded") && (status === "review" || status === "passed");
       const patch: Partial<Slice> = decided ? {} : { status };
       const agent = text(flags["agent"]);
@@ -429,14 +429,14 @@ export async function runCli(rest: string[], ctx: CliCtx): Promise<number> {
       if (summary) patch.summary = summary;
       if (note) patch.note = note;
       if (status === "building") {
-        patch.agentName = slice.agentName ?? `implementer-${slice.box}`;
+        patch.agentName = slice.agentName ?? `implementer-${slice.node}`;
         // a fresh start gets the whole retry budget again; the first start fixes where the slice's commits begin
         if (slice.status !== "building") { patch.attempts = 0; patch.lastFailing = []; }
         const head = slice.baseSha ?? headOf(ctx.repo);
         if (head) patch.baseSha = head;
       }
-      const next = updateSlice(gitDir, run.id, slice.box, patch);
-      const after = next.slices.find((s) => s.box === slice.box)!;
+      const next = updateSlice(gitDir, run.id, slice.node, patch);
+      const after = next.slices.find((s) => s.node === slice.node)!;
       print({ run: next, slice: after }, sliceLine(after).trimStart() + "\n");
       return 0;
     }
@@ -444,10 +444,10 @@ export async function runCli(rest: string[], ctx: CliCtx): Promise<number> {
     const { checkSlice } = await import("./gate.js");
     // the same tests the agent's own command runs: what the slice owes, and what passed in the first run, so a break shows
     const passedBefore = new Set(run.firstRun?.passing ?? []);
-    const boxes = [...new Set([...slice.owes, ...loadManifest(ctx.canonDir).tests.filter((t) => passedBefore.has(t.title)).map((t) => t.box)])];
-    const results: TestResults = runTests(ctx.canonDir, { boxes });
+    const nodes = [...new Set([...slice.owes, ...loadManifest(ctx.canonDir).tests.filter((t) => passedBefore.has(t.title)).map((t) => t.node)])];
+    const results: TestResults = runTests(ctx.canonDir, { nodes });
     const report = await checkSlice({ canonDir: ctx.canonDir, repo: ctx.repo, gitDir, run, slice, results });
-    updateSlice(gitDir, run.id, slice.box, {
+    updateSlice(gitDir, run.id, slice.node, {
       commits: report.commits.filter((c) => c.mine).map((c) => c.sha),
       lastFailing: report.failing.map((f) => f.title),
       issues: report.issues,

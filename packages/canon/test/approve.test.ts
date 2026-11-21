@@ -99,8 +99,8 @@ function project(opts: { reviews?: boolean; cli?: boolean } = {}): Project {
 const hookVerdicts = (p: Project): Array<{ ok: boolean; header: string; errors: string[] }> => (existsSync(p.hookLog) ? readFileSync(p.hookLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
 const trailersOf = (repo: string, rev = "HEAD") => parseTrailers(lastMessage(repo, rev));
 
-const slice = (box: string, uid: string, title: string, commits: string[], extra: Partial<Slice> = {}): Slice => ({ box, uid, title, status: "review", owes: [uid], attempts: 0, lastFailing: [], commits, issues: [], ...extra });
-const runOf = (slices: Slice[]): Run => ({ id: "run-1", startedAt: new Date().toISOString(), scope: slices.map((s) => s.box), single: slices.length === 1, branch: BUILD_BRANCH, base: "main", status: "review", steps: [], slices });
+const slice = (node: string, uid: string, title: string, commits: string[], extra: Partial<Slice> = {}): Slice => ({ node, uid, title, status: "review", owes: [uid], attempts: 0, lastFailing: [], commits, issues: [], ...extra });
+const runOf = (slices: Slice[]): Run => ({ id: "run-1", startedAt: new Date().toISOString(), scope: slices.map((s) => s.node), single: slices.length === 1, branch: BUILD_BRANCH, base: "main", status: "review", steps: [], slices });
 
 describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, () => {
   let p: Project;
@@ -159,7 +159,7 @@ describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, (
   });
 
   it("commits the accepted tests with the record of tests, and names a rewritten test in a Test-Change", () => {
-    const entry = (box: string, id: string, file: string, status: TestEntry["status"]): TestEntry => ({ box, id, runner: "unit", kind: "unit", file, title: `closing [hc:${box}]`, description: "Closes March and checks what the month then accepts.", pin: "pin", status, at: new Date().toISOString() });
+    const entry = (node: string, id: string, file: string, status: TestEntry["status"]): TestEntry => ({ node, id, runner: "unit", kind: "unit", file, title: `closing [hc:${node}]`, description: "Closes March and checks what the month then accepts.", pin: "pin", status, at: new Date().toISOString() });
     for (const f of ["tests/refuse.test.ts", "tests/total.test.ts", "tests/draft.test.ts"]) { mkdirSync(join(p.repo, "tests"), { recursive: true }); writeFileSync(join(p.repo, f), `// ${f}\n`); }
     saveManifest(p.canon, { runners: { unit: { kind: "unit", command: "node --test {files}", format: "junit" } }, tests: [entry("aaaaaa", "REQ-1.1.1", "tests/refuse.test.ts", "accepted"), entry("bbbbbb", "REQ-1.1.2", "tests/total.test.ts", "accepted"), entry("cccccc", "REQ-1.1.3", "tests/draft.test.ts", "proposed")] });
 
@@ -168,7 +168,7 @@ describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, (
     expect(r.sha).toBe(head(p.repo));
     expect(filesOf(p.repo)).toEqual(["canon/tests.json", "tests/refuse.test.ts", "tests/total.test.ts"]);
     const t = trailersOf(p.repo);
-    expect(lastMessage(p.repo).split("\n")[0]).toBe("test: record the accepted tests of 2 boxes");
+    expect(lastMessage(p.repo).split("\n")[0]).toBe("test: record the accepted tests of 2 nodes");
     expect(t["Intent"]).toEqual(["REQ-1.1.1, REQ-1.1.2"]);
     expect(Object.keys(t).sort()).toEqual(["Intent"]);
     expect(status(p.repo)).toBe("?? tests/draft.test.ts\n");
@@ -208,24 +208,24 @@ describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, (
     expect(sliceCommits(p.repo, stray, p.canon)[0]).toMatchObject({ ok: false, errors: ["Intent REQ-9.9 does not exist in the canon"] });
   });
 
-  const boxFile = () => join(p.canon, "REQ-1-books/REQ-1.1-closing/REQ-1.1.1-refuse.md");
-  it("a refused approval leaves the box, the index and the branch as they were", () => {
+  const nodeFile = () => join(p.canon, "REQ-1-books/REQ-1.1-closing/REQ-1.1.1-refuse.md");
+  it("a refused approval leaves the node, the index and the branch as they were", () => {
     const run = runOf([slice("REQ-1.1.1", "aaaaaa", "A closed month refuses new entries", [built])]);
-    const text = readFileSync(boxFile(), "utf8");
+    const text = readFileSync(nodeFile(), "utf8");
     const at = head(p.repo);
     const before = status(p.repo);
-    expect(approveSlice(p.repo, p.canon, run, "REQ-1.1.1", " ")).toMatchObject({ ok: false, error: "an approval carries the name of the person who approves" });
+    expect(approveSlice(p.repo, p.canon, run, "REQ-1.1.1", " ")).toMatchObject({ ok: false, error: "an approval carries the name of the user who approves" });
     expect(approveSlice(p.repo, p.canon, run, "REQ-7", "Test Owner")).toMatchObject({ ok: false, error: "REQ-7 is not part of run run-1" });
     expect(approveSlice(p.repo, p.canon, { ...run, branch: "main" }, "REQ-1.1.1", "Test Owner").error).toMatch(/switch to main first/);
 
-    // the hook says no after the box was bound: the bind and the dropped line are taken back
+    // the hook says no after the node was bound: the bind and the dropped line are taken back
     const hook = readFileSync(p.hookPath, "utf8");
     writeFileSync(p.hookPath, "#!/bin/sh\necho 'the hook says no' >&2\nexit 1\n");
     const r = approveSlice(p.repo, p.canon, run, "REQ-1.1.1", "Test Owner");
     writeFileSync(p.hookPath, hook);
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/the hook says no/);
-    expect(readFileSync(boxFile(), "utf8")).toBe(text);
+    expect(readFileSync(nodeFile(), "utf8")).toBe(text);
     expect(staged(p.repo)).toBe("");
     expect(status(p.repo)).toBe(before);
     expect(head(p.repo)).toBe(at);
@@ -248,7 +248,7 @@ describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, (
     const message = lastMessage(p.repo);
     expect(message.split("\n")[0]).toBe("docs(canon): record REQ-1.1.1 as built");
     expect(message).toContain("Months can be closed, and a closed month is remembered.");
-    // the bind and the dropped section are five changed lines, so the hook asks for a review: the record says what the log holds of the box's set
+    // the bind and the dropped section are five changed lines, so the hook asks for a review: the record says what the log holds of the node's set
     const t = trailersOf(p.repo);
     expect(t).toEqual({ Intent: ["REQ-1.1.1"], "Intent-Change": ["update REQ-1.1.1"], "Intent-Review": [expect.stringMatching(/^[0-9a-f]{12}, adoption reviews: 1 failed$/)], "Approved-By": ["Test Owner"] });
     const record = loadReviewRecord(p.repo, t["Intent-Review"]![0]!.slice(0, 12))!;
@@ -271,7 +271,7 @@ describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, (
     const r = approveSlice(p.repo, p.canon, runOf([slice("REQ-1.1.2", "bbbbbb", "Closing a month totals its entries", [css])]), "REQ-1.1.2", "Test Owner");
     expect(r.ok).toBe(true);
     const canon = loadCanon(p.canon);
-    // a stylesheet holds no unit the code tree knows: the file itself is where the box is built
+    // a stylesheet holds no unit the code tree knows: the file itself is where the node is built
     expect(canon.nodes["REQ-1.1.2"]!.binds).toEqual([{ relation: "implements", unit: "styles/month.css" }]);
     expect(canon.nodes[made.id!]!.state).toBe("assumed");
     const t = trailersOf(p.repo);
@@ -280,7 +280,7 @@ describe("the commits HeadCanon makes itself [REQ-8.5]", { timeout: 180_000 }, (
     expect(t["Approved-By"]).toEqual(["Test Owner"]);
     expect(t["Intent-Review"]![0]).toMatch(/^[0-9a-f]{12}, adoption reviews: 1 failed, 1 not reviewed$/);
     const record = loadReviewRecord(p.repo, t["Intent-Review"]![0]!.slice(0, 12))!;
-    expect(record.findings.find((f) => f.kind === "unreviewed")).toMatchObject({ nodes: ["REQ-1.1.2"], summary: "the operations log holds no review verdict for the children of these boxes" });
+    expect(record.findings.find((f) => f.kind === "unreviewed")).toMatchObject({ nodes: ["REQ-1.1.2"], summary: "the operations log holds no review verdict for the children of these nodes" });
     expect(status(p.repo)).toBe(" M canon/REQ-2-statements.md\n?? tests/draft.test.ts\n");
     sh(p.repo, ["checkout", "-q", "--", "canon/REQ-2-statements.md"]);
   });
@@ -345,7 +345,7 @@ describe("a build that cannot be prepared leaves the repository as it was", { ti
     const before = snapshot(p);
     const r = prepareBuild(p.repo, p.canon);
     expect(r).toMatchObject({ ok: false, branch: "headcanon/build", base: "main" });
-    expect(r.error).toMatch(/holds no review of any box in this canon/);
+    expect(r.error).toMatch(/holds no review of any node in this canon/);
     expect(snapshot(p)).toEqual(before);
     expect(hookVerdicts(p).length).toBe(1);
   });
@@ -447,21 +447,21 @@ describe("the commands: build prepare, build tests, slice approve, slice discard
     expect(await approveCli(["slice", "discard", "REQ-1.1.2"], ctx)).toBe(0);
     expect(out.pop()).toBe("REQ-1.1.2 is discarded: its commits are reverted.\n");
     expect(existsSync(join(p.repo, "src/total.ts"))).toBe(false);
-    expect(loadRun(gitDir, "run-1")!.slices.map((s) => `${s.box} ${s.status}`)).toEqual(["REQ-1.1.1 approved", "REQ-1.1.2 discarded"]);
+    expect(loadRun(gitDir, "run-1")!.slices.map((s) => `${s.node} ${s.status}`)).toEqual(["REQ-1.1.1 approved", "REQ-1.1.2 discarded"]);
     expect(err).toEqual([]);
   });
 });
 
 describe("binding from commits", () => {
   it("drops the not-built line and the section it leaves empty, and nothing else", () => {
-    const box = "---\nid: REQ-1\n---\n\n# A\n\n## Intent\n\nNot built by hand: a sentence that only starts alike.\n\n## Implemented by\n\n- 2026-11-18: not built: nothing yet\n\n## Open\n\n- 2026-11-18: a note that stays\n- not built; the same thing said under Open\n";
-    expect(dropNotBuilt(box)).toBe("---\nid: REQ-1\n---\n\n# A\n\n## Intent\n\nNot built by hand: a sentence that only starts alike.\n\n## Open\n\n- 2026-11-18: a note that stays\n");
+    const node = "---\nid: REQ-1\n---\n\n# A\n\n## Intent\n\nNot built by hand: a sentence that only starts alike.\n\n## Implemented by\n\n- 2026-11-18: not built: nothing yet\n\n## Open\n\n- 2026-11-18: a note that stays\n- not built; the same thing said under Open\n";
+    expect(dropNotBuilt(node)).toBe("---\nid: REQ-1\n---\n\n# A\n\n## Intent\n\nNot built by hand: a sentence that only starts alike.\n\n## Open\n\n- 2026-11-18: a note that stays\n");
     const kept = "## Implemented by\n\n- the import reads each line (src/a.ts:1-9)\n- not built: the export\n";
     expect(dropNotBuilt(kept)).toBe("## Implemented by\n\n- the import reads each line (src/a.ts:1-9)\n");
     expect(dropNotBuilt("## Intent\n\nBuilt.\n")).toBe("## Intent\n\nBuilt.\n");
   });
 
-  it("binds nothing for a box the canon does not hold or a slice without commits", () => {
+  it("binds nothing for a node the canon does not hold or a slice without commits", () => {
     const p = project();
     expect(bindFromCommits(p.repo, p.canon, "REQ-9", [head(p.repo)])).toEqual({ bound: [] });
     expect(bindFromCommits(p.repo, p.canon, "REQ-1.1.1", [])).toEqual({ bound: [] });

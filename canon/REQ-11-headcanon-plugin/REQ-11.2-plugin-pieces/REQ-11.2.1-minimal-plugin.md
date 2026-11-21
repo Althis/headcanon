@@ -11,9 +11,9 @@ files: [.claude-plugin/plugin.json, hooks/hooks.json, skills/adopt/SKILL.md, ski
 
 ## Intent
 
-The first harness is the smallest set that lets an agent guide a human through adoption and elicitation on a real project:
+The first harness is the smallest set that lets an agent guide a user through adoption and elicitation on a real project:
 
-- A SessionStart hook that injects the rules, the canon's state, what waits on the human, the glossary and the tree.
+- A SessionStart hook that injects the rules, the canon's state, what waits on the user, the glossary and the tree.
 - Rules injected every session rather than written into the project's CLAUDE.md.
 - Skills: `adopt` for a project without a canon, `capture` to turn a conversation into a change request, `review` to walk assumed and open items, `commit` to compose a conforming commit.
 - `headcanon init`, which creates the skeleton and installs the commit-msg hook.

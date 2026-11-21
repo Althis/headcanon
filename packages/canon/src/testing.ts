@@ -1,8 +1,8 @@
 /**
- * The tests HeadCanon keeps for the boxes (DEC-026): the record of tests committed with the canon, the runners
+ * The tests HeadCanon keeps for the nodes (DEC-026): the record of tests committed with the canon, the runners
  * that run them, and the results stored beside it in the git directory. A test is of any kind the project needs
  * and runs through whatever command the project uses; nothing here knows a language or a tool beyond the four
- * result formats it reads. A test finds its box by the `[hc:<uid>]` tag in its title, never by position.
+ * result formats it reads. A test finds its node by the `[hc:<uid>]` tag in its title, never by position.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -19,9 +19,9 @@ export type RunnerFormat = "junit" | "vitest-json" | "playwright-json" | "headca
 /** Command placeholders: `{files}` the test files separated by spaces, `{out}` a result file path outside the repository, `{titles}` a pattern of titles when the runner supports it. */
 export interface Runner { kind: TestKind; command: string; format: RunnerFormat; cwd?: string; timeoutSec?: number }
 export interface TestEntry {
-  /** The box's uid. */
-  box: string;
-  /** The box's id when the test was recorded. */
+  /** The node's uid. */
+  node: string;
+  /** The node's id when the test was recorded. */
   id: string;
   runner: string;
   kind: TestKind;
@@ -31,7 +31,7 @@ export interface TestEntry {
   /** Plain words: what is tested and how. */
   description: string;
   journey?: string;
-  /** sha256 of the box's Intent and Check. */
+  /** sha256 of the node's Intent and Check. */
   pin: string;
   /** sha256 of the file, set on acceptance. */
   fingerprint?: string;
@@ -43,7 +43,7 @@ export interface TestEntry {
 export interface TestManifest { runners: Record<string, Runner>; tests: TestEntry[] }
 export type Outcome = "passed" | "failed" | "errored" | "skipped" | "missing" | "changed" | "stale" | "not-run";
 /** `tree` is set only on a result carried over from a run on another tree; without it the result is of `TestResults.tree`. */
-export interface TestResult { box: string; title: string; file: string; runner: string; outcome: Outcome; message?: string; ms?: number; tree?: string }
+export interface TestResult { node: string; title: string; file: string; runner: string; outcome: Outcome; message?: string; ms?: number; tree?: string }
 export interface TestResults { at: string; tree: string; results: TestResult[]; runs: Array<{ runner: string; exit: number | null; ms: number; error?: string }> }
 export interface ParsedResult { title: string; file?: string; outcome: "passed" | "failed" | "errored" | "skipped"; message?: string; ms?: number }
 export interface CliCtx { canonDir: string; repo: string; gitDir: string | undefined; port: number; by: string | undefined; json: boolean; out: (s: string) => void; err: (s: string) => void; stdin: () => string }
@@ -59,7 +59,7 @@ const posix = (p: string): string => p.split("\\").join("/");
 const squash = (s: string): string => s.replace(/\s+/g, " ").trim();
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-/** The tag a test's title carries for the box with this uid. */
+/** The tag a test's title carries for the node with this uid. */
 export const tagOf = (uid: string): string => `[hc:${uid}]`;
 /** The uids a title names. */
 export function uidsIn(title: string): string[] {
@@ -68,7 +68,7 @@ export function uidsIn(title: string): string[] {
 
 const byUid = (canon: Canon): Map<string, ReqNode> => new Map(Object.values(canon.nodes).filter((n) => n.uid).map((n) => [n.uid!, n] as const));
 
-// git reads only, and without the optional locks, so a run never collides with a git command of the person or an agent
+// git reads only, and without the optional locks, so a run never collides with a git command of the user or an agent
 function gitBytes(repo: string, args: string[]): Buffer | undefined {
   try { return execFileSync("git", ["--no-optional-locks", ...args], { cwd: repo, stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 29, windowsHide: true }); } catch { return undefined; }
 }
@@ -136,7 +136,7 @@ function oneAtATime<T>(canonDir: string, change: () => T): T {
   try { return change(); } finally { rmSync(lock, { recursive: true, force: true }); }
 }
 
-/** What a test is pinned to: the box's Intent and Check, with line breaks and spacing left out so a reflow is no change. */
+/** What a test is pinned to: the node's Intent and Check, with line breaks and spacing left out so a reflow is no change. */
 export function pinOf(node: ReqNode): string {
   return sha(`${squash(sectionText(node.body, "Intent"))}\n${squash(sectionText(node.body, "Check"))}`);
 }
@@ -152,7 +152,7 @@ function proseProblem(text: string): string | undefined {
   const t = text.trim();
   if (t.split(/\s+/).filter((w) => /[A-Za-z]/.test(w)).length < 4) return "the description must say in plain words what is checked and how";
   const code = /`|=>|[=!]==?|&&|\|\||[{}]|[A-Za-z_$][\w$.]*\((?!s\))|[A-Za-z]_[A-Za-z]/.exec(t);
-  return code ? `the description must be plain words a person who cannot read code understands; it holds code ("${code[0]}")` : undefined;
+  return code ? `the description must be plain words a user who cannot read code understands; it holds code ("${code[0]}")` : undefined;
 }
 
 function checkRunner(name: string, r: Runner): string | undefined {
@@ -178,9 +178,9 @@ export function setRunner(canonDir: string, name: string, r: Runner): void {
 }
 
 /**
- * Record tests as proposed. Each must name a box by its uid, carry `[hc:<uid>]` in its title, point at a file
+ * Record tests as proposed. Each must name a node by its uid, carry `[hc:<uid>]` in its title, point at a file
  * that exists, and describe itself in plain prose; an e2e test names the journey it plays. A test recorded again
- * (same box, file and title) replaces the earlier entry and waits for review again.
+ * (same node, file and title) replaces the earlier entry and waits for review again.
  */
 export function addTests(canonDir: string, entries: Array<Omit<TestEntry, "pin" | "status" | "at" | "id"> & { id?: string }>, by?: string): { added: number; errors: string[] } {
   const dir = resolve(canonDir);
@@ -197,8 +197,8 @@ function recordTests(dir: string, canon: Canon, repo: string, nodes: Map<string,
     const name = `test ${i + 1}${typeof e?.title === "string" ? ` "${e.title}"` : ""}`;
     const refuse = (why: string) => { errors.push(`${name}: ${why}`); };
     if (!e || typeof e !== "object") return refuse("is not an object");
-    const node = typeof e.box === "string" ? nodes.get(e.box) : undefined;
-    if (!node) return refuse(`box "${String(e.box)}" is not the uid of a box in the canon`);
+    const node = typeof e.node === "string" ? nodes.get(e.node) : undefined;
+    if (!node) return refuse(`node "${String(e.node)}" is not the uid of a node in the canon`);
     if (typeof e.title !== "string" || !uidsIn(e.title).includes(node.uid!)) return refuse(`the title must carry ${tagOf(node.uid!)}`);
     if (!TEST_KINDS.includes(e.kind)) return refuse(`kind must be one of ${TEST_KINDS.join(", ")}`);
     if (typeof e.runner !== "string" || !e.runner.trim()) return refuse("names no runner");
@@ -211,8 +211,8 @@ function recordTests(dir: string, canon: Canon, repo: string, nodes: Map<string,
     if (prose) return refuse(prose);
     if (e.journey !== undefined && !canon.journeys.some((j) => j.id === e.journey)) return refuse(`journey "${e.journey}" is not in the canon`);
     if (e.kind === "e2e" && !e.journey) return refuse("an e2e test names the journey it plays; record the journey first");
-    const entry: TestEntry = { box: node.uid!, id: node.id, runner: e.runner.trim(), kind: e.kind, file, title: e.title, description: e.description.trim(), ...(e.journey ? { journey: e.journey } : {}), pin: pinOf(node), status: "proposed", ...(by ?? e.by ? { by: (by ?? e.by)! } : {}), at: new Date().toISOString() };
-    const at = m.tests.findIndex((t) => t.box === entry.box && t.file === entry.file && t.title === entry.title);
+    const entry: TestEntry = { node: node.uid!, id: node.id, runner: e.runner.trim(), kind: e.kind, file, title: e.title, description: e.description.trim(), ...(e.journey ? { journey: e.journey } : {}), pin: pinOf(node), status: "proposed", ...(by ?? e.by ? { by: (by ?? e.by)! } : {}), at: new Date().toISOString() };
+    const at = m.tests.findIndex((t) => t.node === entry.node && t.file === entry.file && t.title === entry.title);
     if (at >= 0) m.tests[at] = entry; else m.tests.push(entry);
     added++;
   });
@@ -221,16 +221,16 @@ function recordTests(dir: string, canon: Canon, repo: string, nodes: Map<string,
 }
 
 /**
- * The reviewer's verdict on a box's proposed tests. Pass: each is accepted with the fingerprint of its file as it
+ * The reviewer's verdict on a node's proposed tests. Pass: each is accepted with the fingerprint of its file as it
  * is now. Fail: each is rejected with the note. Returns how many entries the verdict changed.
  */
-export function reviewTests(canonDir: string, box: string, verdict: "pass" | "fail", note?: string): number {
+export function reviewTests(canonDir: string, node: string, verdict: "pass" | "fail", note?: string): number {
   const dir = resolve(canonDir), repo = repoOf(dir);
   return oneAtATime(dir, () => {
     const m = manifestToChange(dir);
     let changed = 0;
     m.tests = m.tests.map((t) => {
-      if (t.box !== box || t.status !== "proposed") return t;
+      if (t.node !== node || t.status !== "proposed") return t;
       const { review: _old, fingerprint: _was, ...rest } = t;
       if (verdict === "fail") { changed++; return { ...rest, status: "rejected" as const, ...(note ? { review: note } : {}) }; }
       const fingerprint = fingerprintOf(repo, t.file);
@@ -244,7 +244,7 @@ export function reviewTests(canonDir: string, box: string, verdict: "pass" | "fa
 }
 
 export function testsOf(m: TestManifest, uid: string): TestEntry[] {
-  return m.tests.filter((t) => t.box === uid);
+  return m.tests.filter((t) => t.node === uid);
 }
 
 // ---- the state of the tree ----
@@ -325,7 +325,7 @@ const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object"
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const text = (v: unknown): string | undefined => (typeof v === "string" && v.length ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
-/** A message as a person reads it: no terminal colour codes, no end spaces, cut where it stops helping. */
+/** A message as a user reads it: no terminal colour codes, no end spaces, cut where it stops helping. */
 const clean = (s: string): string => { const t = s.replace(/\u001b\[[0-9;]*[A-Za-z]/g, "").trim(); return t.length > 4000 ? `${t.slice(0, 4000)}\n…` : t; };
 
 function parsed(title: string, outcome: ParsedResult["outcome"], file?: string, message?: string, ms?: number): ParsedResult {
@@ -394,7 +394,7 @@ function parseJunit(body: string): ParsedResult[] {
       const verdict = tc.kids.find((k) => k.tag === "failure") ?? tc.kids.find((k) => k.tag === "error") ?? tc.kids.find((k) => k.tag === "skipped");
       const outcome = verdict?.tag === "failure" ? "failed" : verdict?.tag === "error" ? "errored" : verdict ? "skipped" : "passed";
       const said = verdict?.attrs["message"] ?? "", told = verdict?.text.trim() ?? "";
-      // the tag may sit on the class or the suite the case belongs to, when one box has several cases
+      // the tag may sit on the class or the suite the case belongs to, when one node has several cases
       const holder = uidsIn(name).length ? undefined : [a["classname"], ...suites.map((s) => s["name"]).reverse()].find((s) => s && uidsIn(s).length);
       const file = a["file"] ?? [...suites].reverse().find((s) => s["file"])?.["file"] ?? [a["classname"], suites.at(-1)?.["name"]].find(looksLikePath);
       const seconds = Number(a["time"]);
@@ -603,7 +603,7 @@ function runRunner(repo: string, gitDir: string | undefined, name: string, runne
 
 /** Why a test is not run at all, or undefined when it can run. */
 function heldBack(t: TestEntry, node: ReqNode | undefined, repo: string): { outcome: Outcome; message: string } | undefined {
-  if (!node) return { outcome: "stale", message: "Its box is no longer in the canon." };
+  if (!node) return { outcome: "stale", message: "Its node is no longer in the canon." };
   if (pinOf(node) !== t.pin) return { outcome: "stale", message: `${node.id} was reworded after this test was written. The test is written again before it runs.` };
   const now = fingerprintOf(repo, t.file);
   if (!now) return { outcome: "missing", message: `The test file ${t.file} is gone.` };
@@ -616,14 +616,14 @@ const sameFile = (a: string, b: string): boolean => { const x = posix(a).toLower
 const RANK: Record<ParsedResult["outcome"], number> = { failed: 3, errored: 2, passed: 1, skipped: 0 };
 
 /**
- * Give each test what the runner said of it. A result belongs to the box its title tags; among several tests of
- * one box, to the one whose title it carries. Several results for one test (one per project, one per case under a
+ * Give each test what the runner said of it. A result belongs to the node its title tags; among several tests of
+ * one node, to the one whose title it carries. Several results for one test (one per project, one per case under a
  * tagged group) count as their worst. A test with no result whose file itself failed to load is errored with that reason.
  */
 function matchResults(tests: TestEntry[], found: ParsedResult[], repo: string): Map<TestEntry, ParsedResult> {
   const got = new Map<TestEntry, ParsedResult[]>();
   for (const p of found) for (const uid of new Set(uidsIn(p.title))) {
-    const mine = tests.filter((t) => t.box === uid);
+    const mine = tests.filter((t) => t.node === uid);
     const named = mine.filter((t) => loose(p.title).includes(loose(t.title))).sort((a, b) => b.title.length - a.title.length);
     const to = named[0] ?? (mine.length === 1 ? mine[0] : undefined);
     if (to) got.set(to, [...(got.get(to) ?? []), p]);
@@ -643,28 +643,28 @@ function matchResults(tests: TestEntry[], found: ParsedResult[], repo: string): 
   return out;
 }
 
-const keyOf = (r: { box: string; file: string; title: string }): string => `${r.box}\n${r.file}\n${r.title}`;
+const keyOf = (r: { node: string; file: string; title: string }): string => `${r.node}\n${r.file}\n${r.title}`;
 
 /**
  * Run the accepted tests (with `all`, the proposed ones too) through their runners, one runner at a time, and
- * store what they said in `<git dir>/headcanon/results.json`. A run of some boxes or kinds keeps the stored results
+ * store what they said in `<git dir>/headcanon/results.json`. A run of some nodes or kinds keeps the stored results
  * of the others, each marked with the tree it was measured on when that is no longer this one.
  */
-export function runTests(canonDir: string, opts: { boxes?: string[]; kinds?: TestKind[]; all?: boolean } = {}): TestResults {
+export function runTests(canonDir: string, opts: { nodes?: string[]; kinds?: TestKind[]; all?: boolean } = {}): TestResults {
   const dir = resolve(canonDir);
   const repo = repoOf(dir), gitDir = gitDirOf(dir);
   const canon = loadCanon(dir), m = loadManifest(dir), nodes = byUid(canon);
-  const chosen = m.tests.filter((t) => (t.status === "accepted" || (opts.all === true && t.status === "proposed")) && (!opts.boxes || opts.boxes.includes(t.box)) && (!opts.kinds?.length || opts.kinds.includes(t.kind)));
+  const chosen = m.tests.filter((t) => (t.status === "accepted" || (opts.all === true && t.status === "proposed")) && (!opts.nodes || opts.nodes.includes(t.node)) && (!opts.kinds?.length || opts.kinds.includes(t.kind)));
   const fresh = new Map<TestEntry, TestResult>();
-  const base = (t: TestEntry) => ({ box: t.box, title: t.title, file: t.file, runner: t.runner });
+  const base = (t: TestEntry) => ({ node: t.node, title: t.title, file: t.file, runner: t.runner });
   const ready: TestEntry[] = [];
-  for (const t of chosen) { const held = heldBack(t, nodes.get(t.box), repo); if (held) fresh.set(t, { ...base(t), ...held }); else ready.push(t); }
+  for (const t of chosen) { const held = heldBack(t, nodes.get(t.node), repo); if (held) fresh.set(t, { ...base(t), ...held }); else ready.push(t); }
   const runs: TestResults["runs"] = [];
   for (const name of [...new Set([...Object.keys(m.runners), ...ready.map((t) => t.runner)])]) {
     const mine = ready.filter((t) => t.runner === name);
     if (!mine.length) continue;
     const runner = m.runners[name];
-    const uids = [...new Set(mine.map((t) => t.box))];
+    const uids = [...new Set(mine.map((t) => t.node))];
     const whole = m.tests.filter((t) => t.runner === name).every((t) => mine.includes(t));
     const titles = whole || uids.length > 250 ? "hc:" : uids.length === 1 ? `hc:${uids[0]!}` : `hc:(${uids.join("|")})`;
     const { run, parsed: found } = runner ? runRunner(repo, gitDir, name, runner, mine, titles) : { run: { runner: name, exit: null, ms: 0, error: `no runner named ${name} is recorded; record it with: headcanon tests runner ${name} '<JSON>'` }, parsed: [] };
@@ -690,13 +690,13 @@ export function runTests(canonDir: string, opts: { boxes?: string[]; kinds?: Tes
 const WORDS: Record<Outcome, string> = { passed: "passed", failed: "failed", errored: "errored", skipped: "skipped", missing: "missing", changed: "changed", stale: "stale", "not-run": "not run" };
 const ORDER: readonly Outcome[] = ["passed", "failed", "errored", "missing", "changed", "stale", "not-run", "skipped"];
 
-/** The results in plain lines: the counts, then each box, with every test that did not pass and what it said. */
+/** The results in plain lines: the counts, then each node, with every test that did not pass and what it said. */
 export function describeResults(r: TestResults, canon: Canon): string {
   if (!r.results.length && !r.runs.length) return "No recorded test ran.";
   const nodes = byUid(canon);
   const lines = [`${r.results.length} test${r.results.length === 1 ? "" : "s"}, measured ${r.at}: ${ORDER.map((o) => [o, r.results.filter((x) => x.outcome === o).length] as const).filter(([, n]) => n).map(([o, n]) => `${n} ${WORDS[o]}`).join(", ") || "none"}.`];
-  for (const uid of [...new Set(r.results.map((x) => x.box))]) {
-    const mine = r.results.filter((x) => x.box === uid), node = nodes.get(uid);
+  for (const uid of [...new Set(r.results.map((x) => x.node))]) {
+    const mine = r.results.filter((x) => x.node === uid), node = nodes.get(uid);
     const name = node ? `${node.id} ${node.title}` : `${tagOf(uid)} (no longer in the canon)`;
     const rest = mine.filter((x) => x.outcome !== "passed");
     if (!rest.length) { lines.push(`${name}: ${mine.length} passed`); continue; }
@@ -733,7 +733,7 @@ function jsonArg(raw: string | undefined, ctx: CliCtx): unknown {
 
 const USAGE = `usage: headcanon tests <command>
   runner <name> '<JSON>'     record how a kind of test runs: {"kind","command","format","cwd"?,"timeoutSec"?}; with no JSON, list the runners
-  add @file|'<JSON>'|-       record tests as proposed: [{"box","runner","kind","file","title","description","journey"?}]
+  add @file|'<JSON>'|-       record tests as proposed: [{"node","runner","kind","file","title","description","journey"?}]
   review <uid|id> pass|fail [--note "<text>"]
   list [<id>] [--json]       the recorded tests, with what each last said
   run [<id>...] [--kind k] [--all] [--run <run id>] [--json]
@@ -744,13 +744,13 @@ const USAGE = `usage: headcanon tests <command>
 const RUNS_MODULE = "./runs.js";
 type RunsModule = { loadRun: (gitDir: string, id: string) => { slices: Array<{ owes: string[] }>; firstRun?: { passing: string[] } } | undefined };
 
-/** The boxes a run answers for: what its slices owe, and every box whose test passed in its first run, so a regression shows. */
-async function boxesOfRun(gitDir: string, runId: string, m: TestManifest): Promise<string[]> {
+/** The nodes a run answers for: what its slices owe, and every node whose test passed in its first run, so a regression shows. */
+async function nodesOfRun(gitDir: string, runId: string, m: TestManifest): Promise<string[]> {
   const { loadRun } = (await import(/* @vite-ignore */ RUNS_MODULE)) as RunsModule;
   const run = loadRun(gitDir, runId);
   if (!run) throw new Error(`no run ${runId} is recorded`);
   const passing = new Set(run.firstRun?.passing ?? []);
-  return [...new Set([...run.slices.flatMap((s) => s.owes), ...m.tests.filter((t) => passing.has(t.title)).map((t) => t.box)])];
+  return [...new Set([...run.slices.flatMap((s) => s.owes), ...m.tests.filter((t) => passing.has(t.title)).map((t) => t.node)])];
 }
 
 export async function testsCli(rest: string[], ctx: CliCtx): Promise<number> {
@@ -762,9 +762,9 @@ export async function testsCli(rest: string[], ctx: CliCtx): Promise<number> {
   try {
     const canon = loadCanon(ctx.canonDir);
     const nodes = byUid(canon);
-    /** A box named by id or by uid, as its uid. */
-    const uidOf = (name: string): string => { const uid = canon.nodes[name]?.uid ?? (nodes.has(name) ? name : undefined); if (!uid) throw new Error(`${name} is not a box with a uid in the canon`); return uid; };
-    /** A box named by id or uid, with everything below it, as uids. */
+    /** A node named by id or by uid, as its uid. */
+    const uidOf = (name: string): string => { const uid = canon.nodes[name]?.uid ?? (nodes.has(name) ? name : undefined); if (!uid) throw new Error(`${name} is not a node with a uid in the canon`); return uid; };
+    /** A node named by id or uid, with everything below it, as uids. */
     const below = (name: string): string[] => { const id = canon.nodes[name]?.id ?? nodes.get(name)?.id; if (!id) throw new Error(`${name} is not in the canon`); return [id, ...descendants(canon, id)].map((x) => canon.nodes[x]?.uid).filter((u): u is string => Boolean(u)); };
     const label = (uid: string): string => nodes.get(uid)?.id ?? tagOf(uid);
     switch (cmd) {
@@ -791,14 +791,14 @@ export async function testsCli(rest: string[], ctx: CliCtx): Promise<number> {
         if (verdict === "fail" && !note) throw new Error('a fail needs --note "<what fails and what would pass>"');
         const uid = uidOf(pos[0]);
         const n = reviewTests(ctx.canonDir, uid, verdict, note);
-        say({ ok: n > 0, box: uid, changed: n }, n ? `${n} test${n === 1 ? "" : "s"} of ${label(uid)} ${verdict === "pass" ? "accepted" : "rejected"}.` : `${label(uid)} has no proposed test whose file exists.`);
+        say({ ok: n > 0, node: uid, changed: n }, n ? `${n} test${n === 1 ? "" : "s"} of ${label(uid)} ${verdict === "pass" ? "accepted" : "rejected"}.` : `${label(uid)} has no proposed test whose file exists.`);
         return n ? 0 : 1;
       }
       case "list": {
         const m = loadManifest(ctx.canonDir);
         const only = pos[0] ? new Set(below(pos[0])) : undefined;
         const last = new Map((ctx.gitDir ? loadResults(ctx.gitDir)?.results ?? [] : []).map((r) => [keyOf(r), r] as const));
-        const rows = m.tests.filter((t) => !only || only.has(t.box)).map((t) => ({ ...t, id: label(t.box), outcome: last.get(keyOf(t))?.outcome }));
+        const rows = m.tests.filter((t) => !only || only.has(t.node)).map((t) => ({ ...t, id: label(t.node), outcome: last.get(keyOf(t))?.outcome }));
         say({ runners: m.runners, tests: rows }, rows.map((t) => `${t.id} ${t.kind}, ${t.status}${t.outcome ? `, ${WORDS[t.outcome]}` : ""}: ${t.description} (${t.file})${t.review ? `\n  review: ${t.review}` : ""}`).join("\n") || "No test is recorded.");
         return 0;
       }
@@ -809,11 +809,11 @@ export async function testsCli(rest: string[], ctx: CliCtx): Promise<number> {
         const runId = opt["run"]?.[0];
         if (runId && !ctx.gitDir) throw new Error("a run lives in a git repository; this folder has none");
         const named = pos.length ? pos.flatMap(below) : undefined;
-        const owed = runId ? await boxesOfRun(ctx.gitDir!, runId, loadManifest(ctx.canonDir)) : undefined;
-        const boxes = named && owed ? named.filter((u) => owed.includes(u)) : named ?? owed;
-        const r = runTests(ctx.canonDir, { ...(boxes ? { boxes: [...new Set(boxes)] } : {}), ...(kinds.length ? { kinds: kinds as TestKind[] } : {}), ...(opt["all"] ? { all: true } : {}) });
+        const owed = runId ? await nodesOfRun(ctx.gitDir!, runId, loadManifest(ctx.canonDir)) : undefined;
+        const nodes = named && owed ? named.filter((u) => owed.includes(u)) : named ?? owed;
+        const r = runTests(ctx.canonDir, { ...(nodes ? { nodes: [...new Set(nodes)] } : {}), ...(kinds.length ? { kinds: kinds as TestKind[] } : {}), ...(opt["all"] ? { all: true } : {}) });
         say(r, describeResults(r, loadCanon(ctx.canonDir)));
-        return r.runs.some((x) => x.error) || r.results.some((x) => (!boxes || boxes.includes(x.box)) && !x.tree && (isFailing(x.outcome) || x.outcome === "not-run")) ? 1 : 0;
+        return r.runs.some((x) => x.error) || r.results.some((x) => (!nodes || nodes.includes(x.node)) && !x.tree && (isFailing(x.outcome) || x.outcome === "not-run")) ? 1 : 0;
       }
       case "results": {
         const r = ctx.gitDir ? loadResults(ctx.gitDir) : undefined;

@@ -58,7 +58,7 @@ describe("the journal and the revert [DEC-025]", () => {
     expect(loadCanon(canon).nodes["REQ-1.2"]).toBeUndefined();
   });
 
-  it("Guided mode gates a ready box that is not approved, whatever its parent is [DEC-025]", () => {
+  it("Guided mode gates a ready node that is not approved, whatever its parent is [DEC-025]", () => {
     const { canon } = repo();
     const dues = (state: string) => writeFileSync(join(canon, "REQ-1-money", "REQ-1.1-dues.md"), `---\nid: REQ-1.1\nparent: REQ-1\ntitle: "Dues"\nstate: ${state}\n---\n\n# Dues\n\n## Intent\n\nDues are collected.\n`);
     dues("assumed");
@@ -69,7 +69,7 @@ describe("the journal and the revert [DEC-025]", () => {
     const auto = refinementOrder(c);
     expect(auto.ready.map((p) => p.id).sort()).toEqual(["REQ-1.1", "REQ-2.1"]);
     expect(auto.gated).toEqual([]);
-    // REQ-1.1 hangs under an approved box and is a guess itself: refining it would draft under a box nobody approved
+    // REQ-1.1 hangs under an approved node and is a guess itself: refining it would draft under a node nobody approved
     const guided = refinementOrder(c, undefined, { guided: true });
     expect(guided.ready).toEqual([]);
     expect(guided.next).toBeUndefined();
@@ -79,9 +79,9 @@ describe("the journal and the revert [DEC-025]", () => {
     const paused = describeNext(guided, c);
     expect(paused).not.toContain("Nothing left to refine");
     expect(paused).not.toContain("Next to refine");
-    expect(paused).toContain("Guided: 2 box(es) wait for the human's approval, and nothing is drafted under one before it: REQ-1.1, REQ-2.1.");
+    expect(paused).toContain("Guided: 2 node(s) wait for the user's approval, and nothing is drafted under one before it: REQ-1.1, REQ-2.1.");
     expect(describeNext(auto, c)).not.toContain("Guided");
-    // the human approves REQ-1.1: it alone opens, and a scope keeps the gate of its own boxes
+    // the user approves REQ-1.1: it alone opens, and a scope keeps the gate of its own nodes
     dues("stated");
     const c2 = loadCanon(canon);
     const after = refinementOrder(c2, undefined, { guided: true });

@@ -41,7 +41,7 @@ requirement tree, user journeys, glossary and decision records, in files that
 the agent reads every session and that GitHub renders as they are.
 
 It was created empty by \`headcanon init\` on ${today}. Nothing in it is the
-human's intent yet: the premise is a draft until the human states it or
+user's intent yet: the premise is a draft until the user states it or
 approves what the session proposes for it.
 
 ## Intent
@@ -55,7 +55,7 @@ Not yet stated.
 ## Glossary [assumed]
 
 No terms yet. A term enters as assumed when the agent infers it and as stated
-when the human defines it. A definition says what the term is, as a dictionary
+when the user defines it. A definition says what the term is, as a dictionary
 entry does, and covers one concept. Format: \`**term** (\`TERM-slug\`): definition\`.
 `;
 }
