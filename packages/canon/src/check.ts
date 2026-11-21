@@ -62,7 +62,8 @@ export function checkCanon(canon: Canon): Finding[] {
       for (const t of targets)
         if (!canon.nodes[t]) out.push(finding("error", "link-unknown", `${n.id} ${field} ${t}, which does not exist`, at));
     if (n.state === "contested") out.push(finding("warn", "contested", `${n.id} is contested: ${n.title}`, at));
-    if (n.state === "open") out.push(finding("info", "open", `${n.id} is a draft, defined by its issue: ${n.title}`, at));
+    if (n.state === "draft") out.push(finding("info", "draft", `${n.id} is a draft, defined by its issue: ${n.title}`, at));
+    if (n.kind && !n.uid) out.push(finding("info", "uid-missing", `${n.id} carries a requirement and no uid; \`headcanon upgrade\` adds one`, at));
 
     const deps = decisionsByIntent.get(n.id) ?? [];
     if (n.state === "assumed" && deps.length >= 2)
@@ -77,7 +78,7 @@ export function checkCanon(canon: Canon): Finding[] {
     const rank: Record<string, number> = { domain: 0, capability: 1, requirement: 2 };
     if (n.layerExplicit && parent?.layerExplicit && rank[n.layer]! < rank[parent.layer]!)
       out.push(finding("error", "layer-order", `${n.id} is a ${n.layer} under ${parent.id}, a ${parent.layer}`, at));
-    if (n.layerExplicit && n.layer === "capability" && n.children.length === 0 && n.state !== "open")
+    if (n.layerExplicit && n.layer === "capability" && n.children.length === 0 && n.state !== "draft")
       out.push(finding("warn", "uncovered-capability", `${n.id} is a capability with no requirements under it`, at));
 
     // Consolidation signals (PRN-1): a child that restates its parent, a parent that has grown wide.
@@ -142,7 +143,7 @@ export function checkCanon(canon: Canon): Finding[] {
     if (/(?<![A-Za-z])(?:shall|must|should)(?![A-Za-z])/i.test(t.definition))
       out.push(finding("info", "glossary-prescriptive", `${t.id}: the definition of "${t.term}" carries an obligation; a definition is declarative, the obligation is a node`, { id: t.id, file: canon.root?.file }));
   if (canon.root && (canon.root.state === "stated" || canon.root.state === "resolved") && /^##[ \t]+Glossary[ \t]*$/m.test(canon.root.body)) {
-    const unmarked = canon.root.body.split(/\r?\n/).filter((l) => /^\*\*[^*]+\*\*\s*\(`TERM-/.test(l) && !/\[(stated|assumed|open|contested|resolved)\]/.test(l));
+    const unmarked = canon.root.body.split(/\r?\n/).filter((l) => /^\*\*[^*]+\*\*\s*\(`TERM-/.test(l) && !/\[(stated|assumed|draft|open|contested|resolved)\]/.test(l));
     if (unmarked.length) out.push(finding("warn", "glossary-inherited", `${unmarked.length} glossary term(s) carry no marker under an unmarked heading, so they read as the human's own; mark the heading [assumed], or each term`, { id: "ROOT", file: canon.root.file }));
   }
   const refine = refinementOrder(canon);
@@ -184,7 +185,7 @@ export function checkCanon(canon: Canon): Finding[] {
     const ids = [r, ...descendants(canon, r)];
     if (ids.length < 3) continue;
     const c = countStates(canon, ids);
-    const unconfirmed = c.assumed + c.open + c.contested;
+    const unconfirmed = c.assumed + c.draft + c.contested;
     const confirmed = c.stated + c.resolved;
     if (unconfirmed > confirmed)
       out.push(finding("warn", "branch-unconfirmed", `${r} is mostly unconfirmed: ${unconfirmed} of ${ids.length} nodes are assumed, open or contested`, { id: r, file: canon.nodes[r]?.file, branch: r }));
@@ -250,7 +251,7 @@ export function branchHealth(canon: Canon, findings: Finding[]): BranchHealth[] 
       errors: mine.filter((f) => f.level === "error").length,
       warnings: mine.filter((f) => f.level === "warn").length,
       infos: mine.filter((f) => f.level === "info").length,
-      unconfirmedShare: (counts.assumed + counts.open + counts.contested) / ids.length,
+      unconfirmedShare: (counts.assumed + counts.draft + counts.contested) / ids.length,
     };
   });
 }

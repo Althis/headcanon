@@ -1,6 +1,12 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { canonPathOf, checkStagedCommit } from "../src/commit-msg.js";
 import { checkCommitMessage, cleanMessage, findAppendOnlyFiles, loadCanon, parseTrailers, renderMermaidIndex } from "../src/index.js";
+import { stagedIntentDiff, storeReviewRecord } from "../src/review.js";
 
 const MINI = fileURLToPath(new URL("./fixtures/mini/", import.meta.url));
 const canon = loadCanon(MINI);
@@ -67,6 +73,33 @@ describe("commit-msg [REQ-8.5, REQ-8.5.1]", () => {
     const nameStatus = "M\tskills/adopt/SKILL.md\nA\tcanon/REQ-1-x/README.md\nM\tcanon/README.md\nM\tpackages/canon/src/rules.ts\nM\tsrc/app.ts\n";
     const found = findAppendOnlyFiles(numstat, nameStatus);
     expect(found).toEqual([{ path: "skills/adopt/SKILL.md", added: 12 }]);
+    // an entry of the canon is watched; the record of tests kept beside the entries grows by design
+    const canonFiles = findAppendOnlyFiles("30\t0\tcanon/REQ-1-x/README.md\n40\t0\tcanon/tests.json\n", "M\tcanon/REQ-1-x/README.md\nM\tcanon/tests.json\n");
+    expect(canonFiles).toEqual([{ path: "canon/REQ-1-x/README.md", added: 30 }]);
+  });
+
+  it("checks a message the way the hook does: against the canon, the staged files and the stored review", () => {
+    const repo = mkdtempSync(join(tmpdir(), "headcanon-staged-check-"));
+    try {
+      const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      execFileSync("git", ["init", "-q", repo]);
+      const canonDir = join(repo, "canon");
+      expect(canonPathOf(repo, canonDir)).toBe("canon");
+      expect(canonPathOf(repo, join(repo, "docs", "canon"))).toBe("docs/canon");
+      mkdirSync(canonDir);
+      writeFileSync(join(canonDir, "README.md"), "---\nid: ROOT\ntitle: x\nstate: resolved\n---\n# x\n\n## Intent\n\nA ledger.\n");
+      writeFileSync(join(canonDir, "REQ-1-a.md"), "---\nid: REQ-1\ntitle: a\nstate: assumed\n---\n# a\n\n## Intent\n\nA holds.\n");
+      git("add", "canon");
+      const msg = "docs(canon): add a box\n\nIntent: REQ-1\nIntent-Change: create REQ-1\nApproved-By: pending (the owner reviews on the page)\n";
+      expect(checkStagedCommit(repo, canonDir, msg).errors.join("\n")).toMatch(/no intent review is recorded/);
+      expect(checkStagedCommit(repo, canonDir, msg.replace("REQ-1\nIntent-Change", "REQ-7\nIntent-Change")).errors).toContain("Intent REQ-7 does not exist in the canon");
+      const diff = stagedIntentDiff(repo);
+      storeReviewRecord(repo, { hash: diff.hash, at: "t", reviewer: "v", findings: [] });
+      expect(checkStagedCommit(repo, canonDir, msg).errors.join("\n")).toMatch(/missing "Intent-Review: /);
+      expect(checkStagedCommit(repo, canonDir, `${msg}Intent-Review: ${diff.hash}, 0 findings\n`)).toMatchObject({ ok: true, errors: [] });
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   it("requires a Consolidated trailer when an append-only file is staged", () => {

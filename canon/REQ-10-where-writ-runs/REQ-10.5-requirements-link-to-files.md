@@ -16,5 +16,5 @@ Source: docs/design-brief-v0.md:105
 
 ## Intent [assumed]
 
-Writ reads a commit's changed files, maps them to requirements, and loads only those branches of the canon. Start with file-level links; function-level links come later.
+Every requirement says where it is built, under Implemented by: the functions bound to it as implementing it, or a line that it is not built with what exists instead. The links are written from the evidence during adoption and kept by the implementation agents from then on: approving a slice binds the units its commits changed (DEC-026). Writ reads a commit's changed files, maps them to requirements through these links, and loads only those branches of the canon.
 

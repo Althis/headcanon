@@ -11,7 +11,7 @@ files: [packages/canon/public/app.js]
 
 ## Intent
 
-The human did not ask for these pages; the agent added them because the four requested views link to journeys, decisions and terms, and a link needs somewhere to land. Journeys render their Mermaid flowchart and their step table with each step's linked requirements. Decisions list with state, origin and the intents they serve, and open to their full record. The glossary lists every term with its ID and definition.
+The human did not ask for these pages; the agent added them because the four requested views link to journeys, decisions and terms, and a link needs somewhere to land. Journeys render their Mermaid flowchart and their step table with each step's linked requirements; a journey shows its state as a box does, guessed or approved, and each step the test that plays it when one exists (DEC-026). Decisions list with state, origin and the intents they serve, and open to their full record. The glossary lists every term with its ID and definition.
 
 ## Not this
 

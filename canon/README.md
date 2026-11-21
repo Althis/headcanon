@@ -101,3 +101,20 @@ Terms as the agent understands them from the brief and the session. Each is assu
 **preservation** (`TERM-preservation`): Writ's third stage: rerunning every test from earlier approved packages to catch erosion.
 
 **Test Bay** (`TERM-test-bay`): The user's local folder for projects in development.
+**premise** (`TERM-premise`) [assumed]: The root of the canon: what the project is, for whom, what it is not, and its principles; approved by the human before anything is drafted under it.
+**evidence** (`TERM-evidence`) [assumed]: An artifact line, a chat message or a human edit that a node, edge or requirement rests on; related to the node as owns, relates or supports.
+**refine** (`TERM-refine`) [assumed]: To branch a node into its children; to redefine is to do it again after a change.
+**draft** (`TERM-draft`) [assumed]: The state of a node whose definition waits on an issue; it has a name and a place, not yet a settled Intent.
+**impact** (`TERM-impact`) [assumed]: The rank of a box on the human's list: 1 plus the boxes below it, plus the rungs still to materialise below it, plus the boxes waiting on it; red boxes rank anywhere and win ties.
+**issue** (`TERM-issue`) [assumed]: A request for the human's help filed by the session or by an implementation agent: a contradiction, a disambiguation, an apocrypha, an undefined or an impossible; transient, while the node's state in the file is the record.
+**contradiction** (`TERM-contradiction`) [assumed]: An issue in which two human-checkable sources cannot both hold; code against an approved node is a failure, not a contradiction.
+**disambiguation** (`TERM-disambiguation`) [assumed]: An issue in which a word the human used does not pass the clarity tests; settled by a glossary term or a rewrite.
+**apocrypha** (`TERM-apocrypha`) [assumed]: An issue in which the human's own wording fails the quality rubric; the agent helps them reach a wording that passes.
+**undefined** (`TERM-undefined`) [assumed]: An issue in which no evidence, practice or common sense points one way; options when any exist, free text always.
+**impossible** (`TERM-impossible`) [assumed]: An issue in which repeated attempts to make a box's tests pass have failed; it asks the human how to deal with the problem.
+**guided mode** (`TERM-guided-mode`) [assumed]: Operation one level below the last approved node at a time, each level gated on approval; slower and cheaper.
+**full-auto mode** (`TERM-full-auto-mode`) [assumed]: Operation breadth first to the leaves with no gate after the premise; faster and costlier, with an optional cap on agents or spend.
+**out of sync** (`TERM-out-of-sync`) [assumed]: The mark of a box whose code and Intent disagree: code is bound to it as contradicting it, or it is built and one of its accepted tests fails, was changed or is missing; drawn as a red dashed ring a little outside the box.
+**builder test** (`TERM-builder-test`) [assumed]: The tester's first pass over a capability, from the canon's text alone: each test case written in plain words as given, when, then, and a list of every gap, what it had to assume, a gap being costly when a wrong guess would break other people's work.
+**implementation agent** (`TERM-implementation-agent`) [assumed]: The agent that builds one slice, on the model the human is using and free in how it builds; held at its stop until the tests of its boxes pass or each box still failing has an issue, and at its commits, which carry the intent format.
+**slice** (`TERM-slice`) [assumed]: One box of a build round together with the boxes below it: what one implementation agent is given, whose tests it owes, and what the human approves, sends back or discards.

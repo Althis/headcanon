@@ -19,3 +19,8 @@ A refiner decides an entry's line by precedence: the human's approvals in this r
 ## Open
 
 - 2026-11-04: settled when the human reviews it after the run that follows, on whether the questions that remain are the ones worth their time and whether the guesses hold up in review.
+
+## Amended
+
+- 2026-11-16, by DEC-025: documents outrank code in operation, recency decides between documents only during adoption, and code against an approved node is a failure for Writ, not a contradiction.
+- 2026-11-18, by DEC-026: the cap of four refiners and the rule against two siblings together are gone; one refiner runs per capability, as many at once as the cap the human set allows. The precedence stands, and an issue is filed only when it does not decide.

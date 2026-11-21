@@ -17,12 +17,12 @@ function canon(): string {
   const node = (id: string, title: string, extra = "", body = "") => `---\nid: ${id}\n${id.includes(".") ? `parent: ${id.slice(0, id.lastIndexOf("."))}\n` : ""}title: "${title}"\nstate: assumed\n${extra}---\n\n# ${title}\n\n${body}`;
   file("README.md", `---\nid: ROOT\ntitle: "Ledger canon"\nstate: resolved\nformat: 2\n---\n\n# Ledger canon\n\n## Intent\n\nA ledger.\n\n## Glossary [assumed]\n\n**statement** (\`TERM-statement\`) [assumed]: a bank's list of transactions.\n**ledger** (\`TERM-ledger\`) [stated]: the book of record.\n`);
   file("REQ-1-import/README.md", node("REQ-1", "Import", "layer: domain\n", "## Intent\n\nStatements come in.\n"));
-  file("REQ-1-import/REQ-1.1-csv.md", node("REQ-1.1", "CSV parsing", "kind: binary\n", "## Intent\n\nA CSV statement becomes transactions, one per line.\n\n## Check\n\nOne row, one transaction.\n\n## As built\n\n- CSV is read line by line (src/parse.ts:10-40)\n"));
-  file("REQ-1-import/REQ-1.2-posting.md", node("REQ-1.2", "Ledger posting", "requires: [REQ-1.1, REQ-3]\n", "## Intent\n\nEach transaction is posted to the ledger.\n\n## As built\n\n- Posting appends to the book (src/ledger.ts:5)\n- Rows are written through the store (src/store.ts:12-20)\n"));
-  file("REQ-1-import/REQ-1.3-yearly.md", node("REQ-1.3", "Yearly ledger parsing", "requires: [REQ-1.1]\n", "## Intent\n\nA whole year is parsed into the ledger at once.\n\n## As built\n\n- The year loop reads twelve files (./src/parse.ts:50-60)\n- Each file is posted (src/ledger.ts:30)\n"));
+  file("REQ-1-import/REQ-1.1-csv.md", node("REQ-1.1", "CSV parsing", "kind: binary\n", "## Intent\n\nA CSV statement becomes transactions, one per line.\n\n## Check\n\nOne row, one transaction.\n\n## Implemented by\n\n- CSV is read line by line (src/parse.ts:10-40)\n"));
+  file("REQ-1-import/REQ-1.2-posting.md", node("REQ-1.2", "Ledger posting", "requires: [REQ-1.1, REQ-3]\n", "## Intent\n\nEach transaction is posted to the ledger.\n\n## Implemented by\n\n- Posting appends to the book (src/ledger.ts:5)\n- Rows are written through the store (src/store.ts:12-20)\n"));
+  file("REQ-1-import/REQ-1.3-yearly.md", node("REQ-1.3", "Yearly ledger parsing", "requires: [REQ-1.1]\n", "## Intent\n\nA whole year is parsed into the ledger at once.\n\n## Implemented by\n\n- The year loop reads twelve files (./src/parse.ts:50-60)\n- Each file is posted (src/ledger.ts:30)\n"));
   file("REQ-1-import/REQ-1.10-archive.md", node("REQ-1.10", "Archive parsing", "", "## Intent\n\nThe archive keeps every file read.\n"));
   file("REQ-2-reporting/README.md", node("REQ-2", "Reporting", "layer: domain\n", "## Intent\n\nReports go out.\n"));
-  file("REQ-2-reporting/REQ-2.1-parsing.md", node("REQ-2.1", "Report parsing", "kind: binary\nrequires: [REQ-3]\n", "## Intent\n\nThe report reads the parsed statement.\n\n## Check\n\nA report lists every total.\n\n## As built\n\n- Reads the parser's output (src/parse.ts:88)\n- Totals come from the store (src/store.ts:40)\n"));
+  file("REQ-2-reporting/REQ-2.1-parsing.md", node("REQ-2.1", "Report parsing", "kind: binary\nrequires: [REQ-3]\n", "## Intent\n\nThe report reads the parsed statement.\n\n## Check\n\nA report lists every total.\n\n## Implemented by\n\n- Reads the parser's output (src/parse.ts:88)\n- Totals come from the store (src/store.ts:40)\n"));
   file("REQ-2-reporting/REQ-2.2-exports.md", node("REQ-2.2", "Exports for every report", "", "## Intent\n\nAn understatement of the totals is never shown; reports export to PDF.\n"));
   file("REQ-3-storage.md", node("REQ-3", "Storage for every statement", "kind: binary\n", "## Intent\n\nTransactions are stored.\n\n## Check\n\nEvery Statement is kept for seven years.\n"));
   return dir;
@@ -52,14 +52,14 @@ describe("cross-branch coherence candidates [DEC-024]", () => {
     });
   });
 
-  it("file: the path before the colon of an As built citation, with or without a range or a leading ./", () => {
+  it("file: the path before the colon of an Implemented by citation, with or without a range or a leading ./", () => {
     expect(byKey("file:src/parse.ts")).toMatchObject({ kind: "file", shared: "src/parse.ts", nodes: ["REQ-1.1", "REQ-1.3", "REQ-2.1"], branches: ["REQ-1", "REQ-2"] });
-    expect(byKey("file:src/parse.ts")?.why).toBe("REQ-1.1, REQ-1.3 and REQ-2.1 all cite src/parse.ts under As built");
+    expect(byKey("file:src/parse.ts")?.why).toBe("REQ-1.1, REQ-1.3 and REQ-2.1 all cite src/parse.ts under Implemented by");
   });
 
   it("requires: nodes that require the same target; when the set is one a file finder already made, the reason joins that cluster", () => {
     expect(byKey("requires:REQ-3")).toBeUndefined();
-    expect(byKey("file:src/store.ts")).toMatchObject({ nodes: ["REQ-1.2", "REQ-2.1"], why: "REQ-1.2 and REQ-2.1 both cite src/store.ts under As built; also both require REQ-3" });
+    expect(byKey("file:src/store.ts")).toMatchObject({ nodes: ["REQ-1.2", "REQ-2.1"], why: "REQ-1.2 and REQ-2.1 both cite src/store.ts under Implemented by; also both require REQ-3" });
   });
 
   it("title: a rare word of four letters or more, not a stop word, in titles across branches; ids sorted numerically", () => {
@@ -92,8 +92,8 @@ describe("cross-branch coherence candidates [DEC-024]", () => {
   it("describes one line per cluster and one for the dropped, or says there is nothing", () => {
     expect(describeCoherence(all).split("\n")).toEqual([
       'REQ-1.1, REQ-2.1 and REQ-3 all use the glossary term "statement" [term:statement]',
-      "REQ-1.1, REQ-1.3 and REQ-2.1 all cite src/parse.ts under As built [file:src/parse.ts]",
-      "REQ-1.2 and REQ-2.1 both cite src/store.ts under As built; also both require REQ-3 [file:src/store.ts]",
+      "REQ-1.1, REQ-1.3 and REQ-2.1 all cite src/parse.ts under Implemented by [file:src/parse.ts]",
+      "REQ-1.2 and REQ-2.1 both cite src/store.ts under Implemented by; also both require REQ-3 [file:src/store.ts]",
       'REQ-1.1, REQ-1.3, REQ-1.10 and REQ-2.1 all have "parsing" in their titles [title:parsing]',
     ]);
     const narrow = describeCoherence(coherenceClusters(fresh(), { maxSize: 2 }));

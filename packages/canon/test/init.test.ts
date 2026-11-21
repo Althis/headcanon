@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { initCanon, loadCanon } from "../src/index.js";
+import { FORMAT_VERSION, canonFormatVersion, checkCanon, initCanon, loadCanon, parseSections, rootReadme } from "../src/index.js";
 
 describe("init [REQ-8.5, REQ-11.1]", () => {
   let repo: string;
@@ -24,8 +24,22 @@ describe("init [REQ-8.5, REQ-11.1]", () => {
     expect(hook).toContain('TOP="$(git rev-parse --show-toplevel)"');
     const canon = loadCanon(r.canonDir);
     expect(canon.root?.title).toBe("valley-app canon");
-    expect(canon.root?.state).toBe("open");
+    expect(canon.root?.state).toBe("draft");
     expect(existsSync(join(r.canonDir, "journeys"))).toBe(true);
+  });
+
+  it("writes the skeleton in the current format: a draft premise, no section marked open, nothing the check refuses", () => {
+    const text = readFileSync(join(repo, "canon", "README.md"), "utf8");
+    expect(text).toBe(rootReadme("valley-app", new Date().toISOString().slice(0, 10)));
+    expect(text).toContain("\nstate: draft\n");
+    expect(text).toContain(`\nformat: ${FORMAT_VERSION}\n`);
+    expect(text).not.toMatch(/\[open\]|^state:\s*open/m);
+    const canon = loadCanon(join(repo, "canon"));
+    expect(canonFormatVersion(canon)).toBe(FORMAT_VERSION);
+    // the premise's sections by the names the format gives them; only the glossary carries a marker, the default for its terms
+    expect(parseSections(canon.root?.body ?? "").map((s) => `${s.heading}${s.marker ? ` [${s.marker}]` : ""}`)).toEqual(["Intent", "Not this", "Glossary [assumed]"]);
+    expect(canon.terms).toEqual([]);
+    expect(checkCanon(canon).filter((f) => f.level !== "info")).toEqual([]);
   });
 
   it("addresses a launcher inside the repository through the repository root, so a worktree's commit runs its own copy", () => {

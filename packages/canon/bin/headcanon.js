@@ -10,13 +10,13 @@ const args = process.argv.slice(2);
 
 if (existsSync(dist)) {
   const { main } = await import(dist.href);
-  main(args).then(
-    (code) => process.exit(code),
-    (err) => {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exit(2);
-    },
-  );
+  // Never process.exit with a request still open: on Windows that dies with a Node assertion and a hook loses its
+  // decision (measured 2026-11-18, 20 of 20 runs). Set the code, let the handles close, and force the end only late.
+  const end = (code) => { process.exitCode = code; setTimeout(() => process.exit(code), 5000).unref(); };
+  main(args).then(end, (err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    end(2);
+  });
 } else {
   const src = new URL("../src/cli.ts", import.meta.url);
   const candidates = ["../node_modules/tsx/dist/cli.mjs", "../../../node_modules/tsx/dist/cli.mjs"].map((p) => new URL(p, import.meta.url));

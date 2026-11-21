@@ -2,7 +2,7 @@
 id: REQ-3.5.1
 parent: REQ-3.5
 title: "How a human approves a judgment leaf"
-state: open
+state: draft
 source: "Claude Code session, 2026-10-11"
 ---
 

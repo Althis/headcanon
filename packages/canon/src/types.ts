@@ -1,6 +1,9 @@
-export type State = "stated" | "assumed" | "open" | "contested" | "resolved";
+export type State = "stated" | "assumed" | "draft" | "contested" | "resolved";
 
-export const STATES: readonly State[] = ["stated", "assumed", "open", "contested", "resolved"];
+export const STATES: readonly State[] = ["stated", "assumed", "draft", "contested", "resolved"];
+
+/** A code unit, cluster or claim the node rests on, and how (DEC-025): implements, contributes or contradicts. */
+export interface Bind { relation: "implements" | "contributes" | "contradicts"; unit: string }
 
 export function isState(v: unknown): v is State {
   return typeof v === "string" && (STATES as readonly string[]).includes(v);
@@ -50,6 +53,10 @@ export interface ReqNode {
   steps: string[];
   files: string[];
   baseline: string | undefined;
+  /** A stable id that survives a move; every node carrying a requirement has one (DEC-025). */
+  uid: string | undefined;
+  /** The evidence bound to the node with its relation (DEC-025). */
+  binds: Bind[];
   /** Path relative to the canon directory. */
   file: string;
   body: string;
@@ -100,7 +107,7 @@ export interface CanonRoot {
   state: State;
   /** The format version the canon was written under (`format` in the front matter); none means the first. */
   format: number | undefined;
-  /** The question the top-level nodes answer, when refine has cut the premise. */
+  /** The question the top-level nodes answer, when refine has refined the premise. */
   partition: string | undefined;
   file: string;
   body: string;

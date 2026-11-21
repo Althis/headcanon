@@ -9,14 +9,14 @@ const FILL: Record<State, string> = {
   stated: "#e3f5ea",
   resolved: "#e8efff",
   assumed: "#fff3d6",
-  open: "#ece9fb",
+  draft: "#ece9fb",
   contested: "#fde7e8",
 };
 const STROKE: Record<State, string> = {
   stated: "#1f8a4c",
   resolved: "#2563eb",
   assumed: "#b7791f",
-  open: "#6b5bd2",
+  draft: "#6b5bd2",
   contested: "#d13438",
 };
 

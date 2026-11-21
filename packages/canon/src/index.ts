@@ -23,3 +23,11 @@ export { coherenceClusters, describeCoherence, type Cluster, type Coherence } fr
 export { FAMILIES, scanText, sentenceCount, pronounStart, bareNumber, type Family, type Hit } from "./lexicon.js";
 export { serveUi } from "./ui/server.js";
 export { FORMAT, FORMAT_VERSION, HISTORY, START_SEQUENCE, FIT_CODES, QUALITY, canonFormatVersion, changesSince, describeFormat, type TypeRule, type FormatChange, type QualityCheck } from "./format.js";
+export { builtOf, isCodeUnit, marksOf, type Built, type BuiltInfo, type BoxMark, type Mark, type Tested } from "./built.js";
+export { contextText, findBoxes, findUnits, documentParts } from "./lookup.js";
+export { propose, listProposals, applyProposal, rejectProposal, type Proposal } from "./proposals.js";
+export { loadManifest, saveManifest, addTests, reviewTests, setRunner, runTests, loadResults, parseResults, treeDigest, pinOf, testsOf, type TestEntry, type TestManifest, type TestResults, type TestResult, type TestKind, type Runner, type RunnerFormat, type Outcome } from "./testing.js";
+export { createRun, loadRun, activeRun, latestRun, saveRun, setStep, updateSlice, sliceOfAgent, type Run, type Slice, type RunStep, type SliceStatus } from "./runs.js";
+export { briefText } from "./brief.js";
+export { stopDecision as gateStopDecision, type GateDecision } from "./gate.js";
+export { prepareBuild, commitTests, sliceCommits, bindFromCommits, approveSlice, discardSlice } from "./approve.js";

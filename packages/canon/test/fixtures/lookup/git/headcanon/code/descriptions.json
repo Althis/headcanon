@@ -1,0 +1,8 @@
+{
+ "src/entries.ts#recordEntry": { "text": "Records an entry with its date and amount in the month it falls in.", "at": "2026-03-01T10:00:00.000Z" },
+ "src/entries.ts#refuseClosed": { "text": "Refuses an entry whose month is closed.", "at": "2026-03-01T10:00:00.000Z" },
+ "src/months.ts#closeMonth": { "text": "Closes a month: totals its entries and marks it closed.", "at": "2026-03-01T10:00:00.000Z" },
+ "src/months.ts#MonthBook.isClosed": { "text": "Says whether a month is closed.", "at": "2026-03-01T10:00:00.000Z" },
+ "src/statements.ts#buildStatement": { "text": "Builds the statement of a month from its entries and the carry-over.", "at": "2026-03-01T10:00:00.000Z" },
+ "c1-1": { "text": "Recording entries and refusing them when their month is closed.", "at": "2026-03-01T10:00:00.000Z" }
+}

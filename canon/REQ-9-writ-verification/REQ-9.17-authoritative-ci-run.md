@@ -2,7 +2,7 @@
 id: REQ-9.17
 parent: REQ-9
 title: "Which CI run's numbers count for baselines"
-state: open
+state: draft
 source: "Claude Code session, 2026-10-11"
 ---
 

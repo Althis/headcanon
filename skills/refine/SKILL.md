@@ -1,99 +1,82 @@
 ---
 name: refine
-description: "Derives the children of one approved canon node and has the human approve them as a set: infers what the node implies, ladders every artifact hint up to the rung just below the node, reads the axis off the set, closes the gaps, and writes only what was approved. Use when adopt, capture or review need a node's children, or when the human asks to define, refine, decompose or expand a branch."
-when_to_use: "A node is approved and its children are needed; the human pressed Define this branch in the viewer or asks to refine, decompose or expand a node."
-argument-hint: "<ID> <domain|capability|requirement> [draft]"
+description: "Refines one node into its children in one turn: the rung's question and the four questions asked of every box, one conceptual level of detail named as an axis, every piece of bound evidence placed under a child with its relation, every requirement saying where it is built or that it is not, a requires link for every box whose concepts a child uses, an issue only where precedence does not decide; written as operations and checked before it counts (DEC-025)."
+when_to_use: "The top agent or a refiner agent refines or redefines a node; or the human asks to refine, define, decompose or expand a box."
 ---
 
-# Refine: cut one node into its children
+# Refine: one node, one turn
 
-`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The worked example, the set question and the child file format are in [reference.md](reference.md); read it before step 1.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The node is `<ID>`, or `ROOT` for the premise. Every operation in full, and one capability worked from its parcel to its report, are in [reference.md](reference.md): read it before your first set.
 
-Input: one node (`ROOT` for the premise), the layer its children get, and optionally `draft`. Below the domains, draft runs as the `refiner` agent: one node per agent, in a fresh context that holds the node's family and nothing else, several agents at once. Output: the children written as files, the axis recorded on the node, and a list for the caller of what landed elsewhere. Without `draft`, nothing is written before the human approves it; with `draft`, nothing is asked: the set is written at once as guesses and questions by the adopt skill's Guessing rules, a node step 0 finds blocked or in a deadlock is reported to the caller as `blocked` with nothing written, and the partition is written as read. Ask through `headcanon_ask` when the viewer's tools are present, otherwise AskUserQuestion; the asking rules, the three kinds of typed answer and the entry rules are the adopt skill's ([adopt/SKILL.md](../adopt/SKILL.md), Asking and Entries; the page procedure is [adopt/reference.md](../adopt/reference.md) section 6). Label each question as the caller says; alone, "Refine <ID>: <title>".
+## What you read
 
-## Checklist
+- Where the node stands and the words to use: `HC context <ID>` prints the node whole, its path from the premise with each Intent, its siblings and children, its links in both directions, the journeys and decisions that cite it, its nearest relatives in other branches, and the glossary terms its text uses.
+- `HC parcel <ID> --by <your name>`: the evidence bound to the node, expanded one level: clusters with their descriptions and their children, functions, claims, each with an id. Reading a parcel is the start of a turn: from that moment the page shows you on that box, the one being refined, until your next parcel; operations on its children do not move you. For `ROOT`, the parcel is the whole evidence. A parcel that ends with `(truncated at ...)` is not whole: ask again with a larger `--budget`. `HC code show <unit>` opens any unit deeper when a placement is unclear.
+- What lies outside the node: `HC find "<words>"` searches every box, journey, decision and term, one line per hit; `HC code find "<words>"` searches the code units by id, file and description. Look before you write a child: what another box already says is reached by a `requires` link, never written a second time.
+- On a redefinition: the node's previous children and the reason for the change, named in the brief. They are evidence; a child the human approved weighs more than a guess.
 
-- 0 Read the node as approved, its parent and siblings, its children and `## Deferred` list, and the root README (principles, glossary, Not this). `HC next`: its prerequisites are refined, or stop.
-- 1 Gather candidates, each with its origin.
-- 2 Ladder every candidate up to the node.
-- 3 Take the top rungs; merge rungs that name one thing; defer the rest.
-- 4 Read the axis off the set; make facet children; place strays.
-- 5 Close the set: entailment, conservation.
-- 6 Needs: what each child requires; order the set by it.
-- 7 Name; judge drift; jargon through the gate.
-- 8 Ask: one multi-select, then one by one. Write only after approval.
-- 9 `HC check`, `HC next`; report to the caller.
+## The question, by the rung
 
-Step 0 stops when `HC next` lists the node as blocked or reports a deadlock: ask "<node> needs <prerequisite>, which is not refined yet" with **Refine <prerequisite> first** and **Refine this anyway**; in a deadlock, **Refine <prerequisite> first** and **Drop the edge**; a typed lift is applied. Then continue with what was chosen.
+- `ROOT`: **what distinct areas must a product like this have, for the premise to hold?** Children are domains: a short name in plain words, no mechanisms. Where the format says a product has no domain layer (`HC format`), its areas are capabilities, created under `ROOT` with `layer: "capability"`.
+- a domain: **what must the product be able to do in this area, for its intent to hold?** Children are capabilities: a subject in plain words, and an Intent that says what the product can do there.
+- a capability or a requirement: **what must hold, observably, for this to be true?** Children are requirements: a claim a reader understands cold, in glossary words, naming the thing, no loophole or hedge; a `check`, what is observed and when the answer is yes; a `kind`, binary, or numeric with every number carrying its unit. A requirement refines again while it can be made more explicit; the leaf is where intent and requirement coincide.
 
-## Sources
+## The four questions, asked of every node
 
-The node's approved text, read with the glossary, is the primary source; the layers above it rank next. Artifact threads (one thing a document says, with `path:lines`) are **hints**: a thread shows that something belongs in this scope, usually several rungs down, and the ladder in step 2 finds the child it points at. A thread never becomes a child in its own words. Precedence when sources differ: the human's approval in this run, their typed words, the newest document, older documents, what the code does today, the archetype. Two documents that disagree on a candidate: offer both readings; neither chosen, the child is `contested` with both positions; a document against the code is As built against Intent, a contradiction when the code does otherwise and `not built` when it does nothing yet. A thread that contradicts the node itself goes through the inconsistency procedure first (adopt skill, Sources).
+Before the set is written, answer four things about the node, in the product's own words. Each answer is a candidate child, or a link to a box that exists:
 
-## The moves
+- **What must exist first?** What must exist or be true before the node is possible. Inside the node it is a child, created before the ones that need it; outside it is a box to find and require.
+- **What follows once it holds?** What the product must then do or show.
+- **How does it fail, and what must prevent that?** The other case of every condition, the input that is wrong, the step that stops halfway.
+- **What does every system of its kind have at this point?** What a product of this kind always has here, whether or not the evidence mentions it.
 
-### 1 Gather
+Keep an answer only when it traces to the node's text or to a piece of evidence; an answer that traces to neither is invented, and is dropped. Each child's `source` says where it came from: the claim or the unit it rests on, or the question and the words of the node that make it necessary.
 
-Four prompts on the node's meaning, answered in the project's vocabulary; each answer is a candidate with its origin written beside it:
+## The constraint
 
-- **prerequisite**: what must exist or be true before the node is possible;
-- **consequence**: what follows once the node holds;
-- **failure**: what it looks like when the node does not hold, and what must prevent it;
-- **archetype**: what every system of this kind has at this point.
+The children sit on one conceptual level of detail, chosen for how a person navigates them and named as the axis they share: activity, object, actor, lifecycle, rule family, surface or quality. The axis is the `why` of every `create` of the set, so the log and History keep it. Every piece of evidence in the parcel fits at least one child. A split that leaves evidence unplaced is a bad split; fix it before answering, in this turn. Children that differ only in the instance they name are one child, which states the rule the instances share. A child the premise requires may exist with nothing bound, marked not built. As many children as the node needs, no more; no number is a target.
 
-Then the hints: threads in the node's scope, from documents and from the code, where a constant, a limit, a default, an error path, a state or a test is a thread like a document's line; assumptions recorded earlier under it; its `## Deferred` list; and candidates the caller passed in. An answer you cannot trace to the node's text or to a hint is not a candidate, because untraced is how invented needs enter.
+## Placing the evidence
 
-### 2 Ladder
+Each parcel element goes to one child or more with a relation:
 
-For each candidate ask "why must this hold, for <node>?" and answer in one sentence; ask it again of the answer, until the answer is a sentence the node's text already says. Each answer is a rung; write them down. The **top rung** is the one directly below the node: the node's text makes it necessary and nothing stands between them. Two checks: a top rung that could instead be a sibling of the node climbed too far, so step one rung down; a top rung that is a case, part or stage of a more general sentence the node still makes necessary stopped short, so climb. A prompt answer is usually its own top rung. A ladder that reaches another node belongs there: it comes back to the caller as an operation, a `link` to that node, a `merge` into it, or a `create` under it, and a concept two siblings both need as a `create` on their common ancestor with a `link` from each. A ladder that reaches nothing is a leftover thread for the sweep.
+- **implements**: the unit's description and the child's intent say the same thing at the same level.
+- **contributes**: part of the unit serves the child.
+- **contradicts**: the code does otherwise than a document says the product must. Code against a claim is never settled by precedence: the child's Intent follows the document, the unit is bound `contradicts`, the child is `contested`, and the issue names both sides with their sources.
 
-### 3 Top rungs
+Two documents that disagree are settled by precedence, and no issue is filed: the newer one's wording stands, and a `note` on the child names the older reading with its source. The child is `contested` only where their dates do not tell which is newer. What only the code shows is written as a guess whose `source` names the unit. A claim that says it is a draft, a plan or an idea is intent nobody built yet: its child is written and says not built.
 
-The top rungs are the candidate set. Rungs that name one thing merge into one child. Everything below a top rung is **deferred**: listed under that child in `## Deferred` with its origin, created only when that child is refined. The artifact's mechanism waits there, under the node it implies, which is where the hint pointed. Existing children the human approved are top rungs: keep them and propose only what is missing. A guessed child stands only while the node's text still implies it; one it no longer implies comes back as a `delete` operation (`subtree: true` when it has children) with its reason, and the question about it is filed on the node being cut, never on the child.
+A cluster that fits one child whole passes to it unexpanded while that child will be refined further. Code the tree marks unreachable is named in your report as an issue, never dropped; the human decides whether it is deprecated, a bug, or an entry the tree missed (data-driven calls are not in the tree).
 
-### 4 Axis
+## Where each requirement is built
 
-Each top rung answers one question about the node: when (its stages), which part, which case, who, what it acts on, how well. The question most rungs answer is the node's **partition**, a short phrase; a partition already on the node stands. Rungs answering another question:
+Every requirement says where it is built in the `create` that writes it, or the set is refused:
 
-- two or more: one **facet** child named by that question, with those rungs as its `## Deferred`; it gets its own partition when refined;
-- one, an aspect of an existing child: deferred under that child;
-- one, cutting across several children: a child with `relates` to each;
-- one, cutting across the node's siblings too: not a child here; it comes back to the caller as a `create` under the node's parent and a `link` from each sibling that needs it.
+- **Built:** `binds` carries an `implements` line for each function that implements it. Find them in the parcel, by opening a bound cluster with `HC code show` down to its functions, or with `HC code find "<words>"`. On a leaf, bind functions, never a cluster in their place.
+- **Not built:** `implementedBy: ["not built: <what exists instead>"]`. On a box that exists already, a `note` whose text starts with `not built:`.
 
-A facet of one member is not a facet. The partition is approved with the set in step 8, never asked on its own.
+Evidence bound to the parent or higher is not enough: `HC parcel --check` names every requirement that says neither as `built-unstated`.
 
-### 5 Close
+## What you write
 
-Two checks before asking. **Entailment**: if every child holds, does the node hold? What the answer still needs is a missing child, or, when no child can carry it, a `## Check` the node keeps for itself with its `kind`, the integration check, verified at the node's own level. **Conservation**: every thing the node's text acts on, produces or forbids appears in some child; what is missing is a child. A gap is a candidate with its chain, pre-filled from the project's threads when they speak to it, and marked "nothing in the project covers it" when they do not. Fewer than two top rungs: the node is a leaf, say so, and write nothing. A set a reader cannot hold at one glance is read again for a second question among its rungs, which makes a facet (step 4); none found, the set stands whole and the report says so.
+Operations, nothing by hand, each read from stdin so that no two agents ever share a file:
 
-### 6 Needs
+```
+HC op - --by <your name> <<'JSON'
+{"op":"create","under":"<ID>","title":"...","intent":"...","check":"...","kind":"binary","source":"...","binds":["implements <unit>"],"why":"axis: <the axis>"}
+JSON
+```
 
-A child **requires** every node whose concepts its line or its deferred rungs use, sibling or not; the home of a concept is found by descent, like any node's. The edge is written on the child as `requires` when the child is written, and a cousin edge is written the moment it is noticed. An edge points at the most specific node that holds the concept: when the node being cut is required by others, each of their edges moves down to the child that now holds what they use, so a dependent reads one leaf, not a branch. An edge that would close a cycle names a concept both nodes need: lift that concept to their lowest common ancestor instead of writing the edge; nothing to lift, ask which direction stands with the inconsistency procedure. Order the set prerequisites first, then time for stages, otherwise the user's path; the IDs follow that order, so a number reads as build order.
+Several operations go in one Bash call, one `HC op -` each with its own heredoc. Read every result, and send again what was refused. A call that runs long is cut short by the shell: it fails on an unmatched quote and applies nothing, so send its operations again in smaller calls. A file, when you do need one, is named after you and lives in the scratch folder your brief names, never in the repository. In this order:
 
-### 7 Name
+1. `create` for each child, what the others need first, so that the ids read as the order of building.
+2. `link` with `kind: "requires"`, from a child to every box whose concepts its text uses, sibling or not, at the most specific box that holds the concept. A link that would close a cycle is refused: the concept both need belongs to their common ancestor. A link that only says two boxes share a subject is not written.
+3. `contest` for each contradiction, `note` for each choice precedence made, `term` for a word the product gives a meaning of its own and the glossary lacks: assumed, never used undefined.
+4. What the tool refuses as outside your border is recorded for the session, which applies it: `HC propose '<op JSON>' --why "<reason>" --by <your name>`. Then go on with your own boxes.
+5. `HC parcel --check`: no line may name the node or a box under it; lines about other boxes are other agents' work in progress. `HC check | grep -E "<ID>|errors,"`: fix the errors and the warnings on your boxes. A note is fixed where it names a real defect, never by rewording for its own sake.
 
-Each child is named by its rung, never by the artifact's wording: domains and capabilities in plain words, requirements in glossary terms, one or two sentences, an encyclopedia entry. A requirement is verifiable by definition: name a check in content or code that would show it met; none means it is a principle or too vague, so do not propose it. A child that will have no children is a leaf only when that check can be written as one sentence under `## Check`, in glossary terms, saying what is observed and what counts as yes, with `kind: binary`, or `numeric` naming the measure, or `open-ended` naming who or what judges, which is a goal rather than a requirement: cut it to binary or numeric leaves where the artifacts allow, and leave it open-ended only when the human accepts that; a choice the sentence needs that the canon does not make is a child, not a check, and a leaf without a check is not a leaf yet. Judge each child against the principles and name any drift in the question, or, in draft, in a dated line under the child's `## Open`. Children that cannot be approved or tested separately are one child, or a facet is missing.
+The set then goes to the reviewer; a correction names the parents that failed and where their findings are.
 
-### 8 Ask
+## Before answering, the tests you apply yourself
 
-One question per set, in the shape of reference.md section 2: the body holds the node's text in one line, "Its children, by <partition>:" and one Sources line giving each chain as "[n] <prompt> of '<clause>'" or `path:lines`; the multi-select has one option per child, its label the ID and title, its description the child's one line ending with its footnote. Unticked items come back one by one with the proposed text restated; a child nothing in the project covers comes back as "Does <node> need <title>?" with **Yes, add it** and **No**, and only when the human types that it is undecided, "Leave it as an open node?" with **Leave open** and **Drop**; leave open writes a draft: `state: open`, a provisional title in plain words, the question filed as an issue. A typed objection to the axis is a correction: rebuild the set along the question it names and ask again. Write after approval: each child as a file with `layer`, `source` carrying its chain, `requires` and `## Deferred`; the node's front-matter gains `partition`. Entries carry no footnote markers.
-
-**Draft.** Skip the question. A child's line is decided by the adopt skill's precedence (approvals, typed words, the newest artifact, the code today, the archetype) and written `assumed`, the alternatives in one line under `## Open`; only a contradiction, a thing nothing speaks to, or a change to an approved box is written as a draft node (`state: open`, a provisional title in plain words, one line of what is known) and comes back as a question with its `nodeId`, the question in one or two sentences, why it matters, and up to three suggestions the artifacts allow with their sources; the caller files it as an issue and defines the node when the answer comes. Every written child carries the chain in `source`, and every child the code speaks to carries `## As built`: one to three lines of what the code does today for it, each ending in its `path:lines`, apart from the Intent, which says what must hold; where the code does otherwise than the Intent, the child is contested and comes back as a contradiction question; where the code does not implement it yet, As built says `not built` with what exists, and nothing is asked. Write the files, the partition and the leaves' checks, and report.
-
-### 9 Report
-
-`HC check`; fix every error and every warning on your files; then read the set once as its reviewer will, against the format's Quality section (`HC format`), and fix what you find. Return to the caller: the IDs created, the partition, every change outside your own children as an operation `HC op` takes (a `link`, a `merge`, a `create` under the node a ladder reached, a `move-edge` for an edge that now belongs to a child), the words the glossary lacks with the definition and the sentence you used each in, the leftover threads, the questions, and what `HC next` names to refine next. The caller applies the operations; you write nothing outside your children and never commit.
-
-## Examples
-
-<example>
-A hint laddered. Thread: "OFX amounts are in cents" (docs/formats.md:8). Why must it hold? Each format's fields are read as the format defines them. Why? A statement in a known format becomes transactions, which the node says. Top rung: the parsing capability; the two lower rungs go under it as Deferred. The thread never becomes a child.
-</example>
-
-<example>
-A facet child. Under Categorization the rungs answer "how a transaction gets its category": by rule, by hand, review of what has none. Two rungs answer "what a category is" instead: categories mirror the lines of the tax form; a category can be renamed. They become one child, REQ-2.4 The category list, with both rungs deferred under it, and REQ-2.4 is refined on its own.
-</example>
-
-<example>
-Too far and too short. "The program keeps every file it is given" is a top rung of Statement import only if the node says so; when the premise says it, it could be a sibling of Statement import, so it is set aside as a lift. "CSV statements become transactions" is a case of "a statement in a known format becomes transactions", so the ladder climbs one more rung.
-</example>
+A named axis and more than one child; the four questions asked; no two children constrain the same thing; nothing the node implies is left out; every child justified by a bound unit or marked not built; every requirement saying where it is built; a `requires` link for every concept borrowed from another box; nothing in a child that belongs to a sibling or to the rung below; plain words above the requirement layer; no pronoun starts, loopholes or hedges; every number with its unit; every conditional with its other case.

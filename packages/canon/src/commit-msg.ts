@@ -1,5 +1,8 @@
 import { execFileSync } from "node:child_process";
-import type { IntentDiff, ReviewRecord } from "./review.js";
+import { existsSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import { loadCanon } from "./load.js";
+import { loadReviewRecord, stagedIntentDiff, validateReviewRecord, type IntentDiff, type ReviewRecord } from "./review.js";
 import type { Canon } from "./types.js";
 
 export const COMMIT_TYPES = ["feat", "fix", "docs", "chore", "refactor", "test", "build", "ci", "perf", "style", "revert"] as const;
@@ -31,8 +34,8 @@ export interface AppendOnlyFile {
   added: number;
 }
 
-/** Files whose growth by appending is the failure mode: rules, skills, and the canon. */
-export const APPEND_WATCH: RegExp[] = [/^canon\//, /^skills\//, /(^|\/)rules\.ts$/];
+/** Files whose growth by appending is the failure mode: rules, skills, and the canon's entries. A record kept in the canon folder, like tests.json, grows by design. */
+export const APPEND_WATCH: RegExp[] = [/^canon\/.*\.md$/i, /^skills\//, /(^|\/)rules\.ts$/];
 
 /** Pure: from `git diff --cached --numstat` and `--name-status`, the modified watched files that only gained lines. */
 export function findAppendOnlyFiles(numstat: string, nameStatus: string, watch: RegExp[] = APPEND_WATCH, minAdded = 8): AppendOnlyFile[] {
@@ -56,7 +59,7 @@ export function findAppendOnlyFiles(numstat: string, nameStatus: string, watch: 
 /** Runs git in the repository and applies the pure check; an empty list when git is unavailable. */
 export function gitAppendOnlyFiles(repoDir: string, watch: RegExp[] = APPEND_WATCH, minAdded = 8): AppendOnlyFile[] {
   try {
-    const run = (args: string[]) => execFileSync("git", args, { cwd: repoDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const run = (args: string[]) => execFileSync("git", args, { cwd: repoDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 256 * 1024 * 1024 });
     return findAppendOnlyFiles(run(["diff", "--cached", "--numstat"]), run(["diff", "--cached", "--name-status"]), watch, minAdded);
   } catch {
     return [];
@@ -187,7 +190,7 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
     const { diff, record, recordErrors } = review;
     const where = `${diff.files.length} canon file(s), ${diff.changedLines} changed line(s), diff ${diff.hash}`;
     if (!record) {
-      errors.push(`${where}: no intent review is recorded for this change. Run /headcanon:commit, which has the verifier review the staged canon diff for contradictions, reiterations and drift, or record a finished review with "headcanon review-record <file>"`);
+      errors.push(`${where}: no intent review is recorded for this change. Run /headcanon:commit, which has the reviewer review the staged canon diff for contradictions, reiterations and drift, or record a finished review with "headcanon review-record <file>"`);
     } else if (recordErrors.length) {
       for (const e of recordErrors) errors.push(`intent review: ${e}`);
     }
@@ -202,4 +205,21 @@ export function checkCommitMessage(raw: string, canon?: Canon, opts: CommitCheck
   for (const value of approved) if (!value.trim()) errors.push("Approved-By trailer is empty");
 
   return result(trailers);
+}
+
+/** The canon directory as a git pathspec relative to the repository root. */
+export function canonPathOf(repoDir: string, canonDir: string): string {
+  const rel = relative(resolve(repoDir), resolve(canonDir)).split("\\").join("/");
+  return rel && !rel.startsWith("..") ? rel : "canon";
+}
+
+/**
+ * The whole check the commit-msg hook runs on a message: its format against the canon in the working tree, the
+ * staged files that only gained lines, and the staged canon change with the review record stored for it.
+ */
+export function checkStagedCommit(repoDir: string, canonDir: string, raw: string): CommitCheck {
+  const canon = existsSync(canonDir) ? loadCanon(canonDir) : undefined;
+  const diff = stagedIntentDiff(repoDir, canonPathOf(repoDir, canonDir));
+  const record = diff.required ? loadReviewRecord(repoDir, diff.hash) : undefined;
+  return checkCommitMessage(raw, canon, { appendOnly: gitAppendOnlyFiles(repoDir), review: { diff, record, recordErrors: record ? validateReviewRecord(record, diff) : [] } });
 }

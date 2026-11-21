@@ -1,0 +1,230 @@
+{
+  "config": {
+    "configFile": "C:/work/ledgerline/playwright.config.ts",
+    "rootDir": "C:/work/ledgerline/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "metadata": {},
+    "projects": [
+      { "id": "chromium", "name": "chromium", "testDir": "C:/work/ledgerline/e2e", "retries": 1, "timeout": 30000 },
+      { "id": "firefox", "name": "firefox", "testDir": "C:/work/ledgerline/e2e", "retries": 1, "timeout": 30000 }
+    ],
+    "reporter": [["json", { "outputFile": "results.json" }]],
+    "version": "1.49.1",
+    "workers": 4
+  },
+  "suites": [
+    {
+      "title": "closing.spec.ts",
+      "file": "closing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "a person adds an entry and sees it on the month's statement [hc:j8v3ef]",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                { "workerIndex": 0, "parallelIndex": 0, "status": "passed", "duration": 812, "errors": [], "stdout": [], "stderr": [], "retry": 0, "startTime": "2026-11-18T14:01:07.412Z", "annotations": [], "attachments": [] }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                { "workerIndex": 1, "parallelIndex": 1, "status": "passed", "duration": 1104, "errors": [], "stdout": [], "stderr": [], "retry": 0, "startTime": "2026-11-18T14:01:07.415Z", "annotations": [], "attachments": [] }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5c1e2f0a9b7d4e61-0a1b2c3d4e5f60718293",
+          "file": "closing.spec.ts",
+          "line": 4,
+          "column": 5
+        }
+      ],
+      "suites": [
+        {
+          "title": "closing a month",
+          "file": "closing.spec.ts",
+          "line": 12,
+          "column": 6,
+          "specs": [
+            {
+              "title": "a closed month refuses a new entry and says why [hc:k3m9pq]",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    { "workerIndex": 0, "parallelIndex": 0, "status": "passed", "duration": 640, "errors": [], "stdout": [], "stderr": [], "retry": 0, "startTime": "2026-11-18T14:01:08.300Z", "annotations": [], "attachments": [] }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 5210,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('This month is closed')\nExpected: visible\nReceived: <element(s) not found>",
+                        "stack": "Error: expect(locator).toBeVisible()\n    at C:\\work\\ledgerline\\e2e\\closing.spec.ts:19:58",
+                        "location": { "file": "C:\\work\\ledgerline\\e2e\\closing.spec.ts", "column": 58, "line": 19 },
+                        "snippet": "  17 |     await page.getByRole('button', { name: 'Add entry' }).click();\n> 19 |     await expect(page.getByText('This month is closed')).toBeVisible();"
+                      },
+                      "errors": [
+                        { "location": { "file": "C:\\work\\ledgerline\\e2e\\closing.spec.ts", "column": 58, "line": 19 }, "message": "Error: expect(locator).toBeVisible()" }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-18T14:01:08.310Z",
+                      "annotations": [],
+                      "attachments": [{ "name": "screenshot", "contentType": "image/png", "path": "C:\\work\\ledgerline\\test-results\\closing-firefox\\test-failed-1.png" }],
+                      "errorLocation": { "file": "C:\\work\\ledgerline\\e2e\\closing.spec.ts", "column": 58, "line": 19 }
+                    },
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 5187,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('This month is closed')\nExpected: visible\nReceived: <element(s) not found>",
+                        "stack": "Error: expect(locator).toBeVisible()\n    at C:\\work\\ledgerline\\e2e\\closing.spec.ts:19:58"
+                      },
+                      "errors": [{ "message": "Error: expect(locator).toBeVisible()" }],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-18T14:01:14.020Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "5c1e2f0a9b7d4e61-1b2c3d4e5f6071829304",
+              "file": "closing.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "the owner reopens a closed month [hc:r5t8yz]",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [{ "type": "skip", "description": "the owner's sign-in is not built" }],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "5c1e2f0a9b7d4e61-2c3d4e5f607182930415",
+              "file": "closing.spec.ts",
+              "line": 24,
+              "column": 12
+            }
+          ],
+          "suites": [
+            {
+              "title": "with a slow bank",
+              "file": "closing.spec.ts",
+              "line": 30,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "the statement still totals its entries [hc:w7x2ab]",
+                  "ok": false,
+                  "tags": ["@slow"],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        { "workerIndex": 3, "parallelIndex": 0, "status": "timedOut", "duration": 30000, "errors": [], "stdout": [], "stderr": [], "retry": 0, "startTime": "2026-11-18T14:01:20.000Z", "annotations": [], "attachments": [] }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "5c1e2f0a9b7d4e61-3d4e5f60718293041526",
+                  "file": "closing.spec.ts",
+                  "line": 31,
+                  "column": 9
+                },
+                {
+                  "title": "an entry typed twice is kept once [hc:n4h6cd]",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 3,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 2210,
+                          "error": { "message": "Error: page.click: Target closed" },
+                          "errors": [{ "message": "Error: page.click: Target closed" }],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-18T14:01:51.000Z",
+                          "annotations": [],
+                          "attachments": []
+                        },
+                        { "workerIndex": 4, "parallelIndex": 0, "status": "passed", "duration": 1930, "errors": [], "stdout": [], "stderr": [], "retry": 1, "startTime": "2026-11-18T14:01:54.000Z", "annotations": [], "attachments": [] }
+                      ],
+                      "status": "flaky"
+                    }
+                  ],
+                  "id": "5c1e2f0a9b7d4e61-4e5f6071829304152637",
+                  "file": "closing.spec.ts",
+                  "line": 40,
+                  "column": 9
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": { "startTime": "2026-11-18T14:01:06.900Z", "duration": 49213.4, "expected": 3, "skipped": 1, "unexpected": 2, "flaky": 1 }
+}

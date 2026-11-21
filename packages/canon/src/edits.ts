@@ -28,14 +28,14 @@ export function upsertSection(text: string, heading: string, body: string): stri
 
 /** Drop a `[state]` marker from every section heading. */
 export function clearMarkers(text: string): string {
-  return text.replace(/^(##[ \t]+[^\n\[]+?)[ \t]*\[(stated|assumed|open|contested|resolved)\][ \t]*$/gm, "$1");
+  return text.replace(/^(##[ \t]+[^\n\[]+?)[ \t]*\[(stated|assumed|draft|open|contested|resolved)\][ \t]*$/gm, "$1");
 }
 
 /** The human approved the node as it stands: resolved unless it was their own words already. */
 export function approveNode(text: string, date: string): string {
   const state = /^state:\s*stated\s*$/m.test(text.split(/\r?\n---/)[0] ?? "") ? "stated" : "resolved";
   // the glossary's terms are approved one by one in the Glossary tab, so its heading keeps its marker
-  const glossary = /^##[ \t]+Glossary[ \t]*\[(?:stated|assumed|open|contested|resolved)\][ \t]*$/m.exec(text)?.[0];
+  const glossary = /^##[ \t]+Glossary[ \t]*\[(?:stated|assumed|draft|open|contested|resolved)\][ \t]*$/m.exec(text)?.[0];
   let out = clearMarkers(setField(text, "state", state));
   if (glossary) out = out.replace(/^##[ \t]+Glossary[ \t]*$/m, glossary);
   return upsertSection(out, "Resolution", `Approved in the viewer, ${date}.`);
@@ -59,7 +59,7 @@ export function editNode(text: string, edit: { title?: string | undefined; inten
 
 // ---- principles: entries of the root README's Principles section, each with its own marker ----
 
-const PRN_LINE = (id: string) => new RegExp(`^(\\*\\*${id}\\s+)(.+?)(\\*\\*)[ \\t]*(?:\\[(?:stated|assumed|open|contested|resolved)\\][ \\t]*)?(.*)$`, "m");
+const PRN_LINE = (id: string) => new RegExp(`^(\\*\\*${id}\\s+)(.+?)(\\*\\*)[ \\t]*(?:\\[(?:stated|assumed|draft|open|contested|resolved)\\][ \\t]*)?(.*)$`, "m");
 
 /** One principle's block: its title line through the line before the next blank line or principle. */
 function principleBlock(text: string, id: string): { start: number; end: number; lines: string[] } | undefined {
@@ -100,8 +100,8 @@ export function deletePrinciple(text: string, id: string): string {
 
 // ---- glossary terms: lines of the root README's Glossary section, each with its own marker ----
 
-const TERM_LINE = (id: string) => new RegExp(`^(\\*\\*)(.+?)(\\*\\*\\s*\\(\`${id}\`\\))\\s*(?:\\[(?:stated|assumed|open|contested|resolved)\\]\\s*)?[:—-]\\s*(.*)$`, "m");
-const stripTailMarker = (def: string) => def.replace(/\s*\[(?:stated|assumed|open|contested|resolved)\]\s*$/, "").trim();
+const TERM_LINE = (id: string) => new RegExp(`^(\\*\\*)(.+?)(\\*\\*\\s*\\(\`${id}\`\\))\\s*(?:\\[(?:stated|assumed|draft|open|contested|resolved)\\]\\s*)?[:—-]\\s*(.*)$`, "m");
+const stripTailMarker = (def: string) => def.replace(/\s*\[(?:stated|assumed|draft|open|contested|resolved)\]\s*$/, "").trim();
 
 /** Mark one term with a state; the marker is always written, since an unmarked term takes the heading's. */
 export function setTermState(text: string, id: string, state: State): string {

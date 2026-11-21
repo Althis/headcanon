@@ -1,100 +1,30 @@
 ---
 name: adopt
-description: "Creates a project's first canon: reads the repository's documents and code, drafts the premise, principles and domains as assumptions, opens the canvas, and has a branch agent per domain cut every level below to leaves that carry a check before the human is asked anything; then hands the human a list of what to approve or settle, ranked by impact, and keeps the canon consistent while they work it until they press Finish. Use when the session context says the project has no canon, when an adoption was started but not finished, or when the human asks to set up, adopt, install or start HeadCanon on a project."
-when_to_use: "No canon/README.md exists; or a canon exists without canon/decisions/DEC-001-adoption-scope.md, which is an unfinished adoption; or the human asks to add HeadCanon to a project."
+description: "Reads a repository into evidence (the code tree with descriptions, the claims of its documents and content, the documents split among several readers), has the top agent draft the premise and principles from it, has the human approve both in the viewer, and hands over to attend. Adoption is reading and onboarding; everything after is regular operation (DEC-025)."
+when_to_use: "Called by start when a repository has code or documents and no approved premise; or the human asks to adopt a repository."
 ---
 
-# Adopt: draft the whole canon, then review it by impact
+# Adopt: read the repository, onboard the human, approve the premise, hand over
 
-`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. The briefing, formats, question shapes and wrong-entry examples are in [reference.md](reference.md); read it before step 2.
+`HC` means `node "${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js"`. `headcanon_say` speaks in the viewer's chat; `headcanon_changes` returns what the human did since a cursor and waits up to `waitSeconds` for the next thing. Nothing is asked in the terminal. Nothing compute-intensive runs before the premise is approved.
 
-Two phases, machine then human (DEC-024). First the canon is drafted from the repository to its leaves with nobody waiting on the human: every entry the artifacts support is a guess marked `assumed`, with what the code does today under `## As built`, apart from the Intent that says what must hold; every contradiction and every thing nothing speaks to is a draft with its question filed under Issues and left there. Then the human's session: `HC next` ranks what they can approve or settle by impact, the boxes an approval validates or a settled red box frees, the premise first; they work down that list for about a quarter of an hour, each answer re-drafts what it invalidated in the background, and the list stands after adoption for whenever they return. The human's time goes to what the machine could not settle, never to what the code already answers. The `refine` skill cuts a node; below the domains it runs as the `refiner` agent, one node per agent, under a `branch` agent per domain that integrates and reviews its sets. The `attend` skill orchestrates both phases and returns here.
+## The order
 
-## Checklist
+1. **Open and signal.** `headcanon_open` once (start did it; never a second tab). `headcanon_say` with `to: "intro"` and one line, "Reading has started": the page owns the onboarding's words (docs/tone.md) and shows them as one card, welcome, then the way of working, then the reading with a measured bar. Nothing you say is shown on that card.
+2. **Read, in the background, while they read.** `HC code build` first (the parser, a second). Then every reader at once, each a `headcanon:reader` started in the background with the Agent tool. Its brief names its name, its part and its scratch folder: `<your scratchpad directory>/<its name>/` as an absolute path written with forward slashes, or the same under the system's temporary folder when you have no scratchpad. No two agents share a folder, and none writes a working file in the repository.
+   - `reader-code`, the code tree: descriptions bottom up, to the roots.
+   - `reader-content`, the content and data files, and the documents that are not Markdown.
+   - The documents, split. `HC reading parts <n>` prints the Markdown files as a JSON array of groups of like size. Ask for as many groups as readers you may start beside the other two: what the cap leaves once `HC settings` shows one, otherwise what the session lets you start. One reader per group, `reader-docs-<k>`, its brief giving that same command and the position of its group, the first being 1.
 
-- 0 Where things stand: no `canon/` is a fresh start, go to 1; a canon without `canon/decisions/DEC-001-adoption-scope.md` is an unfinished adoption, do the open and the say of 3, then 4; both present, point to `/headcanon:review` and stop.
-- 1 Read the repository silently, documents and code; write the thread list.
-- 2 `HC init`; draft the root README.
-- 3 Cut the premise into its top level; open the canvas; the briefing as a say.
-- 4 `/headcanon:attend`: a branch agent per top-level box drafts to the leaves, the hand-off, then the human works the ranked list; it returns at Finish.
-- 5 Sweep leftovers, DEC-001, `HC render`, `/headcanon:commit`, report; then attend goes on with what the answers re-opened.
+   Readers write evidence, never intent; what is a claim and what is not is theirs to apply. The card's bar counts what they write to disk; say nothing for it. A launch that is refused waits for a reader to reply.
+3. **Let's go and the mode.** Wait with `headcanon_changes` until the feed carries `onboarding` (the mode, Guided or Full-Auto, and the cap). Store nothing yourself: the page saved them; `HC settings` prints them. Keep reading meanwhile; when the cap is lower than what runs, start nothing more until enough readers have replied.
+4. **The premise.** When every reader has replied, start `headcanon:top` in the background, named `top`, with `the premise`, the mode, its scratch folder, and the viewer's port when it is not the default. It reads the whole evidence once, in its context and not in yours, and writes `canon/README.md`: the Intent, what the project is and for whom; `## Not this`; `## Principles`; `## Glossary`; every part `assumed`. When it reports, `HC check | tail -n 1` must show 0 errors. `headcanon_say` that the premise is ready, and `headcanon_focus ROOT`: the page shows the premise as editable text with Approve. Keep the id of that agent.
+5. **Wait for the premise.** `headcanon_changes` until `node-approved` or `node-edited` for `ROOT`. An edit is the human's words, `stated`; refine nothing yet. Then the principles: the page shows them as a list the human approves, rewrites or removes one by one, or approves the rest at once; `principles-approved` arrives either way, as soon as the last one is settled, so never ask for a list approval. Apply `node-edited` and `node-deleted` for `PRN-` ids as they come. Nothing else runs while you wait: idle costs nothing, see attend's waiting rule.
+6. **Hand over.** `/headcanon:attend` with the mode and the id of `top`: attend resumes that agent, which still holds the evidence, for the map, and goes on to the leaves. Adoption is complete when every branch ends in a requirement with a check that says where it is built; attend says so. Red boxes wait on the human and hold nothing else back.
 
-## Sources
+## Rules
 
-Threads (one thing an artifact says, with its `path:lines` and the date of the commit that wrote it) are the direction of every draft and the evidence every draft is checked against. A document's line and the code's own facts are threads alike: an entry point, a module, a route, a command, a schema, a constant, a default, an error path, a state, a test name. Precedence (DEC-022): what the human approved or typed in the page, the newest document, older documents, what the code does today, the archetype; a code thread's date orders it among code threads and dates its As built line. Every sentence rests on a thread or the human's words; nothing invented. Mark threads used; unused ones feed step 5.
-
-Two documents that disagree on an entry: draft from the newer and make the node `contested`, with, under `## Contested`, one or two sentences on what the two cannot both hold and what choosing decides, then both statements with their sources, so it comes up red; a document against the code is the As built case under Guessing, never drafted from the code. A thread that disagrees with something the human approved on the canvas is never settled by you: say it in the chat and ask "The document says A. You approved B. Which stands?" with **Keep what I approved** and **The document is right**; list an overruled document in DEC-001 as superseded on that point.
-
-Read only this repository, reference.md and what the human does in the page. The plugin's own `canon/`, earlier session transcripts and other projects are not this project's intent.
-
-## Guessing
-
-- **Decide by precedence** (DEC-022): the human's approvals in this run, then their typed words, then the newest artifact, then what the code does today, then the archetype of the thing's kind. Whatever speaks first is the entry's line, written `assumed` with the chain and the thread in `source`; when the artifacts allowed alternatives, one line under `## Open` names the choice and them, so review overturns it in one click.
-- **Write what the code does** under `## As built`, apart from the Intent: one to three lines, each ending in its `path:lines`, for every entry the code speaks to. The Intent says what must hold, As built what holds today. Where the code does otherwise than the Intent, the node is contested and its contradiction is an issue; where the code does not implement the Intent yet, As built says `not built` with what exists, and nothing is asked. As built is the session's to rewrite whenever the code is re-read and never the human's to approve.
-- **Ask only** for a contradiction (two artifacts, or an artifact against an approval or a principle), for a thing no artifact and no archetype speaks to, or for a choice that would change a box the human approved. Then write a draft node: a provisional title in plain words, `state: open`, an Intent of one line saying what is known; it stands in the tree dashed. File it: `nodeId` the draft, the question in one or two sentences, `why` it matters, and up to three suggestions as options, each with its sources. The answer defines the node, `stated`.
-- **Prefer the guess** whenever a thread speaks to the entry at all: the human corrects a wrong guess in one click, but cannot answer a question that was never asked.
-- The premise, the glossary and the principles are guessed the same way, from the newest artifacts that state them; a document the human did not watch being written never makes an entry stated.
-
-## Asking
-
-- The few questions left, the sweep and a disagreement after an approval, go through `headcanon_ask` when the viewer's tools are present (reference.md section 6), otherwise AskUserQuestion; a branch agent files through `HC ask`.
-- A proposed text in a question reads as prose; a sentence resting on a thread ends with a footnote [1] and one "Sources:" line lists them.
-- Options are exactly **Approve as written** and **Drop** unless the step names others; an option carries no text; a list gets one multi-select whose options are ID and title with the one-line proposed text as description.
-- Typed text is wording (stated, quoted verbatim), a correction (applied exactly to the proposed text it names, which is asked again; in a list only the changed items come back, and items the text approves count as ticked), or a process instruction (followed, recorded nowhere).
-- Anything the human must know travels as a question's `notice` or a `headcanon_say`, never inside a proposed text and never as free text between tool calls, which may never be read.
-
-## Entries
-
-- An entry reads as an encyclopedia entry: what the thing is, complete for a reader who never saw this conversation, one concept per entry; no history, no reasons, no "not" clauses (exclusions live only in Not this), no counts, versions or statuses. Wrong examples and why: reference.md, section 5.
-- The form of each kind: a requirement or a glossary entry is one or two sentences; a principle is a title and a paragraph that names the direction and the choices it decides, because principles are the main alignment point and a one-liner cannot be judged; a Check is one sentence saying what is observed and what counts as yes.
-- Domains and capabilities in plain words; mechanisms and jargon only in requirements, using glossary terms. A word the glossary lacks is a term to propose (`HC terms` lists them), never a word left undefined.
-- A written entry carries no footnote markers; sources go in the node's `source` field, or on a Source line after a principle or glossary entry.
-
-## Consistency
-
-- `HC check` at 0 errors after every write.
-- The verifier agent (`headcanon:verifier`) reads a branch when nothing in it is left to cut (run by its branch agent on the folder), every cluster of the coherence pass at the hand-off, and the staged change at Finish: `git add canon`, the verifier, its findings applied, `git reset -q canon`. Nothing is judged from a summary; the verifier reads the full text of its scope.
-- A contradiction between two threads makes both nodes `contested`, with a one-paragraph summary and the two statements with their sources under `## Contested` and a `conflicts` link (`HC op contest`), and files a contradiction issue (`kind: contradiction`, the node and `why`), which the page settles into the node from the human's choice; one the draft itself introduced, where the threads agree, is fixed in the draft from them.
-- A reiteration merges the newer node into the older when they say one thing, PRN-1 (`HC op merge`), and otherwise files an issue on the newer node asking whether they are one.
-- Drift goes under the node's `## Open` as a dated line (`HC op note`). Uptake rewrites the parent's line as `assumed`.
-- Nodes are files edited in place; nothing regenerates `canon/`, which would erase what the human has approved.
-
-## Steps
-
-### 0 Where you are
-
-`canon/README.md` exists and `canon/decisions/DEC-001-adoption-scope.md` does not: the adoption is unfinished. Do the `headcanon_open` and the say of step 3 with what is on disk, counting what is approved, guessed and red, then go to 4, where the attend skill's Start step brings what does not fit the format into it and the drafting goes on from what is unrefined; never `HC init`, never redraft the root or the domains. Otherwise start at 1.
-
-### 1 Read
-
-Documents: `README*`, `REQUIREMENTS*`, `SPEC*`, `ARCHITECTURE*`, `ROADMAP*`, `CHANGELOG*`, `docs/**`, decision records (`docs/adr/**`, `decisions/**`, `.claude/decisions/**`), `.claude/**/*.md`, `CLAUDE.md`, `AGENTS.md`. Code: the manifest's scripts and entry points, the top-level folders and what each holds, the public surfaces (routes, commands, exported interfaces, screens), the data (schemas, content files, migrations), the tests by name, the scripts. Each becomes a thread with its path and its commit date; a project without documents is read from its code alone and its entries say so in `source`. Note contradictions and which artifact is newer. Never present the list; never ask about provenance. The thread list is a file the branch agents and refiners read, `$(git rev-parse --absolute-git-dir)/headcanon/threads.md`, so it names its path:lines and stays current.
-
-### 2 Root
-
-`HC init`. Draft `canon/README.md` in the root format with everything `assumed` (each principle's title line carries `[assumed]`). What it is, and the purpose and for whom, from the newest artifacts that state them, else from the code's surfaces, with `source` saying which. `## As built`: what the repository is today, from the code survey, one line each with its path. Not this: every statement in the artifacts that bounds what the project is (a "not", a "never", an "out of scope", a rejected alternative in a decision record), laddered to the premise; one that bounds the premise is a non-goal here, one that bounds a part waits for that part's node. Glossary: every term the artifacts define themselves (a glossary, an "X is", a named type), and every word `HC terms` flags in the premise, the non-goals and the principles, each defined from the artifacts. Principles: every statement of direction in charters, style guides and the reasons of decision records, and every constraint that recurs across artifacts; a candidate stands when it decides between two otherwise equal choices, and its paragraph names the choices it decides; a "never" the artifacts state is a principle first, a milestone from an old plan is not. The Glossary heading keeps `[assumed]`.
-
-### 3 Top level
-
-`/headcanon:refine ROOT domain draft` here, in this session, passing documentation and verification as candidates with source `software project`; the archetype prompt reads "what distinct areas must exist for this product to operate?". The top rungs are domains when one of them itself cuts into two or more abilities; when the top rungs are abilities, they are the top level with `layer: capability` and there is no domain layer. `HC check` at 0 errors. Then `headcanon_open` with view `adopt`; `headcanon_say` to the human the briefing of reference.md section 0, that the layers below are being drafted while they read, that the commit-msg hook now requires an Intent trailer on every commit, and that their list under Issues opens when the capabilities are cut; `headcanon_focus` ROOT. Nothing deeper is drafted in this context: a tree written in one output is checked by nobody set by set, is lost whole to a dropped connection, and gives the page nothing to show. Resuming an unfinished adoption starts here with the open and the say, counting what is approved, guessed and red.
-
-### 4 Attend
-
-`/headcanon:attend`, with the thread file. The drafting first: a branch agent per top-level box takes the ready nodes under it from `HC next --under`, spawns a refiner for each, reviews every set against the format's rules, sends corrections back and makes what cannot be made right a draft with its diagnosis as an issue, and never waits on the human. When every branch has reported, the hand-off: the vocabulary across branches, the coherence pass over full text, the rebalance, the root read against the domains, then the human's list opens, `HC next`'s `human` list ranked by impact; everything else is said in the chat, never asked. It returns when the human presses Finish.
-
-### 5 Finish
-
-Finish is the end of the human's session, whatever is red: red boxes and unanswered questions stay as issues, and the ranked list stands for their next visit (DEC-020, DEC-024). Unused threads, grouped by the box they would go under, are one multi-select per group with per-thread options **add under <ID>**, **merge into <ID>**, **drop**, filed with `waitSeconds` 0 so they stand on the list without holding Finish: a group the human has answered is applied (adds become assumed nodes with their source, merges update the named node citing the source, drops go to `canon/decisions/DEC-001-adoption-scope.md` one line each with source and reason; an artifact the human calls obsolete gets one line); a group still unanswered stays as an issue, and attend applies it when the answer arrives. Write DEC-001 (reference.md section 3). `HC check` at 0 errors; `HC render`; `git add canon`, the verifier on the staged change, its findings applied, `git reset -q canon`; then `/headcanon:commit` with one `Intent-Change: create <ID>` per node, `update ROOT`, `Decision: DEC-001`, and `Approved-By` the human's git `user.name`, because every green box carries their approval. Report in the chat: domains with their capabilities; counts of approved, guessed and open; what they rewrote or deleted; how many leaves carry a check and how many are still to cut; the retries `HC op --stats` counted; and that `/headcanon:review` walks what stayed assumed. Then `/headcanon:attend` again for what the answers re-opened and what the red boxes hide, until nothing is left to cut: it calls the human only at key points, and when it returns, `/headcanon:commit` once with `Approved-By: pending (assumed; /headcanon:review walks them)`.
-
-## Examples
-
-<example>
-Enough to guess. Parent: "Statement import: bank statements in any common format become transactions." Thread: docs/formats.md:3 lists CSV, OFX and QIF. Child written assumed: "REQ-1.2 Parsing: a statement in CSV, OFX or QIF becomes transactions, one per line", source "REQ-1 (consequence of 'become transactions'); docs/formats.md:3", with "- The CSV, OFX and QIF readers each produce one transaction per line (src/import/parse.ts:12-80)" under As built.
-</example>
-
-<example>
-Not enough. The same parent implies that a statement imported twice must not double its transactions, but no document says how a duplicate is told apart. Draft written open: title "Duplicate detection", Intent "A statement imported twice must not double its transactions; how a duplicate is told apart is not named anywhere", source "REQ-1 (failure of 'one transaction per line')". Issue filed: "How is a duplicate transaction recognized?", why the importer's retry depends on it, and the suggestions the artifacts allow.
-</example>
-
-<example>
-No documents. The repository has a manifest, `src/` with a server and a web client, a `schema.sql` and forty tests. The premise is drafted from those surfaces with `source: code`, As built lists them, the glossary comes from the type names the gate flags, and the human's first entry in the list is the premise, where they say in their own words what the code was for.
-</example>
+- **Evidence is never intent.** A code description says what the code does, never what the product must do; a claim is what a document says, with its source. Intent is written by `top` at step 4 and after it, and by the refiners.
+- **Nothing is dropped.** Every function belongs to a cluster, every cluster to the tree, every claim to the index; the refiner binds all of it or raises an issue. Unreachable code is marked by the tree and becomes an issue, never a silent omission.
+- **Cost.** Readers take their batches from `HC code todo`, read a function's body only when its name and context do not tell, and write descriptions in one call per batch; the premise is one say, not a conversation. Your own context holds the readers' one-line replies, never the evidence.
+- **Resume,** at the first of these that holds. A code tree without descriptions, or documents without claims, is an adoption waiting at step 2: `HC code stats` and `HC claims | grep -c "claim:"` say where it stands, and a reader started again skips what was read. A `canon/README.md` that `HC init` wrote and nobody filled is waiting at step 4, with a fresh `top`. One that is `assumed` with no domains is waiting at step 5.

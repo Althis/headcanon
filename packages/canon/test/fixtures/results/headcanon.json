@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "title": "the suggested category matches the bookkeeper's on at least 9 of 10 sample entries [hc:k3m9pq]",
+      "file": "evals/categories.eval.json",
+      "outcome": "passed",
+      "message": "19 of 20 matched; the threshold is 18",
+      "ms": 8421
+    },
+    {
+      "title": "a statement's summary names every account it lists [hc:w7x2ab]",
+      "file": "evals/summaries.eval.json",
+      "outcome": "failed",
+      "message": "6 of 10 summaries named every account; the threshold is 9",
+      "ms": 15230.6
+    },
+    {
+      "title": "the summary of an empty month says the month is empty [hc:r5t8yz]",
+      "file": "evals/summaries.eval.json",
+      "outcome": "skipped"
+    },
+    {
+      "title": "the closing note is in the reader's language [hc:n4h6cd]",
+      "file": "evals/notes.eval.json",
+      "outcome": "error",
+      "message": "the model did not answer within 60 seconds"
+    },
+    {
+      "title": "an outcome this tool does not know [hc:j8v3ef]",
+      "outcome": "maybe"
+    },
+    { "outcome": "passed" }
+  ]
+}

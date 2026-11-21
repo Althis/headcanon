@@ -16,5 +16,5 @@ Source: docs/design-brief-v0.md:77
 
 ## Intent
 
-The agent should stop and ask rather than finish and hope.
+A test that passed in the first run of a build round and fails now is a regression. The stop gate holds the implementation agent whose work caused it, and a test still failing at the end of the round is shown to the human, who decides (DEC-026).
 

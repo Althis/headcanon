@@ -29,7 +29,7 @@ describe("mcp server over stdio [REQ-12.1.7]", () => {
 
   it("lists the tools and answers through the viewer it started", async () => {
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(["headcanon_ask", "headcanon_changes", "headcanon_focus", "headcanon_open", "headcanon_say", "headcanon_wait", "headcanon_withdraw"]);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(["headcanon_ask", "headcanon_changes", "headcanon_focus", "headcanon_open", "headcanon_say", "headcanon_wait", "headcanon_withdraw", "headcanon_working"]);
 
     // The session speaks, and a waiting changes call wakes on the human's next action.
     const said = await client.callTool({ name: "headcanon_say", arguments: { text: "Hello from the session.", nodeId: "REQ-1" } });
@@ -83,6 +83,27 @@ describe("mcp server over stdio [REQ-12.1.7]", () => {
     const w2 = await client.callTool({ name: "headcanon_wait", arguments: { questionId: r.questionIds[1], waitSeconds: 2 } });
     const a = [w1, w2].map((w) => (JSON.parse((w.content as Array<{ text: string }>)[0]!.text) as { answer: { selected: string[] } }).answer.selected[0]);
     expect(a).toEqual(["Approve as written", "Drop"]);
+  }, 60000);
+
+  it("files what a builder could not settle as its own issue, beside the session's question on the same box", async () => {
+    const ask = (await client.listTools()).tools.find((t) => t.name === "headcanon_ask")!;
+    const props = ask.inputSchema.properties as Record<string, { enum?: string[]; type?: string }>;
+    expect(props["kind"]?.enum).toEqual(["question", "contradiction", "disambiguation", "apocrypha", "undefined", "impossible"]);
+    expect([props["by"]?.type, props["blocks"]?.type]).toEqual(["string", "boolean"]);
+
+    const call = async (name: string, args: Record<string, unknown>) => JSON.parse(((await client.callTool({ name, arguments: args })).content as Array<{ text: string }>)[0]!.text) as Record<string, unknown>;
+    const onBox = async () => ((await fetch(`http://127.0.0.1:${port}/api/session`).then((x) => x.json())) as { queue: Array<Record<string, unknown>> }).queue.filter((q) => q["nodeId"] === "REQ-2");
+    // zero seconds files the issue and returns at once: a builder never waits on the human
+    const theirs = await call("headcanon_ask", { kind: "impossible", nodeId: "REQ-2", question: "No invoice can be paid without a reminder.", by: "implementer-REQ-2", blocks: true, waitSeconds: 0 });
+    expect(theirs["pending"]).toBe(true);
+    const mine = await call("headcanon_ask", { nodeId: "REQ-2", question: "Retry how often?", header: "Draft", waitSeconds: 0 });
+    const queued = await onBox();
+    expect(queued.map((q) => q["id"])).toEqual([theirs["questionId"], mine["questionId"]]);
+    expect(queued[0]).toMatchObject({ kind: "impossible", by: "implementer-REQ-2", blocks: true, options: [] });
+    // a withdrawal under a name takes that author's questions and leaves the other's
+    expect((await call("headcanon_withdraw", { nodeId: "REQ-2", by: "implementer-REQ-2", reason: "the box was reworded" }))["withdrawn"]).toBe(1);
+    expect((await onBox()).map((q) => q["id"])).toEqual([mine["questionId"]]);
+    expect((await call("headcanon_withdraw", { nodeId: "REQ-2" }))["withdrawn"]).toBe(1);
   }, 60000);
 });
 

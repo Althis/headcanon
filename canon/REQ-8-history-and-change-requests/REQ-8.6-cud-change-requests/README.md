@@ -14,3 +14,7 @@ source: "docs/design-brief-v0.md:84"
 
 Source: docs/design-brief-v0.md:84
 
+## Intent [assumed]
+
+Every change an agent makes to the canon is an operation the tool applies, checks and logs; no agent edits a canon file by hand. What an agent may apply depends on its role (DEC-026): a refiner writes inside its own capability and proposes what belongs elsewhere, which the session applies, asking the human when an approved box is involved; an implementation agent adds guessed child boxes marked as the builder's, live on the page at once, and issues, nothing else; a tester adds journeys, notes and guessed boxes under its capability.
+

@@ -27,3 +27,8 @@ This supersedes the reach of DEC-018 and DEC-023 and the second half of DEC-020,
 ## Why
 
 The runs of October and November 2026 spent the human's quarter of an hour on questions the code already answered and on approvals whose only effect was to release more drafting, and none finished in its window. The lazy filling of REQ-3.4 as first written deferred the questions without making them cheaper and left the record thin. Machine time is cheap and resumable, so the drafting runs ahead to the leaves, and the human's time goes to what the machine could not settle, in the order of what their answer changes. Keeping `## As built` apart from the Intent stops a guess read off the code from passing for the project's want, the failure the auto-updated specifications in the field show.
+
+## Amended
+
+- 2026-11-16, by DEC-025: adoption is reading and onboarding with the premise approved before anything compute-intensive; the two modes Guided and Full-Auto; the refiners redefine after a change, breadth first.
+- 2026-11-18, by DEC-026: building does not wait for the path down to a box to be validated. Guessed and approved boxes are built alike, a red box alone is left out, and the human reviews what was built after the round; the ranked list stands for a human who chooses to validate.

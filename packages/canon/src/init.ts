@@ -29,7 +29,7 @@ export function rootReadme(projectName: string, today: string): string {
   return `---
 id: ROOT
 title: "${projectName.replace(/"/g, "'")} canon"
-state: open
+state: draft
 source: "headcanon init, ${today}"
 format: ${FORMAT_VERSION}
 ---
@@ -41,18 +41,18 @@ requirement tree, user journeys, glossary and decision records, in files that
 the agent reads every session and that GitHub renders as they are.
 
 It was created empty by \`headcanon init\` on ${today}. Nothing in it is the
-human's intent yet. The agent fills it through change requests the human
-approves, starting with the purpose and glossary in the human's own words.
+human's intent yet: the premise is a draft until the human states it or
+approves what the session proposes for it.
 
-## Purpose [open]
-
-Not yet stated.
-
-## Not this [open]
+## Intent
 
 Not yet stated.
 
-## Glossary [open]
+## Not this
+
+Not yet stated.
+
+## Glossary [assumed]
 
 No terms yet. A term enters as assumed when the agent infers it and as stated
 when the human defines it. A definition says what the term is, as a dictionary

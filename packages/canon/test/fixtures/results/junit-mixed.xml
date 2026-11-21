@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Written by hand in the shapes other runners use: a testsuite at the root, nested suites, single quotes,
+     an error child, CDATA, numeric entities, output blocks. <testcase name="in a comment [hc:zz9zz9]"/> is not a test. -->
+<testsuite name='ledgerline' tests='7' failures='1' errors='1' skipped='1' time='2.418'>
+  <properties>
+    <property name='platform' value='linux'/>
+  </properties>
+  <testsuite name='tests.test_months' file='tests/test_months.py' tests='4' time='1.2'>
+    <testcase classname='tests.test_months.TestClosing' name='test_close[[hc:k3m9pq] an entry dated inside a closed month is refused]' time='0.012'/>
+    <testcase classname='tests.test_months.TestClosing' name='test_total[[hc:w7x2ab] the statement&#39;s &quot;total&quot; is the sum &#x3C;in cents&#x3E;]' time='0.340'>
+      <failure message='assert 1300 == 1400' type='AssertionError'><![CDATA[def test_total(case):
+>       assert total(entries) == 1400
+E       assert 1300 == 1400
+E        +  where 1300 = total([<Entry 1050>, <Entry 250>])
+
+tests/test_months.py:41: AssertionError]]></failure>
+      <system-out><![CDATA[printed while it ran: <testcase name="not a case [hc:w7x2ab]"><failure/></testcase>]]></system-out>
+    </testcase>
+    <testcase classname='tests.test_months.TestClosing' name='test_reopen[[hc:r5t8yz] only the owner reopens a month]' time='0.000'>
+      <skipped message='needs the owner fixture' type='pytest.skip'>tests/test_months.py:55: needs the owner fixture</skipped>
+    </testcase>
+    <testcase classname='tests.test_months.TestClosing' name='test_read[[hc:n4h6cd] an entry with a text amount is refused]' time='0.004'>
+      <error message='TypeError: entry.amount is not a number' type='TypeError'>Traceback (most recent call last):
+  File &quot;tests/test_months.py&quot;, line 63, in test_read
+    read(entry) &gt; 0 &amp;&amp; done
+TypeError: entry.amount is not a number</error>
+      <system-err>warning: 1 &lt; 2</system-err>
+    </testcase>
+  </testsuite>
+  <testsuite name="closing a month [hc:j8v3ef]" tests="2" time="0.8">
+    <testcase classname="statements" name="lists every entry of the month" time="0.5"></testcase>
+    <testcase classname="statements" name="shows the closing balance > 0" time="0.3">
+      <failure message="balance was -4">balance was -4</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="plain">
+    <testcase name="a case that names no box" classname="plain" />
+  </testsuite>
+</testsuite>

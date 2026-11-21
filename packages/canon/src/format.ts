@@ -7,7 +7,7 @@
 import type { Canon } from "./types.js";
 
 /** The version of the format this HeadCanon writes and checks. */
-export const FORMAT_VERSION = 3;
+export const FORMAT_VERSION = 4;
 
 export interface TypeRule {
   /** The entry, in a sentence. */
@@ -28,7 +28,7 @@ export interface TypeRule {
   rules: string[];
 }
 
-const NODE_STATES = ["stated", "resolved", "assumed", "open", "contested"];
+const NODE_STATES = ["stated", "resolved", "assumed", "draft", "contested"];
 
 export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principle" | "term", TypeRule> = {
   root: {
@@ -36,13 +36,13 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
     where: "`canon/README.md`, front matter `id: ROOT`.",
     required: ["id", "title", "state", "format"],
     optional: ["partition", "source"],
-    states: ["stated", "resolved", "assumed", "open"],
+    states: ["stated", "resolved", "assumed", "draft"],
     needsOneOf: ["Intent", "Purpose"],
-    sections: ["Stated", "Resolution", "As built", "Not this", "Principles", "Glossary"],
+    sections: ["Stated", "Resolution", "Implemented by", "Not this", "Principles", "Glossary"],
     rules: [
       "`format` is the version of this format the canon was written under; an older one is brought up by the start sequence [format-version], a newer one needs a newer HeadCanon [format-newer].",
       "`## As built` on the root is the session's survey of what the repository is today: its entry points, modules, surfaces, data and tests, one line each with its path, written from the code so that a project without documents still yields a premise, and rewritten whenever the code is re-read; the Intent says what the project is for, and the two are never one sentence.",
-      "`partition` is the question the top-level nodes answer, written when the premise is cut.",
+      "`partition` is the question the top-level nodes answer, written when the premise is refined.",
       "Approving the root clears the markers on its own sections and leaves the Glossary heading's marker alone: terms are approved one by one.",
     ],
   },
@@ -50,17 +50,17 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
     what: "One entry of the tree, in one or two sentences that read as an encyclopedia entry. There is one node type; its layer, domain, capability or requirement, is a field on it, not a type of its own.",
     where: "`canon/REQ-1-<slug>/README.md` when it has children, `canon/REQ-1-<slug>/REQ-1.1-<slug>.md` when it is a leaf; the id mirrors the path.",
     required: ["id", "title", "state"],
-    optional: ["parent", "layer", "source", "kind", "partition", "relates", "conflicts", "requires", "steps", "files", "baseline"],
+    optional: ["parent", "layer", "source", "kind", "partition", "relates", "conflicts", "requires", "steps", "files", "baseline", "uid", "binds"],
     states: NODE_STATES,
     needsOneOf: ["Intent", "Stated"],
-    sections: ["Resolution", "Check", "As built", "Not this", "Contested", "Deferred", "Assumptions", "Open"],
+    sections: ["Resolution", "Check", "Implemented by", "Not this", "Contested", "Deferred", "Assumptions", "Open"],
     rules: [
       "`## As built` is the session's record of what the code does today for the entry, one to three lines each ending in its `path:lines`, apart from the Intent, which says what must hold; it is rewritten whenever the code is re-read and never approved, so a guess read off the code and the project's want never share a sentence. Where the code does otherwise than the Intent says, the node is contested and the contradiction is an issue; where the code does not implement the Intent yet, As built says `not built` with what exists instead, and no question is asked; neither case rewrites the Intent silently.",
       "The title names a thing, never a question [title-question]; the ids are unique [duplicate-id], the parent exists [parent-missing], and the id's path matches its parent's [parent-mismatch].",
-      "An Intent, or the human's Stated words, is never missing [intent-missing]; a draft (`state: open`) keeps one line of what is known, and its question is an issue, never a section.",
+      "An Intent, or the human's Stated words, is never missing [intent-missing]; a draft (`state: draft`) keeps one line of what is known, and its question is an issue, never a section.",
       "Only the sections named here [section-unknown]: `## Open` holds a dated note: a gap between the artifacts and the intent and what would settle it, or the choice a guess made and the alternatives it had; `## Deferred` what the node will hold once refined, one line each with its origin; `## Contested` a one-paragraph summary and one bullet per statement with its sources; `## Assumptions` what the session decided alone.",
       "`layer` is one of three, never above the parent's [layer-order]. A domain is an area the product must have to operate: the top level under the premise, drawn from the premise and from what every software project needs (documentation, verification), never from artifacts alone. A capability is what a domain must be able to do, drawn from what every system of its kind needs; it has requirements under it [uncovered-capability] and never a check of its own. A requirement is a thing that must hold, drawn mostly from artifacts, nested as deep as the thing needs. A project with fewer than about eight areas has no domain layer: its top level is capabilities. Without the field the layer is inferred from depth, for display only [layer-inferred].",
-      "A node with children or a `kind` is refined; every other node is a leaf still to cut, which the check counts. Cutting ends at a requirement that carries `kind` (binary, numeric or open-ended) and a one-sentence `## Check` of what is observed and what counts as yes [kind-missing, check-missing]. A requirement is a requirement at every depth: a parent is verified at its own level, by its children when they entail it, by a `## Check` it keeps for itself when they do not, the integration check. An open-ended kind is a goal rather than a requirement, kept only when the human accepts it. A requirement's title reads as a claim; a capability's names a subject.",
+      "A node with children or a `kind` is refined; every other node is a leaf still to refine, which the check counts. Refinement ends at a requirement that carries `kind` (binary, numeric or open-ended) and a one-sentence `## Check` of what is observed and what counts as yes [kind-missing, check-missing]. A requirement is a requirement at every depth: a parent is verified at its own level, by its children when they entail it, by a `## Check` it keeps for itself when they do not, the integration check. An open-ended kind is a goal rather than a requirement, kept only when the human accepts it. A requirement's title reads as a claim; a capability's names a subject.",
       "`relates`, `conflicts` and `requires` name existing nodes [link-unknown]; `requires` has no cycle [requires-cycle]; a node with two or more children records `partition` [no-partition].",
       "`source` names where the entry came from: `path:lines`, `conversation, <date>`, or `archetype`; a human's typed words are `stated` and quoted under `## Stated`.",
       "What a good node is, beyond its shape, is the Quality list below: the check decides the deterministic tests under their codes, the reviewing agent reads and judges the rest, and a review finding names the test it failed.",
@@ -80,7 +80,7 @@ export const FORMAT: Record<"root" | "node" | "journey" | "decision" | "principl
   },
   decision: {
     what: "A decision record: a short-term choice, linked to the intent it serves; one with an origin is a caught divergence.",
-    where: "`canon/decisions/DEC-n-<slug>.md`; DEC-001 is the adoption scope and marks an adoption as finished.",
+    where: "`canon/decisions/DEC-n-<slug>.md`. An adoption is finished when every branch ends in a requirement with its check; a canon adopted before format 4 says it with its scope record, DEC-001.",
     required: ["id", "title", "state"],
     optional: ["date", "intents", "origin"],
     states: NODE_STATES,
@@ -137,6 +137,8 @@ export interface QualityCheck {
   /** The yes-or-no question. */
   test: string;
   how: "check" | "reviewer" | "human";
+  /** A no here fails the set under review; a no on any other reviewer check is a note the refiner applies. */
+  fatal?: boolean;
   /** The check code, for `how: check`. */
   code?: string;
   sources: string;
@@ -163,7 +165,7 @@ export const QUALITY: QualityCheck[] = [
   { scope: "intent", name: "plain-words-above", test: "Is a domain or capability free of mechanisms (button, database, API, thread)?", how: "check", code: "design-term", sources: "Femmer 2017 T10; Genova 2013; the Entries rule" },
   { scope: "intent", name: "terms-defined", test: "Is every word that carries meaning here a glossary term, or proposed as one?", how: "check", code: "term-candidate", sources: "ISO 29148; INCOSE GtWR R4; Arora 2017" },
   { scope: "intent", name: "sourced", test: "Does a guess carry its chain and the thread it rests on in `source`?", how: "check", code: "source-missing", sources: "ISO 29148 traceability; INCOSE GtWR A2; the Guessing rule" },
-  { scope: "intent", name: "one-reading", test: "Would an implementer and a verifier paraphrase it to the same subject, action, object, bound and condition?", how: "reviewer", sources: "ISO 29148 5.2.5; INCOSE GtWR C3; Davis 1993 Q1" },
+  { scope: "intent", name: "one-reading", test: "Would an implementer and a verifier paraphrase it to the same subject, action, object, bound and condition?", how: "reviewer", fatal: true, sources: "ISO 29148 5.2.5; INCOSE GtWR C3; Davis 1993 Q1" },
   { scope: "intent", name: "complete-in-itself", test: "Can a reader understand it cold, glossary aside: the capability, how well, and under what conditions, none inferred?", how: "reviewer", sources: "ISO 29148 5.2.5; INCOSE GtWR C4, R27" },
   { scope: "intent", name: "singular", test: "Does it state one capability, under however many conditions; would any part be verified or placed apart?", how: "reviewer", sources: "ISO 29148 5.2.5 note 2; INCOSE GtWR C5; Honig et al." },
   { scope: "intent", name: "entity-subject", test: "Is the subject the entity at this level, named in the sentence, never a user or a role?", how: "reviewer", sources: "ISO 29148 5.2.4; INCOSE GtWR R3, R25; EARS one system name" },
@@ -171,26 +173,26 @@ export const QUALITY: QualityCheck[] = [
   { scope: "intent", name: "implementation-free", test: "Could more than one design satisfy it; does it name no mechanism the need does not impose, or is it a constraint with its reason recorded?", how: "reviewer", sources: "ISO 29148 5.2.5; INCOSE GtWR R31; Davis 1993 Q10; Zave and Jackson" },
   { scope: "intent", name: "own-level", test: "Is every detail about this node's entity at this depth, nothing a child or the rationale holds?", how: "reviewer", sources: "ISO 29148 5.2.5; INCOSE GtWR C2; Femmer 2017 F19" },
   { scope: "intent", name: "prescriptive", test: "Could the software's behaviour make the sentence false? A sentence true whatever the software does is a domain fact; one that cannot be false is a definition, for the glossary.", how: "reviewer", sources: "KAOS; Zave and Jackson 1997; Kamsties 2001" },
-  { scope: "intent", name: "faithful", test: "Does it say what the cited thread says, no more, no less?", how: "reviewer", sources: "ISO 29148 5.2.5; INCOSE GtWR C8; Porter 1995 incorrect fact" },
+  { scope: "intent", name: "faithful", test: "Does it say what the cited thread says, no more, no less?", how: "reviewer", fatal: true, sources: "ISO 29148 5.2.5; INCOSE GtWR C8; Porter 1995 incorrect fact" },
   { scope: "intent", name: "necessary", test: "If this node were deleted, would a gap remain that no other node fills?", how: "human", sources: "ISO 29148 5.2.5; INCOSE GtWR C1; machine reviewers miss it, Shefa 2024" },
   { scope: "intent", name: "wanted", test: "Is it what the project wants, in the human's judgement?", how: "human", sources: "ISO 29148 5.2.5 correct; Zave and Jackson, the customer's prerogative" },
   // the Check: one verification criterion on a leaf
   { scope: "check", name: "present", test: "Does every leaf carry a `kind` and a Check?", how: "check", code: "check-missing", sources: "ISO 29148 5.2.5 verifiable; Robertson fit criterion; the leaf contract" },
   { scope: "check", name: "one-sentence", test: "Is the Check one sentence?", how: "check", code: "check-long", sources: "the leaf contract; EARS guard and assertion" },
   { scope: "check", name: "numbers-carry-units", test: "Does every number in the Check name its unit or the thing counted?", how: "check", code: "number-unit", sources: "INCOSE GtWR R6; Ferrari 2018 PMU; IEEE 830" },
-  { scope: "check", name: "shape", test: "Does it name what is observed, on this node's entity, and what counts as yes, so that a verifier writes pass or fail from the sentence and the glossary alone?", how: "reviewer", sources: "INCOSE GtWR C7; ISO 29148 verifiable; EARS stimulus, observed output, expected value" },
+  { scope: "check", name: "shape", test: "Does it name what is observed, on this node's entity, and what counts as yes, so that a verifier writes pass or fail from the sentence and the glossary alone?", how: "reviewer", fatal: true, sources: "INCOSE GtWR C7; ISO 29148 verifiable; EARS stimulus, observed output, expected value" },
   { scope: "check", name: "guarded", test: "Does it say when the observation is made, the state and the event, with nothing evaluated outside them?", how: "reviewer", sources: "EARS, response iff preconditions and trigger; T-EARS" },
-  { scope: "check", name: "same-property", test: "Is there no behaviour that passes the Check yet breaks the Intent, nor the reverse?", how: "reviewer", sources: "KAOS; Hull, Jackson and Dick, parent verified at its level" },
-  { scope: "check", name: "decidable", test: "Can yes or no be decided at observation time from the past and the present, with no eventually and no never without a window?", how: "reviewer", sources: "Zave and Jackson rule c; KAOS bounded Achieve; Ferrari 2018" },
+  { scope: "check", name: "same-property", test: "Is there no behaviour that passes the Check yet breaks the Intent, nor the reverse?", how: "reviewer", fatal: true, sources: "KAOS; Hull, Jackson and Dick, parent verified at its level" },
+  { scope: "check", name: "decidable", test: "Can yes or no be decided at observation time from the past and the present, with no eventually and no never without a window?", how: "reviewer", fatal: true, sources: "Zave and Jackson rule c; KAOS bounded Achieve; Ferrari 2018" },
   { scope: "check", name: "numeric-measure", test: "For a numeric kind, does it name the measure, how it is measured, and the bound with its unit and tolerance?", how: "reviewer", sources: "INCOSE GtWR R33, R34; Gilb scale and meter; IEEE 830" },
   { scope: "check", name: "judged", test: "For an open-ended kind, does it name who or what judges, which artefact, and why that is enough; else a quantity, a direction and a target?", how: "reviewer", sources: "KAOS soft goals; the leaf contract" },
   { scope: "check", name: "other-case", test: "Is the case where the trigger does not hold covered, here or in a sibling?", how: "reviewer", sources: "EARS, two test cases per requirement; Kiro" },
   // the hierarchy: a parent and its children
   { scope: "hierarchy", name: "a-set", test: "Has a refined node two or more children, and a partition naming the question they answer?", how: "check", code: "single-child", sources: "KAOS no trivial refinement; the refine skill; INCOSE SEH" },
   { scope: "hierarchy", name: "no-restating", test: "Does no child repeat its parent's title; does each add refinement?", how: "check", code: "restates-parent", sources: "INCOSE GtWR R30; KAOS non-triviality" },
-  { scope: "hierarchy", name: "entailment", test: "If every child holds, with the domain facts named, must the parent hold in every case? A counterexample is a missing child, or the parent's own Check.", how: "reviewer", sources: "KAOS completeness; Zave and Jackson S, K entail R; INCOSE GtWR C10; the refine skill" },
+  { scope: "hierarchy", name: "entailment", test: "If every child holds, with the domain facts named, must the parent hold in every case? A counterexample is a missing child, or the parent's own Check.", how: "reviewer", fatal: true, sources: "KAOS completeness; Zave and Jackson S, K entail R; INCOSE GtWR C10; the refine skill" },
   { scope: "hierarchy", name: "minimal", test: "For each child, with it removed, is there a case where the rest hold and the parent fails? One whose removal changes nothing is redundant.", how: "reviewer", sources: "KAOS minimality; INCOSE GtWR C1; Preda leave-one-out" },
-  { scope: "hierarchy", name: "consistent", test: "Is there one behaviour that satisfies all the children together?", how: "reviewer", sources: "KAOS consistency; Zave and Jackson" },
+  { scope: "hierarchy", name: "consistent", test: "Is there one behaviour that satisfies all the children together?", how: "reviewer", fatal: true, sources: "KAOS consistency; Zave and Jackson" },
   { scope: "hierarchy", name: "justified", test: "Can \"why does this child exist?\" be answered from the parent alone?", how: "reviewer", sources: "ISO 29148 6.4.3.5; the ladder" },
   { scope: "hierarchy", name: "right-level", test: "Is each child about the entity of the set it sits in, neither the parent's generality nor a grandchild's detail?", how: "reviewer", sources: "INCOSE GtWR C2; Femmer 2017 F19, F31" },
   { scope: "hierarchy", name: "cases-cover", test: "When the children split by case, are the cases disjoint and together exhaustive, each case keeping the parent's target?", how: "reviewer", sources: "KAOS case-driven refinement; Heitmeyer coverage and disjointness" },
@@ -199,9 +201,9 @@ export const QUALITY: QualityCheck[] = [
   // the set: the whole canon
   { scope: "set", name: "links-resolve", test: "Does every link name an existing node, with no cycle in requires?", how: "check", code: "link-unknown", sources: "ISO 29148 traceability; IEEE 830" },
   { scope: "set", name: "one-id", test: "Is every id claimed once?", how: "check", code: "duplicate-id", sources: "ISO 29148; IEEE 830" },
-  { scope: "set", name: "one-concept", test: "Do no two nodes constrain the same glossary phenomenon of the same entity under overlapping conditions? Else merge or nest.", how: "reviewer", sources: "KAOS; PRN-1; the coherence pass; the critic's gap 1" },
-  { scope: "set", name: "no-conflict", test: "For nodes with a shared subject and overlapping conditions, can one system satisfy both at once?", how: "reviewer", sources: "ISO 29148 consistent; INCOSE GtWR C11; KAOS divergence" },
-  { scope: "set", name: "as-built-sorted", test: "Is every As built line a convergence (the code does what the Intent says), a divergence (contested, with its issue) or an absence (not built)?", how: "reviewer", sources: "Murphy, Notkin and Sullivan reflexion; the As built rule" },
+  { scope: "set", name: "one-concept", test: "Do no two nodes constrain the same glossary phenomenon of the same entity under overlapping conditions? Else merge or nest.", how: "reviewer", fatal: true, sources: "KAOS; PRN-1; the coherence pass; the critic's gap 1" },
+  { scope: "set", name: "no-conflict", test: "For nodes with a shared subject and overlapping conditions, can one system satisfy both at once?", how: "reviewer", fatal: true, sources: "ISO 29148 consistent; INCOSE GtWR C11; KAOS divergence" },
+  { scope: "set", name: "bindings-sorted", test: "Is every bound unit a convergence (implements: the code does what the Intent says), a divergence (contradicts, with its issue) or a contribution, and is a child the premise requires with nothing bound marked not built?", how: "reviewer", fatal: true, sources: "Murphy, Notkin and Sullivan reflexion; DEC-025" },
   { scope: "set", name: "complete", test: "Is every situation the premise names covered by a node, and does no node cover a situation that cannot occur?", how: "human", sources: "ISO 29148 5.2.6; Davis 1993; Zave and Jackson, all the customer's desires" },
   // the glossary
   { scope: "glossary", name: "declarative", test: "Is every definition a statement of what the term is, never an obligation?", how: "check", code: "glossary-prescriptive", sources: "ISO 29148 5.2.7; Zave and Jackson, a definition cannot be false" },
@@ -220,8 +222,32 @@ export interface FormatChange {
   broughtUp: string[];
 }
 
+/** The mechanical part of bringing a file up to this format; returns the text and what changed. */
+export function upgradeText(text: string, uid: () => string): { text: string; changed: string[] } {
+  const changed: string[] = [];
+  let out = text;
+  if (/^state:\s*open\s*$/m.test(out)) { out = out.replace(/^state:\s*open\s*$/m, "state: draft"); changed.push("state open to draft"); }
+  if (/^##[ \t]+As built[ \t]*$/m.test(out)) { out = out.replace(/^##[ \t]+As built[ \t]*$/m, "## Implemented by"); changed.push("As built to Implemented by"); }
+  if (/^kind:\s*\S/m.test(out) && !/^uid:\s*\S/m.test(out)) { out = out.replace(/^(kind:[^\n]*)$/m, `$1\nuid: ${uid()}`); changed.push("uid added"); }
+  return { text: out, changed };
+}
+
 /** Newest first. The head is the current version. */
 export const HISTORY: FormatChange[] = [
+  {
+    version: 4,
+    date: "2026-11-16",
+    changes: [
+      "`draft` is the state of a node whose definition waits on an issue; it replaces `open`, which the loader still reads as draft (DEC-025).",
+      "`## Implemented by` replaces `## As built`: the documents that state the entry and the code units bound to it with the relation implements, each with its source; the session writes it from the bindings, never the human.",
+      "`uid` is a stable id on every node that carries a requirement; it survives a move, so tests and bindings keep their target. `binds` lists the evidence a node rests on as \"<relation> <unit>\": implements, contributes or contradicts a code unit, a cluster or a claim (DEC-025).",
+      "Below a capability the tree goes as deep as explicitness allows: every node is an intent node, and from the capability layer down it carries a requirement that its children make more explicit; the leaf is where intent and requirement coincide.",
+    ],
+    broughtUp: [
+      "`headcanon upgrade` rewrites `state: open` as `draft`, renames `## As built` to `## Implemented by` and adds a `uid` where a requirement has none [uid-missing].",
+      "Then `format: 4` is written on the root [format-version].",
+    ],
+  },
   {
     version: 3,
     date: "2026-11-15",
@@ -296,11 +322,11 @@ export function describeFormat(): string {
     if (t.needsOneOf.length || t.sections.length) out.push(`Sections: ${t.needsOneOf.length ? `one of ${list(t.needsOneOf)}` : "none required"}${t.sections.length ? `; may carry ${list(t.sections)}` : ""}.`, "");
     out.push("Rules:", "", ...t.rules.map((r) => `- ${r}`), "");
   }
-  out.push("## Quality", "", "What a good entry is, as yes-or-no tests, from the literature read on 2026-11-15 (docs/research/2026-11-15-requirement-quality.md). Who decides: `check` is `headcanon check` under the code shown; `reviewer` is the agent that reviews a set, which reads and judges each; `human` only the human can say, so a failure is an issue. A review finding names the check by its name.", "");
+  out.push("## Quality", "", "What a good entry is, as yes-or-no tests, from the literature read on 2026-11-15 (docs/research/2026-11-15-requirement-quality.md). Who decides: `check` is `headcanon check` under the code shown; `reviewer` is the agent that reviews a set, which reads and judges each; `human` only the human can say, so a failure is an issue. A set fails its review when a check marked fatal says no, or when `headcanon check` reports an error; every other no is a note the refiner applies without another review. A review finding names the check by its name.", "");
   const scopes: Record<QualityCheck["scope"], string> = { intent: "The Intent: one requirement statement", check: "The Check: one verification criterion on a leaf", hierarchy: "The hierarchy: a parent and its children", set: "The set: the whole canon", glossary: "The glossary" };
   for (const scope of Object.keys(scopes) as Array<QualityCheck["scope"]>) {
     out.push(`### ${scopes[scope]}`, "", "| Check | Test | Who | Sources |", "|---|---|---|---|");
-    for (const q of QUALITY.filter((x) => x.scope === scope)) out.push(`| ${q.name} | ${q.test} | ${q.how === "check" ? `check \`${q.code}\`` : q.how} | ${q.sources} |`);
+    for (const q of QUALITY.filter((x) => x.scope === scope)) out.push(`| ${q.name} | ${q.test} | ${q.how === "check" ? `check \`${q.code}\`` : q.fatal ? `${q.how}, fatal` : q.how} | ${q.sources} |`);
     out.push("");
   }
   out.push("## The start sequence", "", "On an existing canon, before any other work:", "", ...START_SEQUENCE.map((s, i) => `${i + 1}. ${s}`), "", "## Versions", "");

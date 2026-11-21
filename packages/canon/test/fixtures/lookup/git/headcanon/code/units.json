@@ -1,0 +1,21 @@
+{
+ "builtAt": "2026-03-01T09:00:00.000Z",
+ "repo": "ledgerline",
+ "files": ["src/entries.ts", "src/months.ts", "src/statements.ts"],
+ "functions": {
+  "src/entries.ts#recordEntry": { "id": "src/entries.ts#recordEntry", "name": "recordEntry", "file": "src/entries.ts", "lines": [10, 32], "exported": true, "calls": ["src/entries.ts#refuseClosed"], "possible": [], "unresolved": [], "tokens": ["record", "entry", "amount"], "cluster": { "1": "c1-1", "2": "c2-1" } },
+  "src/entries.ts#refuseClosed": { "id": "src/entries.ts#refuseClosed", "name": "refuseClosed", "file": "src/entries.ts", "lines": [34, 41], "exported": false, "calls": ["src/months.ts#MonthBook.isClosed"], "possible": [], "unresolved": [], "tokens": ["refuse", "closed"], "cluster": { "1": "c1-1", "2": "c2-1" } },
+  "src/months.ts#closeMonth": { "id": "src/months.ts#closeMonth", "name": "closeMonth", "file": "src/months.ts", "lines": [5, 28], "exported": true, "calls": [], "possible": [], "unresolved": [], "tokens": ["close", "month", "total"], "cluster": { "1": "c1-2", "2": "c2-1" } },
+  "src/months.ts#MonthBook.isClosed": { "id": "src/months.ts#MonthBook.isClosed", "name": "MonthBook.isClosed", "file": "src/months.ts", "lines": [30, 33], "exported": true, "calls": [], "possible": [], "unresolved": [], "tokens": ["month", "book", "closed"], "cluster": { "1": "c1-2", "2": "c2-1" } },
+  "src/statements.ts#buildStatement": { "id": "src/statements.ts#buildStatement", "name": "buildStatement", "file": "src/statements.ts", "lines": [8, 40], "exported": true, "calls": ["src/statements.ts#roundTotal"], "possible": [], "unresolved": [], "tokens": ["build", "statement"], "cluster": { "1": "c1-2", "2": "c2-1" } },
+  "src/statements.ts#roundTotal": { "id": "src/statements.ts#roundTotal", "name": "roundTotal", "file": "src/statements.ts", "lines": [42, 47], "exported": false, "calls": [], "possible": [], "unresolved": [], "tokens": ["round", "total"], "cluster": { "1": "c1-2", "2": "c2-1" } }
+ },
+ "clusters": {
+  "c1-1": { "id": "c1-1", "level": 1, "key": "k11", "members": ["src/entries.ts#recordEntry", "src/entries.ts#refuseClosed"], "parent": "c2-1", "children": [], "entries": ["src/entries.ts#recordEntry"], "exits": ["src/months.ts#MonthBook.isClosed"], "cohesion": 1, "coupling": 0.5, "vocabulary": ["entry", "record", "refuse"], "reachable": true, "size": 2 },
+  "c1-2": { "id": "c1-2", "level": 1, "key": "k12", "members": ["src/months.ts#closeMonth", "src/months.ts#MonthBook.isClosed", "src/statements.ts#buildStatement", "src/statements.ts#roundTotal"], "parent": "c2-1", "children": [], "entries": ["src/months.ts#closeMonth"], "exits": [], "cohesion": 0.5, "coupling": 0.2, "vocabulary": ["month", "statement", "total"], "reachable": true, "size": 4 },
+  "c2-1": { "id": "c2-1", "level": 2, "key": "k21", "members": ["c1-1", "c1-2"], "parent": null, "children": ["c1-1", "c1-2"], "entries": [], "exits": [], "cohesion": 1, "coupling": 0, "vocabulary": ["ledgerline"], "reachable": true, "size": 6 }
+ },
+ "levels": 2,
+ "roots": ["c2-1"],
+ "stats": { "functions": 6, "calls": 3, "possible": 0, "unresolved": 0, "unreachable": 0, "clustersByLevel": [2, 1] }
+}

@@ -1,100 +1,119 @@
 # Refine: reference
 
-Formats the refine skill writes and the shape of its question, then one worked example. The product is invented. Use the Write tool, one file per call.
+Every operation the refine skill writes, what to do with what lies outside your border, and one capability worked from its parcel to its report. The product is invented: Ledgerline, a bookkeeping tool that records entries in months, closes each month and produces its statement.
 
 ## Contents
 
-1. Child file
-2. The set question
-3. Chains and origins
-4. Worked example
+1. The operations
+2. What lies outside your border
+3. A capability, worked
 
-## 1. Child file
+## 1. The operations
 
-A child is a file in its parent's folder: `canon/REQ-1-<slug>/REQ-1.2-<slug>.md`. The first child of a node that was a file turns that file into `canon/REQ-1-<slug>/README.md` first. Front-matter and sections follow the adopt skill's node template (adopt/reference.md section 2) with these additions.
+Each is one JSON object given to `HC op - --by <your name>` on stdin. The answer is JSON: `ok`, the `id` created or changed, or `error` with the reason. An operation that would break the canon is rolled back and refused with the errors it would have introduced. `why` is optional on every operation and is kept in the log and in History.
 
-```markdown
----
-id: REQ-1.2
-parent: REQ-1
-title: "A statement in a known format becomes transactions"
-state: resolved
-layer: capability
-source: "REQ-1 (consequence of 'become transactions'); docs/formats.md:8"
-relates: [REQ-3.2]      # only when the child cuts across other children
----
+| Operation | Fields | What the tool does, and what it refuses |
+|---|---|---|
+| `create` | `under` (a box id, or `ROOT`), `title`, `intent`; for a requirement `check` and `kind` (`binary`, `numeric`); `source`; `binds`, a list of `"<relation> <unit id>"`; `implementedBy`, a list of lines; `layer` when it is not the one the depth gives; `state: "draft"` for a draft | Writes the box under its parent with the next free id, and answers that id. Refuses an unknown parent, a missing title, a missing Intent. |
+| `bind` | `id`, `unit`, `relation` (`implements`, `contributes`, `contradicts`) | Binds a function, a cluster or a claim to a box. Binding a unit again changes its relation. |
+| `unbind` | `id`, `unit` | Removes a binding. |
+| `link`, `unlink` | `from` (the box that needs), `to` (the box needed), `kind` (`requires`; also `relates`, `conflicts`) | Writes the edge on `from`. Refuses a `requires` that would close a cycle. |
+| `move-edge` | `on`, `from`, `to` | On the box `on`, the `requires` edge to `from` now points at `to`, a box under `from`: the edge goes down to the child that holds the concept. |
+| `contest` | `id`, `summary`, `statements` (two or more of `{"text","source"}`); `other` when the conflict is with a second box | Makes the box contested and writes both sides under Contested, where the page reads them. |
+| `note` | `id`, `text` | A dated line under Open. Refused on a box the human approved: say it in your report instead. |
+| `reword` | `id`, `from`, `to` | Replaces the words `from` with `to` wherever they stand whole in the title and the body. Refused when they do not occur, and on a box the human approved. |
+| `draft` | `id`, `why` (the diagnosis) | A guess that cannot be made right becomes a draft. Its question goes in your report. |
+| `delete` | `id`; `subtree: true` when it has children | Removes a guessed box and the edges that named it. Refused on a box the human approved. |
+| `move` | `id`, `under` | Puts a subtree under another parent. Its ids are renumbered and every reference follows. |
+| `merge` | `from`, `to` | `from` said what `to` says: `to` takes its evidence and its edges, and `from` goes. Refused when `from` has children or the human approved it. |
+| `term` | `term`, `definition` | Adds a guessed glossary term, or redefines one. Refused on a term the human approved. |
+| `journey` | `title`; `steps`, each `{"label","requirements":[ids],"given","does","sees"}`; `source`; `id` to rewrite the steps of a guessed journey | Writes a guessed journey. An approved one is never rewritten. |
+| `review` | `id` (the parent), `verdict` (`pass`, `fail`), `findings`, each `{"check","child","text"}` | Records a verdict. The answer says `exhausted: true` when the set's corrections are spent. |
 
-# A statement in a known format becomes transactions
+The `kind` of a box is not changed by an operation: delete the box and create it again.
 
-## Intent
+## 2. What lies outside your border
 
-Every line of a statement in a format the program knows becomes one transaction carrying its date, amount, payee and the statement it came from.
+A refiner's name carries its border: `refiner-REQ-2.1` writes on `REQ-2.1` and under it. An operation anywhere else is refused with `outside refiner-REQ-2.1's capability (REQ-2.1): record it with HC propose`. Record it, and go on with your own boxes:
 
-## Resolution
-
-Approved as written, 2026-10-11.
-
-## Deferred
-
-- OFX amounts are read in cents (docs/formats.md:8)
-- CSV, OFX and QIF are the known formats (docs/formats.md:3)
-- an unreadable file is reported with the line that failed (failure of this capability)
+```
+HC propose '{"op":"bind","id":"REQ-3.1","unit":"claim:5d0c2a91e7","relation":"contributes"}' --why "how a statement lists its entries is a rule of the statement, not of closing" --by refiner-REQ-2.1
 ```
 
-The node that was refined gains one front-matter line, `partition: "stage of an import"`, and nothing else changes in it. A facet child is an ordinary child whose `## Deferred` holds the rungs of its question. An open child has `state: open`, the question as its title, and no Intent section.
+`HC propose - --why "<reason>" --by <your name>` reads the operation from stdin, which a text holding an apostrophe needs. The session applies proposals as they come and asks the human only when a box involved is approved. You write yourself, although they name another capability, a `requires` link from one of your boxes to any box, and a `term`.
 
-## 2. The set question
+## 3. A capability, worked
 
-Each option carries its child's one line as the description, ending with its footnote; the body carries the node's text, the axis, the instruction and the Sources line, so each proposed text appears once. Through AskUserQuestion, four options or fewer per question, its limit; a longer set is split across questions in the same call. The page takes any number.
+The refiner is `refiner-REQ-2.1`. Its brief shows the map: `REQ-1 Entries` with `REQ-1.1 Recording an entry` and `REQ-1.2 Accounts`; `REQ-2 Months` with `REQ-2.1 Closing a month`; `REQ-3 Statements` with `REQ-3.1 The statement of a month`. Its capability reads: "Ledgerline closes a month, after which the entries of that month stand as recorded."
+
+**The parcel.** `HC parcel REQ-2.1 --by refiner-REQ-2.1` prints:
+
+```
+# Parcel of REQ-2.1: evidence bound to this node, expanded one level
+
+- [c1-4] (implements; cluster, 4 functions) Closes a month: finds what stands in the way, marks the month closed, builds its statement.
+  - [src/months/close.ts#closeMonth] Marks the month it is given closed and returns its statement.
+  - [src/months/close.ts#entriesWithoutAccount] Lists the entries of a month that name no account.
+  - [src/months/lock.ts#lockMonth] Marks a month closed.
+  - [src/months/lock.ts#assertOpen] Refuses a write to a month that is closed.
+
+# Claims bound to this node; cite them by id
+
+- [claim:1f3a9c0b77] (contributes; document, 2026-08-02) A month can be closed once every entry in it names an account. — docs/guide.md:40
+- [claim:b3305a1c9e] (contributes; document, 2026-08-02) A month can be closed only after its last day. — docs/guide.md:41
+- [claim:27d9e6f4b8] (contributes; document, 2026-03-10) A month can be closed from its last day on. — docs/rules.md:14
+- [claim:8e41d2aa05] (contributes; document, 2026-08-02) A closed month takes no new entry. — docs/guide.md:44
+- [claim:c07b55e310] (contributes; document, 2026-08-02) Closing a month produces its statement. — docs/guide.md:47
+- [claim:5d0c2a91e7] (contributes; document, 2026-08-02) A statement lists its entries by account. — docs/guide.md:52
+- [claim:e9a4470d12] (contributes; document, 2026-09-01) planned: a closed month is reopened only with a recorded reason. — docs/roadmap.md:8
+```
+
+**The four questions.**
+
+- What must exist first? Every entry of the month names an account, as the first claim says. `HC find "entry names account"` answers `REQ-1.2.1  Every entry names one account  [title]`. The box exists: the child here requires it and does not say it again.
+- What follows once it holds? A closed month takes no new entry, and the month has its statement.
+- How does it fail, and what must prevent that? A closing that stops halfway, between marking the month and building its statement, leaves a closed month with no statement. No document speaks of it; the node's words "stand as recorded" make it necessary. `HC code show src/months/close.ts#closeMonth` shows the mark is set first and never undone.
+- What does every system of its kind have at this point? A way back from a closing made in error. The roadmap plans it, so it is a child that says not built. A notice to the accountant on closing traces to nothing, and is dropped.
+
+**The axis.** What closing a month guarantees, in the order it happens: before, during, after. A lifecycle.
+
+**The evidence.**
+
+- `closeMonth` never calls `entriesWithoutAccount`: it closes a month that holds an entry with no account, against docs/guide.md:40. Code against a claim: the child follows the document, binds the function as `contradicts`, and is contested.
+- The two claims on the day a month may be closed are two documents that disagree. The newer one stands; a note names the older.
+- The claim on how a statement lists its entries belongs to `REQ-3.1`: the proposal of section 2, then an `unbind` here.
+
+**The creates,** each on stdin to its own `HC op - --by refiner-REQ-2.1`, the box the others need before them:
 
 ```json
-{"questions":[{"header":"Capabilities (4 of 5)","question":"Capabilities (4 of 5): REQ-1 Statement import.\n\n\"Bank statements in any common format become transactions, and every file given to the program is kept.\"\n\nIts children, by stage of an import. Tick every item that is right as written; unticked items come back one by one.\n\nSources: [1] prerequisite of 'statements become transactions'; CHANGELOG.md:14. [2] consequence of 'become transactions'; docs/formats.md:3-8. [3] failure of 'one transaction per line'; nothing in the project covers it. [4] consequence of 'every file is kept'.","multiSelect":true,
-  "options":[{"label":"REQ-1.1 Intake","description":"a statement file reaches the program by file picker or by dropping it on the window. [1]"},{"label":"REQ-1.2 Parsing","description":"a statement in a known format becomes transactions, one per line. [2]"},{"label":"REQ-1.3 Duplicate detection","description":"a transaction already imported is recognized and imported once. [3]"},{"label":"REQ-1.4 Keeping the original","description":"the file a statement came from is kept beside its transactions. [4]"}]}]}
+{"op":"create","under":"REQ-2.1","title":"A month closes only when every entry in it names an account","intent":"Ledgerline refuses to close a month while an entry in it names no account.","check":"Closing a month that holds an entry with no account is refused, and the month is observed open afterwards.","kind":"binary","source":"docs/guide.md:40","binds":["implements claim:1f3a9c0b77","contributes src/months/close.ts#entriesWithoutAccount","contradicts src/months/close.ts#closeMonth"],"why":"axis: what closing guarantees, in the order it happens"}
+{"op":"create","under":"REQ-2.1","title":"A month closes only after its last day","intent":"Ledgerline refuses to close a month on or before its last day.","check":"Closing a month on or before its last day is refused, and closing it on a later day is accepted.","kind":"binary","source":"docs/guide.md:41","binds":["implements claim:b3305a1c9e","contributes claim:27d9e6f4b8"],"implementedBy":["not built: closeMonth does not look at the date"],"why":"axis: what closing guarantees, in the order it happens"}
+{"op":"create","under":"REQ-2.1","title":"Closing a month produces its statement","intent":"Closing a month marks it closed and produces the statement of that month.","check":"After a month is closed, the month is observed closed and one statement of it exists.","kind":"binary","source":"docs/guide.md:47","binds":["implements claim:c07b55e310","implements src/months/close.ts#closeMonth","contributes src/months/lock.ts#lockMonth"],"why":"axis: what closing guarantees, in the order it happens"}
+{"op":"create","under":"REQ-2.1","title":"A closing that fails leaves the month open","intent":"A closing that cannot produce the statement leaves the month open, with no statement.","check":"After a closing in which the statement cannot be built, the month is observed open and no statement of it exists.","kind":"binary","source":"REQ-2.1 (how it fails: 'stand as recorded'); src/months/close.ts#closeMonth","implementedBy":["not built: closeMonth marks the month closed before the statement is built and does not undo the mark"],"why":"axis: what closing guarantees, in the order it happens"}
+{"op":"create","under":"REQ-2.1","title":"A closed month takes no new entry","intent":"Ledgerline refuses an entry dated inside a closed month.","check":"Recording an entry dated inside a closed month is refused, and the entries of the month are observed unchanged.","kind":"binary","source":"docs/guide.md:44","binds":["implements claim:8e41d2aa05","implements src/months/lock.ts#assertOpen"],"why":"axis: what closing guarantees, in the order it happens"}
+{"op":"create","under":"REQ-2.1","title":"A closed month is reopened only with a recorded reason","intent":"Ledgerline reopens a closed month only when a reason is given, and keeps that reason with the month.","check":"Reopening a closed month without a reason is refused; with a reason, the month is observed open and that reason is kept with it.","kind":"binary","source":"docs/roadmap.md:8 (planned)","binds":["implements claim:e9a4470d12"],"implementedBy":["not built: nothing reopens a month"],"why":"axis: what closing guarantees, in the order it happens"}
 ```
 
-Through the page: the same text as `question`, `header` "Capabilities (4 of 5)", `nodeId` "REQ-1", `multiSelect` true, one option per child, and `terms` from `HC terms --text "<question>" --json`.
+Every requirement says where it is built: three bind the functions that implement or serve them, three say `not built` with what exists instead.
 
-## 3. Chains and origins
+**The links and the rest,** once the creates have answered `REQ-2.1.1` to `REQ-2.1.6`:
 
-A candidate's origin is written beside it while working and becomes the child's `source` when it is written:
+```json
+{"op":"link","from":"REQ-2.1.1","to":"REQ-1.2.1","kind":"requires"}
+{"op":"link","from":"REQ-2.1.3","to":"REQ-3.1","kind":"requires"}
+{"op":"link","from":"REQ-2.1.4","to":"REQ-2.1.3","kind":"requires"}
+{"op":"contest","id":"REQ-2.1.1","summary":"The guide says a month closes only when every entry names an account; the code closes it whatever its entries hold. Choosing decides whether closing is changed or the rule is dropped.","statements":[{"text":"A month can be closed once every entry in it names an account.","source":"docs/guide.md:40"},{"text":"closeMonth marks the month closed without looking at its entries.","source":"src/months/close.ts#closeMonth"}]}
+{"op":"note","id":"REQ-2.1.2","text":"docs/rules.md:14 (2026-03-10) lets a month close from its last day on; docs/guide.md:41 (2026-08-02) is newer and stands."}
+{"op":"unbind","id":"REQ-2.1","unit":"claim:5d0c2a91e7"}
+```
 
-| Origin | While working | In `source` |
-| --- | --- | --- |
-| a prompt | prerequisite / consequence / failure / archetype of '<clause>' | `REQ-1 (prerequisite of 'statements become transactions')` |
-| a thread | the thread's words and `path:lines` | appended after a semicolon: `; docs/formats.md:8` |
-| an earlier assumption | the node and line it sits in | `REQ-1 (assumption, 2026-10-11)` |
-| a gap found in step 5 | entailment or conservation of '<clause>' | `REQ-1 (needed for 'any common format')` |
-| the caller | what the caller passed and why | the caller's source, for example `software project` |
+**The checks.** `HC parcel --check` prints no line that names `REQ-2.1` or a box under it. `HC check | grep -E "REQ-2.1|errors,"` prints the contested box and, on the last line, no error.
 
-A deferred rung keeps its origin in parentheses on its `## Deferred` line. A child whose source is only a prompt or a gap is marked "nothing in the project covers it" in the question's Sources line, so the human knows it is implied, not documented.
+**The report.**
 
-## 4. Worked example
-
-Node REQ-1 Statement import, approved: "Bank statements in any common format become transactions, and every file given to the program is kept." Children get `layer: capability`.
-
-**1 Gather.** Candidates with origin:
-
-- a statement file reaches the program (prerequisite of 'statements become transactions')
-- the file's format is recognized (prerequisite)
-- each statement line is one transaction (consequence of 'become transactions')
-- the original file is kept beside its transactions (consequence of 'every file is kept')
-- a file in a format the program does not know (failure)
-- the same statement imported twice (failure of 'one transaction per line')
-- intake, parsing, duplicate detection, error reporting (archetype)
-- "OFX amounts are in cents" (thread, docs/formats.md:8)
-- "CSV, OFX and QIF are supported" (thread, docs/formats.md:3)
-- "statements can be dropped onto the window" (thread, CHANGELOG.md:14)
-
-**2 Ladder.** "OFX amounts are in cents": why must it hold? Each format's fields are read as the format defines them. Why? A statement in a known format becomes transactions, which the node says. Top rung: parsing; two rungs deferred. "CSV, OFX and QIF are supported": why? The common formats are known, which is the parsing rung again. "Dropped onto the window": why? A statement file reaches the program: the intake rung; one rung deferred. "A file in an unknown format": why must it be handled? Parsing holds only when an unknown file is told apart from a known one: an aspect of parsing, same axis, so it is deferred under it. "Imported twice": why? Each line becomes one transaction, once: its own rung, because it happens after parsing and can be tested apart from it.
-
-**3 Top rungs.** A statement file reaches the program; a statement in a known format becomes transactions; a transaction already imported is imported once; the original file is kept beside its transactions. "The file's format is recognized" and "each statement line is one transaction" name the parsing rung and merge into it.
-
-**4 Axis.** All four answer "when, in an import": partition "stage of an import". No rung answers a second question, so no facet.
-
-**5 Close.** Entailment: with the four holding, statements in the known formats become transactions and every file is kept; the node says "any common format", so the known formats must be the common ones: the thread at docs/formats.md:3 speaks to it, and it is deferred under parsing. Conservation: statements (intake), formats (parsing), transactions (parsing, duplicate detection), the kept file (keeping the original). Nothing missing.
-
-**6 Name.** Intake, Parsing, Duplicate detection, Keeping the original: plain words, one line each, ordered by time. No drift from PRN-1 Keep the original; REQ-1.4 is its direct expression.
-
-**7 Ask.** The question in section 2. Approved as ticked; REQ-1.3 left unticked comes back as "Does Statement import need duplicate detection?" with Yes, add it and No.
-
-**8 Report.** Created REQ-1.1 to REQ-1.4; partition "stage of an import"; no operations; no leftover threads; no open nodes.
+```
+REQ-2.1: axis, what closing guarantees in the order it happens; children REQ-2.1.1 to REQ-2.1.6; three say not built.
+Issue: REQ-2.1.1, contradiction. Does closing refuse a month that holds an entry with no account? Why it matters: the guide says so and the code closes the month anyway, so a statement can carry an entry under no account.
+Proposals: P-k3m9pq, the claim on how a statement lists its entries, to REQ-3.1.
+Left: nothing. Every child is a leaf.
+```

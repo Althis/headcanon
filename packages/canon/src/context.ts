@@ -1,6 +1,7 @@
 import { FIT_CODES, FORMAT_VERSION, canonFormatVersion, changesSince } from "./format.js";
 import { describeNext, refinementOrder } from "./next.js";
 import { RULES } from "./rules.js";
+import { readSettings } from "./settings.js";
 import type { Snapshot } from "./snapshot.js";
 import { renderTextTree } from "./tree.js";
 
@@ -12,7 +13,7 @@ export interface ContextOptions {
 /**
  * The context HeadCanon injects at session start: rules, state of the canon, what waits on the
  * human, the glossary, and as much of the tree as fits. Everything but the tree is fixed; the
- * tree degrades from full, to two levels, to one, to a cut, so the rules never get dropped.
+ * tree degrades from full, to two levels, to one, to a summary, so the rules never get dropped.
  */
 export function sessionContext(snap: Snapshot | undefined, canonDir: string, opts: ContextOptions = {}): string {
   const maxChars = opts.maxChars ?? 9500;
@@ -35,7 +36,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
     "# HeadCanon",
     "",
     `Canon: ${canonDir}`,
-    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.open} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings. ${stats.unrefined} leaves still to cut.`,
+    `${stats.nodes} nodes in ${canon.roots.length} branches; ${c.stated} stated, ${c.resolved} resolved, ${c.assumed} assumed, ${c.draft} open, ${c.contested} contested. ${canon.principles.length} principles, ${stats.journeys} journeys, ${stats.decisions} decisions, ${stats.terms} glossary terms. Check: ${stats.errors} errors, ${stats.warnings} warnings. ${stats.unrefined} leaves still to refine.`,
     "",
   ];
 
@@ -45,7 +46,7 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (git.uncommitted.length) waiting.push(`${git.uncommitted.length} uncommitted canon edit(s)`);
   if (stats.errors) waiting.push(`${stats.errors} structural error(s); run \`headcanon check\``);
   if (c.contested) waiting.push(`${c.contested} contested item(s)`);
-  if (c.open) waiting.push(`${c.open} draft(s), each with its question under Issues`);
+  if (c.draft) waiting.push(`${c.draft} draft(s), each with its question under Issues`);
   const unconfirmedDecisions = canon.decisions.filter((d) => d.state === "assumed").length;
   if (unconfirmedDecisions) waiting.push(`${unconfirmedDecisions} decision(s) not yet confirmed`);
   const fit = new Set(snap.findings.filter((f) => FIT_CODES.has(f.code)).map((f) => f.id ?? f.file)).size;
@@ -57,8 +58,9 @@ export function sessionContext(snap: Snapshot | undefined, canonDir: string, opt
   if (written > FORMAT_VERSION) head.push("## Format", "", `This canon was written under format ${written}; this HeadCanon knows ${FORMAT_VERSION}. Update HeadCanon before touching the canon.`, "");
   else if (written < FORMAT_VERSION) head.push("## Format", "", `Written under format ${written}; the current is ${FORMAT_VERSION}. Before other canon work, run the start sequence (\`headcanon format\` prints it): ${changesSince(written).flatMap((x) => x.broughtUp).join(" ")}`, "");
   // The next node to refine, so the agent follows the dependency order without computing it (REQ-3.15).
-  const order = refinementOrder(canon);
-  const nextLines = describeNext(order, canon).split("\n").filter((l) => /^(Cycle|Next to refine|Deadlock|For the human)/.test(l));
+  // In Guided the order holds back every box the human has not approved, and the line that says so is kept.
+  const order = refinementOrder(canon, undefined, { guided: readSettings(canonDir).mode === "guided" });
+  const nextLines = describeNext(order, canon).split("\n").filter((l) => /^(Cycle|Next to refine|Deadlock|Guided|For the human)/.test(l));
   if (nextLines.length) head.push(nextLines.join(" "), "");
 
   if (canon.principles.length) {

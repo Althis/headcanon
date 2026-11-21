@@ -19,3 +19,7 @@ The word requirement means the same thing at every depth of the tree: a claim th
 ## Open
 
 - 2026-11-04: settled when the human reviews it, with the first branch that keeps an integration check as the case to judge it on.
+
+## Amended
+
+- 2026-11-16, by DEC-025: the requirement is the leaf, its Intent its one requirement, a parent satisfied when all children are, with a stable id beside the positional one.

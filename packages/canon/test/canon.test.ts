@@ -147,7 +147,7 @@ describe("check [REQ-2.6]", () => {
   });
 
   it("surfaces open questions and unconfirmed decisions as notes", () => {
-    expect(codes("info")).toContain("open:REQ-1.2");
+    expect(codes("info")).toContain("draft:REQ-1.2");
     expect(codes("info")).toContain("decision-unconfirmed:DEC-001");
   });
 });
@@ -180,7 +180,7 @@ describe("open boxes", () => {
     const dir = join(mkdtempSync(join(tmpdir(), "headcanon-title-")), "canon");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: assumed\n---\n\n# T canon\n");
-    writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Which readers see the computed value?\"\nstate: open\n---\n\n# Which readers see the computed value?\n");
+    writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Which readers see the computed value?\"\nstate: draft\n---\n\n# Which readers see the computed value?\n");
     const codes = checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`);
     expect(codes).toContain("warn:title-question:REQ-1");
   });
@@ -189,7 +189,7 @@ describe("open boxes", () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "README.md"), "---\nid: ROOT\ntitle: \"T canon\"\nstate: resolved\n---\n\n# T canon\n\n## Intent\n\nA thing.\n\n## Glossary\n\n**widget** (`TERM-widget`): a small part.\n**gadget** (`TERM-gadget`) [assumed]: a larger part.\n");
     writeFileSync(join(dir, "REQ-1-x.md"), "---\nid: REQ-1\ntitle: \"Empty\"\nstate: assumed\n---\n\n# Empty\n\n## Intent\n\n## Options\n\n- one\n");
-    writeFileSync(join(dir, "REQ-2-y.md"), "---\nid: REQ-2\ntitle: \"Full\"\nstate: assumed\n---\n\n# Full\n\n## Intent\n\nIt holds.\n\n## As built\n\n- The parser keeps the entries read so far (src/parse.ts:88-102)\n\n## Deferred\n\n- later (REQ-2)\n");
+    writeFileSync(join(dir, "REQ-2-y.md"), "---\nid: REQ-2\ntitle: \"Full\"\nstate: assumed\n---\n\n# Full\n\n## Intent\n\nIt holds.\n\n## Implemented by\n\n- The parser keeps the entries read so far (src/parse.ts:88-102)\n\n## Deferred\n\n- later (REQ-2)\n");
     const codes = checkCanon(loadCanon(dir)).map((f) => `${f.level}:${f.code}:${f.id}`);
     expect(codes).toContain("warn:intent-missing:REQ-1");
     expect(codes).toContain("warn:section-unknown:REQ-1");

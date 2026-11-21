@@ -25,7 +25,7 @@ describe("leaf contracts [REQ-3.3]", () => {
     "REQ-1-a/REQ-1.1-done.md": node("REQ-1.1", "REQ-1", "assumed", "kind: binary\n", "## Intent\n\nA leaf.\n\n## Check\n\nThe thing is present.\n"),
     "REQ-1-a/REQ-1.2-no-check.md": node("REQ-1.2", "REQ-1", "assumed", "kind: binary\n", "## Intent\n\nA leaf without a check.\n"),
     "REQ-1-a/REQ-1.3-to-cut.md": node("REQ-1.3", "REQ-1", "assumed", "", "## Intent\n\nNot a leaf yet.\n"),
-    "REQ-1-a/REQ-1.4-open.md": node("REQ-1.4", "REQ-1", "open", "", "## Open\n\n- 2026-10-18: nothing in the project says.\n"),
+    "REQ-1-a/REQ-1.4-open.md": node("REQ-1.4", "REQ-1", "draft", "", "## Open\n\n- 2026-10-18: nothing in the project says.\n"),
     "REQ-1-a/REQ-1.5-check-only.md": node("REQ-1.5", "REQ-1", "assumed", "", "## Intent\n\nA check without a kind.\n\n## Check\n\nIt is there.\n"),
   });
   const snap = buildSnapshot(dir);

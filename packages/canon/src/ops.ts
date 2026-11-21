@@ -1,4 +1,6 @@
 import { execSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { journalRecord, readTextOrNull } from "./journal.js";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { checkCanon } from "./check.js";
@@ -17,22 +19,33 @@ import { isLayer, type Canon, type Layer, type ReqNode } from "./types.js";
  * write and a review verdict all leave the same trace, and `headcanon op --stats` reads the retries per check.
  *
  * The operations: `link`, `unlink` and `move-edge` on the typed edges; `create`, `move`, `merge` and `delete` on the
- * shape of the tree; `contest`, `reword`, `draft` and `note` on one box's text and state; `term` on the glossary; and
- * three that write nothing and only leave their trace: `review`, the verdict counted against the retry budget, and
- * `dispatch` and `returned`, which boxes a running agent holds, so a session that compacts reads them back.
+ * shape of the tree; `contest`, `reword`, `draft` and `note` on one box's text and state; `bind` and `unbind` on its
+ * evidence; `term` on the glossary; `journey` on a guessed journey's file; and three that write nothing and only leave
+ * their trace: `review`, the verdict counted against the retry budget, and `dispatch` and `returned`, which boxes a
+ * running agent holds, so a session that compacts reads them back.
  *
  * An operation is applied as a plan of file writes and removals; the canon is reloaded and checked afterwards,
  * and a plan that introduces a structural error is rolled back and refused with the errors as its reason.
+ *
+ * The name an operation arrives under (`by`) is its border: a refiner and a tester write inside their capability, an
+ * implementation agent adds guessed boxes and nothing else (`scopeOp`). What falls outside is refused here and
+ * recorded as a proposal (`proposals.ts`) for the session to apply.
  */
 
 export type LinkKind = "relates" | "requires" | "conflicts";
+
+/** One step of a journey as an operation carries it: what the person does, the boxes it exercises, and what is given, done and seen. */
+export interface JourneyStepInput { label: string; requirements: string[]; given?: string; does?: string; sees?: string }
 
 export type Op =
   | { op: "link"; from: string; to: string; kind: LinkKind; why?: string }
   | { op: "unlink"; from: string; to: string; kind: LinkKind; why?: string }
   /** Dependency descent: on node `on`, the `requires` edge to `from` now points at `to`, a descendant of `from`. */
   | { op: "move-edge"; on: string; from: string; to: string; why?: string }
-  | { op: "create"; under: string; title: string; intent: string; layer?: Layer; source?: string; state?: "assumed" | "open"; kind?: string; check?: string; asBuilt?: string[]; deferred?: string[]; open?: string[]; why?: string }
+  | { op: "create"; under: string; title: string; intent: string; layer?: Layer; source?: string; state?: "assumed" | "draft"; kind?: string; check?: string; implementedBy?: string[]; binds?: string[]; deferred?: string[]; open?: string[]; why?: string }
+  /** Bind evidence to a node: a code unit, a cluster or a claim, with how it relates (DEC-025). */
+  | { op: "bind"; id: string; unit: string; relation: "implements" | "contributes" | "contradicts"; why?: string }
+  | { op: "unbind"; id: string; unit: string; why?: string }
   /** Re-parent a subtree; ids mirror paths, so the subtree is renumbered and every reference follows. */
   | { op: "move"; id: string; under: string; layer?: Layer; why?: string }
   /** `from` says what `to` already says: `to` absorbs its evidence and edges, every reference follows, `from` goes. */
@@ -45,11 +58,15 @@ export type Op =
   | { op: "draft"; id: string; why: string }
   /** A dated observation under Open on a guess, its state unchanged; an approved box's drift is an issue, never a note. */
   | { op: "note"; id: string; text: string; why?: string }
+  /** A guessed journey: a new `journeys/JRN-n-<slug>.md`, or with `id` the steps of an assumed one rewritten; an approved journey is never rewritten. */
+  | { op: "journey"; id?: string; title: string; steps: JourneyStepInput[]; source?: string; state?: "assumed"; why?: string }
   /** Record only: a review verdict on a node, so retries are counted and the budget is enforced. */
   | { op: "review"; id: string; verdict: "pass" | "fail"; findings?: Array<{ check: string; text: string }>; why?: string }
   /** Record only: a box handed to a running agent, and its return, so a session that compacts reads back what is held. */
   | { op: "dispatch"; id: string; agent?: string; why?: string }
   | { op: "returned"; id: string; why?: string };
+
+export const OP_NAMES: readonly Op["op"][] = ["link", "unlink", "move-edge", "create", "bind", "unbind", "move", "merge", "contest", "term", "reword", "delete", "draft", "note", "journey", "review", "dispatch", "returned"];
 
 export interface OpResult {
   ok: boolean;
@@ -168,17 +185,63 @@ function childDirFor(canon: Canon, plan: Plan, parent: ReqNode | undefined): str
   return folder;
 }
 
+/** A stable id for a node: six characters that survive a move (DEC-025). */
+export function newUid(): string {
+  const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+  let out = "";
+  for (const b of randomBytes(6)) out += alphabet[b % alphabet.length];
+  return out;
+}
+
+/** A front-matter value in double quotes that YAML reads back as written: a backslash there starts an escape, so a path like `src\ops.ts` is doubled. */
+const quoted = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, "'")}"`;
+
 function nodeTemplate(o: Extract<Op, { op: "create" }>, id: string, parentId: string | undefined, layer: Layer): string {
-  const fm = [`id: ${id}`, ...(parentId ? [`parent: ${parentId}`] : []), `title: "${o.title.replace(/"/g, "'")}"`, `state: ${o.state ?? "assumed"}`, `layer: ${layer}`, ...(o.source ? [`source: "${o.source.replace(/"/g, "'")}"`] : []), ...(o.kind ? [`kind: ${o.kind}`] : [])];
+  const fm = [`id: ${id}`, ...(parentId ? [`parent: ${parentId}`] : []), `title: ${quoted(o.title)}`, `state: ${o.state ?? "assumed"}`, `layer: ${layer}`, ...(o.source ? [`source: ${quoted(o.source)}`] : []), ...(o.kind ? [`kind: ${o.kind}`] : []), `uid: ${newUid()}`, ...(o.binds?.length ? [`binds: [${o.binds.map(quoted).join(", ")}]`] : [])];
   const parts = [`---\n${fm.join("\n")}\n---`, `# ${o.title}`, `## Intent\n\n${o.intent.trim()}`];
   if (o.check) parts.push(`## Check\n\n${o.check.trim()}`);
-  if (o.asBuilt?.length) parts.push(`## As built\n\n${o.asBuilt.map((b) => `- ${b}`).join("\n")}`);
+  if (o.implementedBy?.length) parts.push(`## Implemented by\n\n${o.implementedBy.map((b) => `- ${b}`).join("\n")}`);
   if (o.deferred?.length) parts.push(`## Deferred\n\n${o.deferred.map((b) => `- ${b}`).join("\n")}`);
   if (o.open?.length) parts.push(`## Open\n\n${o.open.map((b) => `- ${today()}: ${b}`).join("\n")}`);
   return parts.join("\n\n") + "\n";
 }
 
-const approvedState = (n: ReqNode | undefined) => n?.state === "stated" || n?.state === "resolved";
+const approvedState = (n: { state: string } | undefined) => n?.state === "stated" || n?.state === "resolved";
+
+const FRONT = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
+/** One line of prose that fits a table cell: a bar would end the cell, a line break the row. */
+const cellText = (s: string | undefined) => (typeof s === "string" ? s : "").replace(/\s+/g, " ").replace(/\|/g, "/").trim();
+
+/** A journey's steps in the two forms its file holds: the Mermaid graph, and the table the loader reads (`parseStepTable`). */
+function journeySteps(steps: JourneyStepInput[]): { graph: string; table: string } {
+  const labels = steps.map((s) => cellText(s.label));
+  const box = (i: number) => `S${i + 1}["${labels[i]!.replace(/"/g, "'")}"]`;
+  const edges = steps.length > 1 ? steps.slice(1).map((_s, i) => `    ${i === 0 ? box(0) : `S${i + 1}`} --> ${box(i + 1)}`) : [`    ${box(0)}`];
+  const detail = steps.some((s) => cellText(s.given) || cellText(s.does) || cellText(s.sees));
+  const head = ["Step", "State", "Linked requirements", ...(detail ? ["Given", "Does", "Sees"] : [])];
+  const rows = steps.map((s, i) => [`S${i + 1} ${labels[i]}`, "assumed", uniq(s.requirements.map((r) => r.trim())).join(", "), ...(detail ? [cellText(s.given), cellText(s.does), cellText(s.sees)] : [])]);
+  const line = (cells: string[]) => `| ${cells.join(" | ")} |`;
+  return { graph: ["```mermaid", "flowchart TD", ...edges, "```"].join("\n"), table: [line(head), line(head.map(() => "---")), ...rows.map(line)].join("\n") };
+}
+
+/** A journey file with its graph and its step table replaced where they stand; the prose around them is kept. */
+function replaceJourneySteps(text: string, graph: string, table: string): string {
+  const lines = text.split("\n");
+  const first = lines.findIndex((l) => /^\|\s*S\d+\b/.test(l));
+  let out: string;
+  if (first < 0) out = text.replace(/\s*$/, "\n\n") + table + "\n";
+  else {
+    let start = first, end = first;
+    while (start > 0 && lines[start - 1]!.startsWith("|")) start--;
+    while (end + 1 < lines.length && lines[end + 1]!.startsWith("|")) end++;
+    lines.splice(start, end - start + 1, ...table.split("\n"));
+    out = lines.join("\n");
+  }
+  const fence = /```mermaid\n[\s\S]*?```/;
+  if (fence.test(out)) return out.replace(fence, () => graph);
+  const at = out.indexOf(table);
+  return `${out.slice(0, at)}${graph}\n\n${out.slice(at)}`;
+}
 
 /** The requires cycle that `id` holding `requires` would close, probed on a copy before anything is written. */
 function cycleWith(canon: Canon, id: string, requires: string[]): string[] | undefined {
@@ -235,8 +298,10 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       if (op.layer && !isLayer(op.layer)) return { error: `unknown layer ${String(op.layer)}` };
       const parent = parentId ? node(parentId) : undefined;
       const id = nextChildId(canon, parentId);
-      const depth = parent ? parent.depth + 1 : 0;
-      const layer: Layer = op.layer ?? (["domain", "capability", "requirement"][Math.min(depth, 2)] as Layer);
+      // the layer follows what the box is and where it hangs, never its depth: a box with a kind is a requirement, and a
+      // project with no domain layer has capabilities at the top whose children are requirements all the same
+      const below: Record<Layer, Layer> = { domain: "capability", capability: "requirement", requirement: "requirement" };
+      const layer: Layer = op.layer ?? (op.kind ? "requirement" : parent ? below[parent.layer] : "domain");
       const dir = childDirFor(canon, plan, parent);
       plan.writes.set(join(dir, `${id}-${slugOf(op.title)}.md`), nodeTemplate(op, id, parentId, layer));
       return { plan, result: { id } };
@@ -297,11 +362,13 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
         const union = uniq([...to[kind], ...from[kind]]).filter((x) => x !== op.to && x !== op.from);
         if (union.length !== to[kind].length || union.some((x) => !to[kind].includes(x))) text = setListField(text, kind, union);
       }
-      const built = bulletsOf(from.body, "As built"), toBuilt = bulletsOf(to.body, "As built");
-      if (built.some((b) => !toBuilt.includes(b))) text = upsertSection(text, "As built", uniq([...toBuilt, ...built]).map((b) => `- ${b}`).join("\n"));
+      const built = bulletsOf(from.body, "Implemented by"), toBuilt = bulletsOf(to.body, "Implemented by");
+      if (built.some((b) => !toBuilt.includes(b))) text = upsertSection(text, "Implemented by", uniq([...toBuilt, ...built]).map((b) => `- ${b}`).join("\n"));
+      const bound = uniq([...to.binds, ...from.binds].map((b) => `${b.relation} ${b.unit}`));
+      if (bound.length !== to.binds.length) text = setListField(text, "binds", bound);
       const deferred = bulletsOf(from.body, "Deferred"), toDeferred = bulletsOf(to.body, "Deferred");
       if (deferred.some((b) => !toDeferred.includes(b))) text = upsertSection(text, "Deferred", uniq([...toDeferred, ...deferred]).map((b) => `- ${b}`).join("\n"));
-      if (from.source && from.source !== to.source) text = setField(text, "source", `"${[to.source, from.source].filter(Boolean).join("; ").replace(/"/g, "'")}"`);
+      if (from.source && from.source !== to.source) text = setField(text, "source", quoted([to.source, from.source].filter(Boolean).join("; ")));
       // the absorbing box's own prose, and the bullets it just took, name the gone id too
       write(to, rewriteIds(text, idMap));
       const fromAbs = resolve(canon.dir, from.file);
@@ -419,13 +486,33 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       }
       return { plan, result: { id: op.id } };
     }
+    case "bind": {
+      const err = must(op.id);
+      if (err) return { error: err };
+      if (!["implements", "contributes", "contradicts"].includes(op.relation)) return { error: `unknown relation ${String(op.relation)}; one of implements, contributes, contradicts` };
+      if (!op.unit?.trim()) return { error: "a unit is required: a code unit, a cluster or a claim id" };
+      const n = node(op.id)!;
+      const unit = op.unit.trim();
+      const next = uniq([...n.binds.filter((b) => b.unit !== unit).map((b) => `${b.relation} ${b.unit}`), `${op.relation} ${unit}`]);
+      write(n, setListField(current(n), "binds", next));
+      return { plan, result: { id: op.id } };
+    }
+    case "unbind": {
+      const err = must(op.id);
+      if (err) return { error: err };
+      const n = node(op.id)!;
+      const unit = (op.unit ?? "").trim();
+      if (!n.binds.some((b) => b.unit === unit)) return { error: `${op.id} is not bound to ${unit}` };
+      write(n, setListField(current(n), "binds", n.binds.filter((b) => b.unit !== unit).map((b) => `${b.relation} ${b.unit}`)));
+      return { plan, result: { id: op.id } };
+    }
     case "draft": {
       const err = must(op.id);
       if (err) return { error: err };
       const n = node(op.id)!;
       if (approvedState(n)) return { error: `${op.id} is the human's; it is never made a draft, its problem is an issue` };
       if (!op.why?.trim()) return { error: "a draft needs the diagnosis: why the guess could not be made right" };
-      let text = setField(current(n), "state", "open");
+      let text = setField(current(n), "state", "draft");
       text = upsertSection(text, "Open", [...bulletsOf(n.body, "Open"), `${today()}: made a draft by review: ${op.why.trim()}`].map((b) => `- ${b}`).join("\n"));
       write(n, text);
       return { plan, result: { id: op.id } };
@@ -439,15 +526,50 @@ function planOp(canon: Canon, op: Op, queuePath: string | undefined): { plan: Pl
       write(n, upsertSection(current(n), "Open", [...bulletsOf(n.body, "Open"), `${today()}: ${op.text.trim()}`].map((b) => `- ${b}`).join("\n")));
       return { plan, result: { id: op.id } };
     }
+    case "journey": {
+      if (typeof op.title !== "string" || !op.title.trim()) return { error: "a journey needs a title: who does what, to what end" };
+      if (!Array.isArray(op.steps) || !op.steps.length) return { error: "a journey needs its steps, each with a label and the boxes it exercises" };
+      if (op.state && op.state !== "assumed") return { error: "a journey written by an operation is assumed; the human approves it on the page" };
+      for (const [i, s] of op.steps.entries()) {
+        if (typeof s?.label !== "string" || !cellText(s.label)) return { error: `step ${i + 1} needs a label: what the person does, in a few words` };
+        if (!Array.isArray(s.requirements) || !s.requirements.length || s.requirements.some((r) => typeof r !== "string")) return { error: `step ${i + 1} cites no box: name the requirements it exercises` };
+        const missing = s.requirements.find((r) => !node(r.trim()));
+        if (missing) return { error: `step ${i + 1} cites ${missing}, which is not in the canon` };
+      }
+      const title = op.title.trim().replace(/\s+/g, " ");
+      const { graph, table } = journeySteps(op.steps);
+      if (!op.id) {
+        const used = canon.journeys.map((j) => Number(/^JRN-(\d+)$/.exec(j.id)?.[1])).filter(Number.isFinite);
+        const id = `JRN-${(used.length ? Math.max(...used) : 0) + 1}`;
+        const fm = [`id: ${id}`, `title: ${quoted(title)}`, "state: assumed", ...(op.source?.trim() ? [`source: ${quoted(op.source.trim())}`] : [])];
+        plan.writes.set(join(canon.dir, "journeys", `${id}-${slugOf(title)}.md`), `---\n${fm.join("\n")}\n---\n\n# ${title}\n\n${graph}\n\n${table}\n`);
+        return { plan, result: { id } };
+      }
+      const j = canon.journeys.find((x) => x.id === op.id);
+      if (!j) return { error: `${op.id} is not in the canon` };
+      if (approvedState(j)) return { error: `${op.id} is the human's; a change to an approved journey is asked, never applied` };
+      if (j.state !== "assumed") return { error: `${op.id} is ${j.state}; only an assumed journey is rewritten` };
+      const abs = resolve(canon.dir, j.file);
+      let text = readFileSync(abs, "utf8").replace(/\r\n/g, "\n");
+      if (title !== j.title) {
+        text = setField(text, "title", quoted(title));
+        const head = FRONT.exec(text)?.[0] ?? "";
+        text = head + text.slice(head.length).replace(/^#[ \t]+.*$/m, () => `# ${title}`);
+      }
+      if (op.source?.trim()) text = setField(text, "source", quoted(op.source.trim()));
+      plan.writes.set(abs, replaceJourneySteps(text, graph, table));
+      return { plan, result: { id: j.id } };
+    }
     case "review": {
-      const err = must(op.id);
+      // ROOT names the set of top-level boxes, the premise's children: it is reviewed like any other set
+      const err = op.id === "ROOT" ? undefined : must(op.id);
       if (err) return { error: err };
       if (op.verdict !== "pass" && op.verdict !== "fail") return { error: "a review's verdict is pass or fail" };
       return { plan, result: { id: op.id } };
     }
     case "dispatch":
     case "returned": {
-      const err = must(op.id);
+      const err = op.id === "ROOT" ? undefined : must(op.id);
       if (err) return { error: err };
       return { plan, result: { id: op.id } };
     }
@@ -525,8 +647,53 @@ export function gitDirOf(canonDir: string): string | undefined {
   return gitDirs.get(canonDir);
 }
 
+/** An id is below a box when it is that box or sits under it: ids mirror paths. */
+const below = (id: unknown, top: string) => typeof id === "string" && (id === top || id.startsWith(`${top}.`));
+
+/**
+ * The border a name carries: `refiner-<capability id>` and `tester-<capability id>` write inside that capability,
+ * `implementer-<box id>` adds guessed boxes and nothing else; every other name, and none, writes anywhere. Returns the
+ * operation to apply, a tester's or an implementation agent's `create` made a guess, or the reason it is refused.
+ * Ids alone decide, so a move or a merge with one end outside the capability is refused whichever end it is.
+ */
+export function scopeOp(op: Op, by: string | undefined): { op: Op } | { error: string } {
+  const m = /^(refiner|tester|implementer)-(.+)$/.exec(by?.trim() ?? "");
+  // an operation no one knows is refused by the plan, under its own name
+  if (!m || !(OP_NAMES as readonly string[]).includes(op?.op)) return { op };
+  const role = m[1]!, top = m[2]!;
+  const outside = { error: `outside ${by!.trim()}'s capability (${top}): record it with HC propose` };
+  if (role === "implementer") {
+    if (op.op !== "create") return { error: "an implementation agent adds assumptions and issues only" };
+    if (op.under === "ROOT") return { error: "an implementation agent adds an assumption under a box, never at the top level" };
+    const given = op.source?.trim();
+    const source = given && /^builder\b/i.test(given) ? given : `builder ${by!.trim()}${given ? `: ${given}` : ""}`;
+    return { op: { ...op, state: "assumed", source } };
+  }
+  if (role === "tester") {
+    if (op.op === "journey") return { op };
+    if (op.op === "note") return below(op.id, top) ? { op } : outside;
+    if (op.op === "create") return below(op.under, top) ? { op: { ...op, state: "assumed" } } : outside;
+    return { error: "a tester records journeys, notes and assumptions only: record anything else with HC propose" };
+  }
+  const inside = ((): boolean => {
+    switch (op.op) {
+      case "term": case "review": case "dispatch": case "returned": return true;
+      case "create": return below(op.under, top);
+      case "bind": case "unbind": case "reword": case "note": case "draft": case "delete": return below(op.id, top);
+      // a contest writes both boxes
+      case "contest": return below(op.id, top) && (!op.other || below(op.other, top));
+      case "move": return below(op.id, top) && below(op.under, top);
+      case "merge": return below(op.from, top) && below(op.to, top);
+      case "link": case "unlink": return below(op.from, top);
+      case "move-edge": return below(op.on, top);
+      case "journey": return false;
+    }
+  })();
+  return inside ? { op } : outside;
+}
+
 export interface ApplyOptions {
-  /** Who asked: an agent or node id, for the log. */
+  /** Who asked: an agent or node id, for the log; `refiner-`, `tester-` and `implementer-` names carry a border (`scopeOp`). */
   by?: string;
   /** The log file; by default `<git dir>/headcanon/ops.jsonl`; false for none. */
   log?: string | false;
@@ -535,7 +702,10 @@ export interface ApplyOptions {
 }
 
 /** Apply one operation to the canon at `canonDir`: plan, write, reload, check, keep or roll back, log. */
-export function applyOp(canonDir: string, op: Op, opts: ApplyOptions = {}): OpResult {
+export function applyOp(canonDir: string, request: Op, opts: ApplyOptions = {}): OpResult {
+  const scoped = scopeOp(request, opts.by);
+  // the log keeps what was applied: a create made a guess by its border is logged as written
+  const op = "error" in scoped ? request : scoped.op;
   const dir = resolve(canonDir);
   const git = gitDirOf(dir);
   const logPath = opts.log === false ? undefined : opts.log ?? (git ? join(git, "headcanon", "ops.jsonl") : undefined);
@@ -547,7 +717,17 @@ export function applyOp(canonDir: string, op: Op, opts: ApplyOptions = {}): OpRe
     }
     return r;
   };
+  if ("error" in scoped) return record({ ok: false, changes: [], error: scoped.error });
   const canon = loadCanon(dir);
+  // Guided (DEC-025): `top` and a refiner draft nothing under a box the human has not approved. A draft is a question
+  // and stands anywhere; a tester's and an implementation agent's guesses are not the drafting. The mode is read here
+  // from the file the page writes, since the settings module reads its folder through this one; no file is Full-Auto.
+  if (op.op === "create" && op.state !== "draft" && /^(top|refiner-.+)$/.test(opts.by?.trim() ?? "") && git) {
+    let guided = false;
+    try { guided = (JSON.parse(readFileSync(join(git, "headcanon", "settings.json"), "utf8")) as { mode?: string }).mode === "guided"; } catch { /* no settings: Full-Auto */ }
+    const under = op.under === "ROOT" ? canon.root : canon.nodes[op.under];
+    if (guided && under && !approvedState(under)) return record({ ok: false, changes: [], error: `Guided: ${op.under} waits for the human's approval and nothing is drafted under it before that; name it in your report` });
+  }
   if (op.op === "review") {
     const prior = logPath ? readOps(logPath).filter((e) => e.request.op === "review" && e.request.id === op.id) : [];
     const sinceLastPass = prior.slice(prior.map((e) => (e.request as { verdict?: string }).verdict).lastIndexOf("pass") + 1);
@@ -567,14 +747,19 @@ export function applyOp(canonDir: string, op: Op, opts: ApplyOptions = {}): OpRe
   const renamed: Record<string, string> = op.op === "merge" ? { [op.from]: op.to } : result.renamed ?? {};
   const follow = (k: string) => { const i = k.indexOf(":") + 1; const id = k.slice(i); return k.slice(0, i) + (renamed[id] ?? id); };
   const before = new Set([...errorKeys(canon)].map(follow));
+  const beforeTexts = new Map([...plan.writes.keys(), ...plan.removes].map((p) => [p, readTextOrNull(p)] as const));
   const undo = commit(plan);
-  const after = errorKeys(loadCanon(dir));
+  let after: Set<string>;
+  // a write the loader cannot read back (front matter that is no longer YAML) is undone like any refused plan
+  try { after = errorKeys(loadCanon(dir)); }
+  catch (e) { undo(); return record({ ok: false, changes: [], error: `refused: the operation would leave a file the canon cannot be read from: ${(e as Error).message.split(/\r?\n/)[0]}` }); }
   const newErrors = [...after].filter((k) => !before.has(k));
   if (newErrors.length) {
     undo();
     return record({ ok: false, changes: [], error: `refused: the operation would introduce ${newErrors.length} error(s): ${newErrors.join(", ")}`, newErrors });
   }
   pruneEmpty(dir, plan);
+  journalRecord(dir, { kind: "op", summary: `${op.op}${op.op === "journey" ? ` ${result.id}` : "id" in op && op.id ? " " + op.id : "on" in op ? " " + op.on : "from" in op ? ` ${op.from}` : ""}${op.why ? ": " + op.why : ""}`.slice(0, 160), id: (op.op === "journey" ? result.id : "id" in op ? op.id : "on" in op ? op.on : "under" in op ? result.id : undefined) as string | undefined }, beforeTexts);
   return record({ ok: true, changes: touched, ...result });
 }
 

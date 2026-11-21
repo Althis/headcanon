@@ -26,6 +26,7 @@
       <a href="#/journeys" data-view="journeys">Journeys</a>
       <a href="#/decisions" data-view="decisions">Decisions</a>
       <a href="#/glossary" data-view="glossary">Glossary</a>
+      <a href="#/history" data-view="history" title="Every change to the canon, and a way back">History</a>
     </nav>
     <div class="actions">
       <span class="sub" id="generated"></span>
@@ -43,9 +44,10 @@
       <button class="btn small" id="session-toggle" title="Open the session panel">Open</button>
     </div>
     <div class="session-body">
-      <div class="panel-tabs"><button class="btn small on" data-panel="activity">Chat</button><button class="btn small" data-panel="history">History <span class="pill" id="history-new" hidden></span></button></div>
+      <div class="panel-tabs"><button class="btn small on" data-panel="activity">Chat</button><button class="btn small" data-panel="terminal" title="What the session wrote in the terminal, and what was typed there">Session</button><button class="btn small" data-panel="history">History <span class="pill" id="history-new" hidden></span></button></div>
       <div id="session-live" class="session-live" hidden></div>
       <ul id="activity" class="chat"></ul>
+      <ul id="terminal" class="chat" hidden></ul>
       <ul id="history" class="chat history" hidden></ul>
       <div id="quote" class="quote-chip" hidden></div>
       <div class="session-msg"><textarea id="msg" rows="2" placeholder="Message the session…"></textarea><button class="btn" id="msg-send">Send</button></div>
@@ -54,7 +56,9 @@
   <div id="tooltip" class="tooltip" hidden></div>
   <div id="popup" class="popup" hidden></div>
   <div id="conflict" class="popup conflict" hidden><div class="popup-head"><span class="id">Conflict</span><span class="sub" id="conflict-sub"></span></div><p id="conflict-text"></p><div class="row"><button class="btn primary" id="conflict-keep">Keep my version</button><button class="btn" id="conflict-take">Switch to the session's</button></div></div>
-  <div id="issue" class="popup issue" hidden><div class="popup-head"><span class="id">Issue</span><span class="sub" id="issue-sub"></span><button class="btn small" id="issue-close" title="Put the issue away; the Issues panel brings it back">✕</button></div><div id="question"></div></div>
+  <div id="onboard" class="popup onboard" hidden><div class="popup-head"><span class="id" id="ob-label">Welcome</span><span class="sub" id="ob-sub"></span><button class="btn small" id="ob-close" title="Put the card away; it comes back with the next step">✕</button></div><div class="ob-bar" id="ob-bar"><span></span></div><p class="ob-line muted" id="ob-line"></p><div id="ob-body" class="ob-body"></div></div>
+  <div id="run" class="popup run" hidden><div class="popup-head"><span class="id">Implement/align</span><span class="sub" id="run-sub"></span><button class="btn small" id="run-close" title="Put the card away; the Implement/align button brings it back">✕</button></div><div id="run-body"></div></div>
+  <div id="issue" class="popup issue" hidden><div class="popup-head"><span class="id" id="issue-label">Issue</span><span class="sub" id="issue-sub"></span><button class="btn small" id="issue-close" title="Put the issue away; the Issues panel brings it back">✕</button></div><div id="question"></div></div>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" defer></script>

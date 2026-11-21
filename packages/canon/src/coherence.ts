@@ -47,7 +47,7 @@ function termPattern(term: string): RegExp {
 /** The files an entry's As built cites, each once, without the line part; a leading `./` names the same file. */
 function citedFiles(n: ReqNode): string[] {
   const out = new Set<string>();
-  for (const m of sectionText(n.body, "As built").matchAll(CITATION)) out.add(m[0].replace(/:\d+(?:-\d+)?$/, "").replace(/^\.\//, ""));
+  for (const m of (sectionText(n.body, "Implemented by") + "\n" + sectionText(n.body, "As built")).matchAll(CITATION)) out.add(m[0].replace(/:\d+(?:-\d+)?$/, "").replace(/^\.\//, ""));
   return [...out];
 }
 
@@ -66,7 +66,7 @@ function reason(kind: Cluster["kind"], shared: string, count: number): string {
   const q = count === 2 ? "both" : "all";
   switch (kind) {
     case "term": return `${q} use the glossary term "${shared}"`;
-    case "file": return `${q} cite ${shared} under As built`;
+    case "file": return `${q} cite ${shared} under Implemented by`;
     case "requires": return `${q} require ${shared}`;
     case "title": return `${q} have "${shared}" in their titles`;
   }

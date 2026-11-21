@@ -10,7 +10,9 @@ export interface Parsed {
 export function parseFrontMatter(text: string): Parsed {
   const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/.exec(text);
   if (!m) return { data: {}, body: text };
-  const raw = YAML.parse(m[1] ?? "");
+  // one file whose front matter is not valid YAML must not stop every command: it is read as a file with no usable id
+  let raw: unknown;
+  try { raw = YAML.parse(m[1] ?? ""); } catch { return { data: {}, body: text }; }
   const data = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   return { data, body: m[2] ?? "" };
 }

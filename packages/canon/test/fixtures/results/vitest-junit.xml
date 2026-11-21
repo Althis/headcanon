@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="6" failures="3" errors="0" time="0.0081095">
+    <testsuite name="test/closing.test.js" timestamp="2026-11-18T14:54:32.240Z" hostname="ledgerline-dev" tests="5" failures="2" errors="0" skipped="1" time="0.0081095">
+        <testcase classname="test/closing.test.js" name="closing a month &gt; refuses an entry dated inside a closed month [hc:k3m9pq]" time="0.0011">
+        </testcase>
+        <testcase classname="test/closing.test.js" name="closing a month &gt; keeps the statement&apos;s &quot;total&quot; equal to the sum of its entries &lt;in cents &amp; whole&gt; [hc:w7x2ab]" time="0.0056661">
+            <failure message="expected 1300 to be 1400 // Object.is equality" type="AssertionError">
+AssertionError: expected 1300 to be 1400 // Object.is equality
+
+- Expected
++ Received
+
+- 1400
++ 1300
+
+ ❯ test/closing.test.js:6:24
+            </failure>
+        </testcase>
+        <testcase classname="test/closing.test.js" name="closing a month &gt; reopens a month only for its owner [hc:r5t8yz]" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="test/closing.test.js" name="closing a month &gt; reads an entry [with brackets] before the tag [hc:n4h6cd]" time="0.0003248">
+            <failure message="entry.amount is not a number" type="TypeError">
+TypeError: entry.amount is not a number
+ ❯ test/closing.test.js:10:11
+            </failure>
+        </testcase>
+        <testcase classname="test/closing.test.js" name="a test that names no box" time="0.0001087">
+        </testcase>
+    </testsuite>
+    <testsuite name="test/statement.test.js" timestamp="2026-11-18T14:54:32.248Z" hostname="ledgerline-dev" tests="1" failures="1" errors="0" skipped="0" time="0">
+        <testcase classname="test/statement.test.js" name="test/statement.test.js" time="0">
+            <failure message="Cannot find module &apos;../src/statement.js&apos; imported from &apos;C:/work/ledgerline/test/statement.test.js&apos;" type="Error">
+Error: Cannot find module &apos;../src/statement.js&apos; imported from &apos;C:/work/ledgerline/test/statement.test.js&apos;
+ ❯ test/statement.test.js:1:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: &apos;ERR_MODULE_NOT_FOUND&apos; }
+Caused by: Error: Failed to load url ../src/statement.js (resolved id: ../src/statement.js) in C:/work/ledgerline/test/statement.test.js. Does the file exist?
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/config.js:22907:33
+            </failure>
+        </testcase>
+    </testsuite>
+</testsuites>

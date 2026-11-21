@@ -1,5 +1,5 @@
 {
-  "description": "HeadCanon: inject the canon's rules, state and tree at the start of every session.",
+  "description": "HeadCanon: inject the canon's rules, state and tree at the start of every session; hold an attending session and an implementation agent to their stop rules; mirror the terminal into the page.",
   "hooks": {
     "Stop": [
       {
@@ -9,6 +9,30 @@
             "command": "node",
             "args": ["${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js", "stop-hook"],
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js", "gate", "subagent-stop"],
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/packages/canon/bin/headcanon.js", "prompt-hook"],
+            "timeout": 5
           }
         ]
       }

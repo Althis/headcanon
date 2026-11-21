@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { parseFrontMatter, parseGlossary, parseMermaid, parsePrinciples, parseSections, parseStepTable, str, strList } from "./parse.js";
-import { isLayer, isState, type Canon, type Decision, type Journey, type Layer, type ReqNode, type State } from "./types.js";
+import { isLayer, isState, type Canon, type Decision, type Journey, type Layer, type ReqNode, type State, Bind } from "./types.js";
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -30,7 +30,13 @@ export function compareIds(a: string, b: string): number {
 }
 
 function stateOf(v: unknown, fallback: State = "assumed"): State {
+  if (v === "open") return "draft"; // the name before format 4
   return isState(v) ? v : fallback;
+}
+const RELATIONS = new Set(["implements", "contributes", "contradicts"]);
+/** `binds` entries are "<relation> <unit>"; anything else is dropped, the check names the field. */
+function bindsOf(v: unknown): Bind[] {
+  return strList(v).map((s) => { const m = /^(\S+)\s+(.+)$/.exec(s.trim()); return m && RELATIONS.has(m[1]!) ? { relation: m[1] as Bind["relation"], unit: m[2]!.trim() } : undefined; }).filter((b): b is Bind => Boolean(b));
 }
 
 /** Read every Markdown file under `dir` and assemble the canon. Never throws on a bad file; see `unparsed`. */
@@ -93,6 +99,8 @@ export function loadCanon(dirInput: string): Canon {
         relates: strList(data["relates"]),
         conflicts: strList(data["conflicts"]),
         requires: strList(data["requires"]),
+        uid: str(data["uid"]),
+        binds: bindsOf(data["binds"]),
         steps: strList(data["steps"]),
         files: strList(data["files"]),
         baseline: str(data["baseline"]),
